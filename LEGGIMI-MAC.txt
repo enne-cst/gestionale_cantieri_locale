@@ -1,0 +1,85 @@
+FIDA EDILE - Gestione Cantieri: avvio su Mac
+=============================================
+
+IN BREVE
+--------
+Per avere l'archivio nel FILE  data/database.json  dentro la cartella dell'app serve Node.js.
+Senza Node.js l'app funziona lo stesso, ma i dati restano dentro il browser di quel Mac e non
+producono nessun file: non si copiano, non si condividono, non si mettono in backup da soli.
+
+L'app dice sempre in che modo sta lavorando: guarda l'etichetta in basso a sinistra.
+   "dati su server locale"  (verde)  -> i dati sono in  data/database.json     <- quello che serve
+   "dati in questo browser" (giallo) -> i dati sono dentro il browser di questo Mac
+
+
+PASSO 1 - INSTALLARE NODE.JS (una volta sola, gratuito)
+--------------------------------------------------------
+1. Vai su  https://nodejs.org
+2. Scarica la versione LTS (il pulsante di sinistra, quello consigliato).
+3. Apri il file .pkg scaricato e vai avanti fino alla fine: non serve configurare niente.
+
+
+PASSO 2 - AVVIARE L'APP
+------------------------
+METODO A - dal Terminale. Funziona SEMPRE, anche se il file avvia.command ha perso i permessi
+(succede sempre quando la cartella arriva da Windows, da una chiavetta, da AirDrop o da uno zip).
+
+1. Apri "Terminale" (Applicazioni -> Utility -> Terminale, oppure cercalo con Spotlight).
+2. Scrivi   cd   seguito da uno spazio.
+3. Trascina la CARTELLA dell'app dentro la finestra del Terminale: compare il suo percorso.
+4. Premi Invio.
+5. Scrivi   node server.js   e premi Invio.
+6. Apri nel browser  http://localhost:8765
+7. Per chiudere: torna nel Terminale e premi Ctrl+C. Finche' la finestra resta aperta, l'app funziona.
+
+Dalla seconda volta in poi bastano i passi 1, 5 e 6: il Terminale ricorda i comandi gia' usati
+con la freccia SU della tastiera.
+
+METODO B - doppio clic su "avvia.command". Comodo, ma la prima volta va sbloccato:
+
+1. Apri "Terminale".
+2. Scrivi   chmod +x   seguito da uno spazio (non premere ancora Invio).
+3. Trascina il file "avvia.command" dentro la finestra del Terminale: compare il suo percorso.
+4. Premi Invio.
+Da questo momento il doppio clic su "avvia.command" funziona e fa tutto da solo.
+
+Se compare "avvia.command non puo' essere aperto perche' proviene da uno sviluppatore non
+identificato": fai clic con il tasto destro (o Ctrl+clic) sul file -> "Apri" -> "Apri".
+Va fatto solo la prima volta.
+
+ATTENZIONE: il permesso di esecuzione si perde di nuovo ogni volta che la cartella viene
+ricopiata da Windows, da una chiavetta o da uno zip. Se un giorno il doppio clic smette di
+funzionare, rifai il chmod del METODO B, oppure usa il METODO A che non ne ha bisogno.
+
+
+SENZA NODE.JS (soluzione di ripiego)
+-------------------------------------
+Apri la cartella "app" e fai doppio clic su "index.html".
+L'app si apre e funziona, ma i dati restano DENTRO IL BROWSER di questo Mac.
+Da "Parametri -> Dati" scarica una copia di sicurezza (file JSON) e conservala: e' l'unico modo
+per spostarli o non perderli. Se svuoti la cache del browser, i dati spariscono.
+
+
+DOVE SONO I DATI
+-----------------
+Con Node.js avviato (etichetta verde):
+   <cartella dell'app>/data/database.json          archivio
+   <cartella dell'app>/data/backup/                una copia automatica per ogni giorno di lavoro
+Il percorso esatto viene scritto nel Terminale all'avvio, sotto la voce "Dati:".
+
+
+USARE L'APP SU PC E MAC SENZA AVERE DUE ARCHIVI DIVERSI
+--------------------------------------------------------
+Se copi la cartella su entrambi i computer, ottieni DUE archivi separati che si allontanano fra
+loro: quello che scrivi sul Mac non arriva sul PC. Le due soluzioni corrette sono:
+
+1. IN RETE LOCALE (consigliato, sempre allineati)
+   Sul computer che fa da "server":   node server.js --rete
+   Vengono mostrati a video uno o piu' indirizzi tipo  http://192.168.1.10:8765
+   Sugli altri computer apri quell'indirizzo nel browser: niente da installare.
+   Lavorano tutti sullo stesso archivio, e va tenuta accesa solo la macchina "server".
+
+2. A MANO, un computer alla volta
+   Da "Parametri -> Dati" scarica la copia di sicurezza dal computer dove hai lavorato e
+   ripristinala sull'altro. Non lavorare su entrambi nello stesso periodo: il ripristino
+   sostituisce tutto e le modifiche fatte nel frattempo sull'altro andrebbero perse.

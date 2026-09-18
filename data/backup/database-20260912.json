@@ -1,0 +1,972 @@
+{
+ "app": "FIDA EDILE – Gestione Cantieri",
+ "schemaVersion": 1,
+ "rev": 31,
+ "creatoIl": "2026-09-12T07:48:38.711Z",
+ "parametri": {
+  "costoOrario": 45.79,
+  "scartoTempoAttenzione": 0.07,
+  "scartoTempoCritico": 0.15,
+  "scartoOreAttenzione": 0.07,
+  "scartoOreCritico": 0.15,
+  "sogliaSalNonFatturato": 0.05,
+  "annoGestione": 2026,
+  "giorniAggiornamentoRecente": 30,
+  "rischioStrutturale": 0.03,
+  "redditivita": 0.12,
+  "rientroOrario": 6.74,
+  "sogliaRicaricoDirezione": 0.15
+ },
+ "liste": {
+  "macroCategorie": [
+   "Materiali e attrezzature",
+   "Noleggi",
+   "Subappalti",
+   "Trasporti",
+   "Smaltimenti",
+   "Altro"
+  ],
+  "rami": [],
+  "tecnici": [
+   "Enrico Costa"
+  ],
+  "preposti": [
+   "Edoardo Costa",
+   "Mario Rossi"
+  ],
+  "pesiStrutturali": [
+   {
+    "gruppo": "COSTI DIRETTI/INDIRETTI",
+    "voce": "Personale operaio",
+    "peso": 0.6504064170790427
+   },
+   {
+    "gruppo": "COSTI DIRETTI/INDIRETTI",
+    "voce": "Altre voci del personale",
+    "peso": 0.019449091275596717
+   },
+   {
+    "gruppo": "COSTI DIRETTI/INDIRETTI",
+    "voce": "Personale tecnico",
+    "peso": 0.0283782258038747
+   },
+   {
+    "gruppo": "COSTI DIRETTI/INDIRETTI",
+    "voce": "Automezzi",
+    "peso": 0.06697321615364137
+   },
+   {
+    "gruppo": "COSTI DIRETTI/INDIRETTI",
+    "voce": "Attrezzature",
+    "peso": 0.024450953023522362
+   },
+   {
+    "gruppo": "COSTI DIRETTI/INDIRETTI",
+    "voce": "Oneri di cantiere",
+    "peso": 0.0014953321617915524
+   },
+   {
+    "gruppo": "COSTI DIRETTI/INDIRETTI",
+    "voce": "Smaltimento rifiuti",
+    "peso": 0.004233102235680477
+   },
+   {
+    "gruppo": "COSTI DIRETTI/INDIRETTI",
+    "voce": "Ammortamenti",
+    "peso": 0.02545256672238571
+   },
+   {
+    "gruppo": "COSTI DIRETTI/INDIRETTI",
+    "voce": "Altre voci mancanti",
+    "peso": 0.007053120898974353
+   },
+   {
+    "gruppo": "SPESE GENERALI",
+    "voce": "Personale impiegatizio",
+    "peso": 0.04283212513065677
+   },
+   {
+    "gruppo": "SPESE GENERALI",
+    "voce": "Amministratore",
+    "peso": 0.029187427298039723
+   },
+   {
+    "gruppo": "SPESE GENERALI",
+    "voce": "Utenze",
+    "peso": 0.003946938721363263
+   },
+   {
+    "gruppo": "SPESE GENERALI",
+    "voce": "Spese varie ufficio",
+    "peso": 0.0017123444255557779
+   },
+   {
+    "gruppo": "SPESE GENERALI",
+    "voce": "Fabbricati",
+    "peso": 0.008515981105461888
+   },
+   {
+    "gruppo": "SPESE GENERALI",
+    "voce": "Pubblicità",
+    "peso": 0.005252563396992533
+   },
+   {
+    "gruppo": "SPESE GENERALI",
+    "voce": "Consulenze",
+    "peso": 0.02824732601313834
+   },
+   {
+    "gruppo": "SPESE GENERALI",
+    "voce": "Pratiche amministrative e assicurazioni",
+    "peso": 0.020166712594750016
+   },
+   {
+    "gruppo": "SPESE GENERALI",
+    "voce": "Finanza e banche",
+    "peso": 0.014294492661316636
+   },
+   {
+    "gruppo": "SPESE GENERALI",
+    "voce": "Altre imposte",
+    "peso": 0.00042267206945540564
+   },
+   {
+    "gruppo": "SPESE GENERALI",
+    "voce": "Perdite su crediti",
+    "peso": 0.0058170031965173235
+   },
+   {
+    "gruppo": "SPESE GENERALI",
+    "voce": "Sanzioni",
+    "peso": 0.0024539708883600194
+   },
+   {
+    "gruppo": "SPESE GENERALI",
+    "voce": "Sopravvenienze passive e altro",
+    "peso": 0.00925841714388236
+   }
+  ]
+ },
+ "utenti": [
+  {
+   "id": "u_direzione",
+   "nome": "Direzione",
+   "ruolo": "direzione",
+   "attivo": true
+  },
+  {
+   "id": "u_operativo",
+   "nome": "Operativo",
+   "ruolo": "operativo",
+   "attivo": true
+  },
+  {
+   "id": "u_consultazione",
+   "nome": "Consultazione",
+   "ruolo": "consultazione",
+   "attivo": true
+  }
+ ],
+ "commesse": [
+  {
+   "id": "c_mty311ufm1gzsu",
+   "dataInserimento": "2026-09-12",
+   "codice": "C001",
+   "cliente": "SMEG",
+   "cantiere": "Capannone",
+   "indirizzo": "Via Revine 3",
+   "ramo": "",
+   "tecnico": "Enrico Costa",
+   "preposto": "Edoardo Costa",
+   "dataInizioPrevista": "2026-09-07",
+   "dataInizioEffettiva": "2026-09-07",
+   "dataFinePrevista": "2026-10-30",
+   "dataFineEffettiva": "",
+   "dataFinePrevistaOriginale": "2026-11-30",
+   "stato": "In corso",
+   "ritenutePreviste": "NO",
+   "contrattoIniziale": 100000,
+   "integrazioni": null,
+   "causaAggiornamentoDataFine": "Altra causa",
+   "note": "",
+   "budget": {
+    "orePreviste": 1500,
+    "costoOrario": 45.79,
+    "costiDirettiPrevisti": 20000,
+    "orePrevisteAgg": null,
+    "costiDirettiPrevistiAgg": null,
+    "dataAggiornamento": "",
+    "note": ""
+   },
+   "aggiornatoAl": "2026-09-10",
+   "noteAzione": "",
+   "annullato": false,
+   "sostenibilita": {
+    "ricarico": null,
+    "datiVerificati": false,
+    "data": "",
+    "note": ""
+   }
+  }
+ ],
+ "saldi": [],
+ "movimenti": [
+  {
+   "id": "m_mty85xzevzi07u",
+   "commessaId": "c_mty311ufm1gzsu",
+   "data": "2026-09-12",
+   "tipo": "FATTURA",
+   "numeroDocumento": "1",
+   "descrizione": "",
+   "sal": null,
+   "fatturatoLordo": 80000,
+   "ritenuta": null,
+   "svincolo": null,
+   "ore": null,
+   "perditaSal": null,
+   "note": "",
+   "annullato": false,
+   "creatoIl": "2026-09-12T10:11:32.181Z",
+   "creatoDa": "Direzione"
+  },
+  {
+   "id": "m_mty86n4zmkc2sw",
+   "commessaId": "c_mty311ufm1gzsu",
+   "data": "2026-09-12",
+   "tipo": "FATTURA",
+   "numeroDocumento": "",
+   "descrizione": "",
+   "sal": null,
+   "fatturatoLordo": 5000,
+   "ritenuta": null,
+   "svincolo": null,
+   "ore": null,
+   "perditaSal": null,
+   "note": "",
+   "annullato": false,
+   "creatoIl": "2026-09-12T10:11:46.830Z",
+   "creatoDa": "Direzione",
+   "modificatoIl": "2026-09-12T10:22:21.417Z"
+  },
+  {
+   "id": "m_mty89tbcolz99j",
+   "commessaId": "c_mty311ufm1gzsu",
+   "data": "2026-09-12",
+   "tipo": "ORE",
+   "numeroDocumento": "",
+   "descrizione": "",
+   "sal": null,
+   "fatturatoLordo": null,
+   "ritenuta": null,
+   "svincolo": null,
+   "ore": 1200,
+   "perditaSal": null,
+   "note": "",
+   "annullato": false,
+   "creatoIl": "2026-09-12T10:14:27.415Z",
+   "creatoDa": "Direzione"
+  },
+  {
+   "id": "m_mty8ew2uzw3tdw",
+   "commessaId": "c_mty311ufm1gzsu",
+   "data": "2026-09-12",
+   "tipo": "SAL",
+   "numeroDocumento": "",
+   "descrizione": "",
+   "sal": 90000,
+   "fatturatoLordo": null,
+   "ritenuta": null,
+   "svincolo": null,
+   "ore": null,
+   "perditaSal": null,
+   "note": "",
+   "annullato": false,
+   "creatoIl": "2026-09-12T10:18:17.605Z",
+   "creatoDa": "Direzione"
+  },
+  {
+   "id": "m_mty9dqa7nwmizh",
+   "commessaId": "c_mty311ufm1gzsu",
+   "data": "2026-09-12",
+   "tipo": "PERDITA SAL ACCETTATA",
+   "numeroDocumento": "",
+   "descrizione": "",
+   "sal": null,
+   "fatturatoLordo": null,
+   "ritenuta": null,
+   "svincolo": null,
+   "ore": null,
+   "perditaSal": 3000,
+   "note": "",
+   "annullato": false,
+   "creatoIl": "2026-09-12T10:45:32.451Z",
+   "creatoDa": "Direzione"
+  }
+ ],
+ "costi": [
+  {
+   "id": "k_mty8fuoul7m3k3",
+   "commessaId": "c_mty311ufm1gzsu",
+   "data": "2026-09-12",
+   "macroCategoria": "Materiali e attrezzature",
+   "descrizione": "pannelli",
+   "importo": 19000,
+   "fornitore": "",
+   "note": "",
+   "annullato": false,
+   "creatoIl": "2026-09-12T10:19:03.219Z",
+   "creatoDa": "Direzione"
+  }
+ ],
+ "audit": [
+  {
+   "id": "a_mty32tvbatln20",
+   "ts": "2026-09-12T07:48:38.711Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "commessa",
+   "entitaId": "c_mty311ufm1gzsu",
+   "riferimento": "C001",
+   "azione": "CREAZIONE",
+   "modifiche": [
+    {
+     "campo": "dataInserimento",
+     "prima": "",
+     "dopo": "2026-09-12"
+    },
+    {
+     "campo": "codice",
+     "prima": "",
+     "dopo": "C001"
+    },
+    {
+     "campo": "cliente",
+     "prima": "",
+     "dopo": "SMEG"
+    },
+    {
+     "campo": "cantiere",
+     "prima": "",
+     "dopo": "Capannone"
+    },
+    {
+     "campo": "indirizzo",
+     "prima": "",
+     "dopo": "Via Revine 3"
+    },
+    {
+     "campo": "tecnico",
+     "prima": "",
+     "dopo": "Enrico Costa"
+    },
+    {
+     "campo": "preposto",
+     "prima": "",
+     "dopo": "Edoardo Costa"
+    },
+    {
+     "campo": "dataInizioPrevista",
+     "prima": "",
+     "dopo": "2026-09-30"
+    },
+    {
+     "campo": "dataFinePrevista",
+     "prima": "",
+     "dopo": "2026-11-30"
+    },
+    {
+     "campo": "dataFinePrevistaOriginale",
+     "prima": "",
+     "dopo": "2026-11-30"
+    },
+    {
+     "campo": "stato",
+     "prima": "",
+     "dopo": "Da iniziare"
+    },
+    {
+     "campo": "ritenutePreviste",
+     "prima": "",
+     "dopo": "NO"
+    },
+    {
+     "campo": "contrattoIniziale",
+     "prima": "",
+     "dopo": 100000
+    },
+    {
+     "campo": "causaAggiornamentoDataFine",
+     "prima": "",
+     "dopo": "Nessuna variazione"
+    }
+   ]
+  },
+  {
+   "id": "a_mty7d0my0tqyu7",
+   "ts": "2026-09-12T09:48:32.506Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "budget",
+   "entitaId": "c_mty311ufm1gzsu",
+   "riferimento": "C001",
+   "azione": "MODIFICA BUDGET",
+   "modifiche": [
+    {
+     "campo": "orePreviste",
+     "prima": "",
+     "dopo": 300
+    },
+    {
+     "campo": "costoOrario",
+     "prima": "",
+     "dopo": 45.79
+    },
+    {
+     "campo": "costiDirettiPrevisti",
+     "prima": "",
+     "dopo": 20000
+    }
+   ]
+  },
+  {
+   "id": "a_mty854ywcd6l8a",
+   "ts": "2026-09-12T10:10:24.488Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "budget",
+   "entitaId": "c_mty311ufm1gzsu",
+   "riferimento": "C001",
+   "azione": "MODIFICA BUDGET",
+   "modifiche": [
+    {
+     "campo": "orePreviste",
+     "prima": 300,
+     "dopo": 500
+    }
+   ]
+  },
+  {
+   "id": "a_mty86l79tv40c7",
+   "ts": "2026-09-12T10:11:32.181Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mty85xzevzi07u",
+   "riferimento": "C001 | SMEG | Capannone · 12/09/2026 · FATTURA",
+   "azione": "NUOVO MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "commessaId",
+     "prima": "",
+     "dopo": "c_mty311ufm1gzsu"
+    },
+    {
+     "campo": "data",
+     "prima": "",
+     "dopo": "2026-09-12"
+    },
+    {
+     "campo": "tipo",
+     "prima": "",
+     "dopo": "FATTURA"
+    },
+    {
+     "campo": "numeroDocumento",
+     "prima": "",
+     "dopo": "1"
+    },
+    {
+     "campo": "fatturatoLordo",
+     "prima": "",
+     "dopo": 80000
+    }
+   ]
+  },
+  {
+   "id": "a_mty86wi6yfkm46",
+   "ts": "2026-09-12T10:11:46.830Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mty86n4zmkc2sw",
+   "riferimento": "C001 | SMEG | Capannone · 12/09/2026 · FATTURA",
+   "azione": "NUOVO MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "commessaId",
+     "prima": "",
+     "dopo": "c_mty311ufm1gzsu"
+    },
+    {
+     "campo": "data",
+     "prima": "",
+     "dopo": "2026-09-12"
+    },
+    {
+     "campo": "tipo",
+     "prima": "",
+     "dopo": "FATTURA"
+    },
+    {
+     "campo": "fatturatoLordo",
+     "prima": "",
+     "dopo": 15000
+    }
+   ]
+  },
+  {
+   "id": "a_mty89ozj0043h2",
+   "ts": "2026-09-12T10:13:57.055Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "budget",
+   "entitaId": "c_mty311ufm1gzsu",
+   "riferimento": "C001",
+   "azione": "MODIFICA BUDGET",
+   "modifiche": [
+    {
+     "campo": "orePreviste",
+     "prima": 500,
+     "dopo": 1500
+    }
+   ]
+  },
+  {
+   "id": "a_mty8acevaahkzr",
+   "ts": "2026-09-12T10:14:27.415Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mty89tbcolz99j",
+   "riferimento": "C001 | SMEG | Capannone · 12/09/2026 · ORE",
+   "azione": "NUOVO MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "commessaId",
+     "prima": "",
+     "dopo": "c_mty311ufm1gzsu"
+    },
+    {
+     "campo": "data",
+     "prima": "",
+     "dopo": "2026-09-12"
+    },
+    {
+     "campo": "tipo",
+     "prima": "",
+     "dopo": "ORE"
+    },
+    {
+     "campo": "ore",
+     "prima": "",
+     "dopo": 1200
+    }
+   ]
+  },
+  {
+   "id": "a_mty8d48kit6wv0",
+   "ts": "2026-09-12T10:16:36.788Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "commessa",
+   "entitaId": "c_mty311ufm1gzsu",
+   "riferimento": "C001",
+   "azione": "MODIFICA ANAGRAFICA",
+   "modifiche": [
+    {
+     "campo": "dataInizioPrevista",
+     "prima": "2026-09-30",
+     "dopo": "2026-09-07"
+    },
+    {
+     "campo": "dataFinePrevista",
+     "prima": "2026-11-30",
+     "dopo": "2026-10-30"
+    },
+    {
+     "campo": "stato",
+     "prima": "Da iniziare",
+     "dopo": "In corso"
+    },
+    {
+     "campo": "causaAggiornamentoDataFine",
+     "prima": "Nessuna variazione",
+     "dopo": "Altra causa"
+    }
+   ]
+  },
+  {
+   "id": "a_mty8fa11itc0aa",
+   "ts": "2026-09-12T10:18:17.605Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mty8ew2uzw3tdw",
+   "riferimento": "C001 | SMEG | Capannone · 12/09/2026 · SAL",
+   "azione": "NUOVO MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "commessaId",
+     "prima": "",
+     "dopo": "c_mty311ufm1gzsu"
+    },
+    {
+     "campo": "data",
+     "prima": "",
+     "dopo": "2026-09-12"
+    },
+    {
+     "campo": "tipo",
+     "prima": "",
+     "dopo": "SAL"
+    },
+    {
+     "campo": "sal",
+     "prima": "",
+     "dopo": 90000
+    }
+   ]
+  },
+  {
+   "id": "a_mty8g983kp8exl",
+   "ts": "2026-09-12T10:19:03.219Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "costo",
+   "entitaId": "k_mty8fuoul7m3k3",
+   "riferimento": "C001 | SMEG | Capannone · 12/09/2026 · 21.000,00 €",
+   "azione": "NUOVO COSTO",
+   "modifiche": [
+    {
+     "campo": "commessaId",
+     "prima": "",
+     "dopo": "c_mty311ufm1gzsu"
+    },
+    {
+     "campo": "data",
+     "prima": "",
+     "dopo": "2026-09-12"
+    },
+    {
+     "campo": "macroCategoria",
+     "prima": "",
+     "dopo": "Materiali e attrezzature"
+    },
+    {
+     "campo": "descrizione",
+     "prima": "",
+     "dopo": "pannelli"
+    },
+    {
+     "campo": "importo",
+     "prima": "",
+     "dopo": 21000
+    }
+   ]
+  },
+  {
+   "id": "a_mty8h2p56acdb1",
+   "ts": "2026-09-12T10:19:41.417Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "costo",
+   "entitaId": "k_mty8fuoul7m3k3",
+   "riferimento": "C001 | SMEG | Capannone · 12/09/2026 · 19.000,00 €",
+   "azione": "MODIFICA COSTO",
+   "modifiche": [
+    {
+     "campo": "importo",
+     "prima": 21000,
+     "dopo": 19000
+    }
+   ]
+  },
+  {
+   "id": "a_mty8hjuwjq463z",
+   "ts": "2026-09-12T10:20:03.656Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "controllo",
+   "entitaId": "c_mty311ufm1gzsu",
+   "riferimento": "C001",
+   "azione": "NOTE / AGGIORNATO AL",
+   "modifiche": [
+    {
+     "campo": "aggiornatoAl",
+     "prima": "",
+     "dopo": "2026-09-12"
+    }
+   ]
+  },
+  {
+   "id": "a_mty8hst9kpgswo",
+   "ts": "2026-09-12T10:20:15.261Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "commessa",
+   "entitaId": "c_mty311ufm1gzsu",
+   "riferimento": "C001",
+   "azione": "MODIFICA ANAGRAFICA",
+   "modifiche": [
+    {
+     "campo": "dataInizioEffettiva",
+     "prima": "",
+     "dopo": "2026-09-07"
+    }
+   ]
+  },
+  {
+   "id": "a_mty8ki5lh8cpua",
+   "ts": "2026-09-12T10:22:21.417Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mty86n4zmkc2sw",
+   "riferimento": "C001 | SMEG | Capannone · 12/09/2026 · FATTURA",
+   "azione": "MODIFICA MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "fatturatoLordo",
+     "prima": 15000,
+     "dopo": 5000
+    }
+   ]
+  },
+  {
+   "id": "a_mty9ebhfdz45n6",
+   "ts": "2026-09-12T10:45:32.451Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mty9dqa7nwmizh",
+   "riferimento": "C001 | SMEG | Capannone · 12/09/2026 · PERDITA SAL ACCETTATA",
+   "azione": "NUOVO MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "commessaId",
+     "prima": "",
+     "dopo": "c_mty311ufm1gzsu"
+    },
+    {
+     "campo": "data",
+     "prima": "",
+     "dopo": "2026-09-12"
+    },
+    {
+     "campo": "tipo",
+     "prima": "",
+     "dopo": "PERDITA SAL ACCETTATA"
+    },
+    {
+     "campo": "perditaSal",
+     "prima": "",
+     "dopo": 3000
+    }
+   ]
+  },
+  {
+   "id": "a_mtyakosmtzz8a2",
+   "ts": "2026-09-12T11:18:29.254Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "parametri",
+   "entitaId": "",
+   "riferimento": "",
+   "azione": "MODIFICA PARAMETRI",
+   "modifiche": [
+    {
+     "campo": "giorniAggiornamentoRecente",
+     "prima": 30,
+     "dopo": 0
+    }
+   ]
+  },
+  {
+   "id": "a_mtyal16g9mwhx7",
+   "ts": "2026-09-12T11:18:45.304Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "parametri",
+   "entitaId": "",
+   "riferimento": "",
+   "azione": "MODIFICA PARAMETRI",
+   "modifiche": [
+    {
+     "campo": "giorniAggiornamentoRecente",
+     "prima": 0,
+     "dopo": 30
+    }
+   ]
+  },
+  {
+   "id": "a_mtyalkanwghs49",
+   "ts": "2026-09-12T11:19:10.079Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "parametri",
+   "entitaId": "",
+   "riferimento": "",
+   "azione": "MODIFICA PARAMETRI",
+   "modifiche": [
+    {
+     "campo": "giorniAggiornamentoRecente",
+     "prima": 30,
+     "dopo": 5
+    }
+   ]
+  },
+  {
+   "id": "a_mtyalswzsbg3ox",
+   "ts": "2026-09-12T11:19:21.251Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "parametri",
+   "entitaId": "",
+   "riferimento": "",
+   "azione": "MODIFICA PARAMETRI",
+   "modifiche": [
+    {
+     "campo": "giorniAggiornamentoRecente",
+     "prima": 5,
+     "dopo": 45
+    }
+   ]
+  },
+  {
+   "id": "a_mtyamant3oohwl",
+   "ts": "2026-09-12T11:19:44.249Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "parametri",
+   "entitaId": "",
+   "riferimento": "",
+   "azione": "MODIFICA PARAMETRI",
+   "modifiche": [
+    {
+     "campo": "giorniAggiornamentoRecente",
+     "prima": 45,
+     "dopo": 30
+    }
+   ]
+  },
+  {
+   "id": "a_mtyawr0xlgvn70",
+   "ts": "2026-09-12T11:27:52.017Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "controllo",
+   "entitaId": "c_mty311ufm1gzsu",
+   "riferimento": "C001",
+   "azione": "NOTE / AGGIORNATO AL",
+   "modifiche": [
+    {
+     "campo": "aggiornatoAl",
+     "prima": "2026-09-12",
+     "dopo": "2026-09-10"
+    }
+   ]
+  },
+  {
+   "id": "a_mtyf59iqga96fv",
+   "ts": "2026-09-12T13:26:27.698Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "preventivo",
+   "entitaId": "p_mtyf2n5qxmauag",
+   "riferimento": "P-2026-001 | TESTPREV | MURATURA LATTE",
+   "azione": "NUOVO PREVENTIVO",
+   "modifiche": [
+    {
+     "campo": "numero",
+     "prima": "",
+     "dopo": "P-2026-001"
+    },
+    {
+     "campo": "data",
+     "prima": "",
+     "dopo": "2026-09-12"
+    },
+    {
+     "campo": "cliente",
+     "prima": "",
+     "dopo": "TESTPREV"
+    },
+    {
+     "campo": "oggetto",
+     "prima": "",
+     "dopo": "MURATURA LATTE"
+    },
+    {
+     "campo": "indirizzo",
+     "prima": "",
+     "dopo": "TREVISO"
+    },
+    {
+     "campo": "ramo",
+     "prima": "",
+     "dopo": "MURATURE"
+    },
+    {
+     "campo": "tecnico",
+     "prima": "",
+     "dopo": "ENRICO"
+    },
+    {
+     "campo": "prezzoProposto",
+     "prima": "",
+     "dopo": 100000
+    },
+    {
+     "campo": "orePreviste",
+     "prima": "",
+     "dopo": 1500
+    },
+    {
+     "campo": "voci",
+     "prima": "\"\"",
+     "dopo": "[{\"id\":\"v_mtyf3wxg26qigf\",\"voce\":\"MATERIALE\",\"macroCategoria\":\"Materiali e attrezzature\",\"quantita\":120,\"um\":\"m2\",\"costoUnitario\":2,\"ricarico\":0.15}]"
+    },
+    {
+     "campo": "datiVerificati",
+     "prima": "",
+     "dopo": false
+    }
+   ]
+  }
+ ],
+ "esercizi": [],
+ "salvatoIl": "2026-09-12T13:26:27.701Z",
+ "preventivi": [
+  {
+   "id": "p_mtyf2n5qxmauag",
+   "numero": "P-2026-001",
+   "data": "2026-09-12",
+   "cliente": "TESTPREV",
+   "oggetto": "MURATURA LATTE",
+   "indirizzo": "TREVISO",
+   "ramo": "MURATURE",
+   "tecnico": "ENRICO",
+   "prezzoProposto": 100000,
+   "orePreviste": 1500,
+   "voci": [
+    {
+     "id": "v_mtyf3wxg26qigf",
+     "voce": "MATERIALE",
+     "macroCategoria": "Materiali e attrezzature",
+     "quantita": 120,
+     "um": "m2",
+     "costoUnitario": 2,
+     "ricarico": 0.15
+    }
+   ],
+   "datiVerificati": false,
+   "note": "",
+   "commessaId": "",
+   "convertitoIl": "",
+   "convertitoDa": "",
+   "annullato": false,
+   "creatoIl": "2026-09-12T13:26:27.698Z",
+   "creatoDa": "Direzione"
+  }
+ ]
+}

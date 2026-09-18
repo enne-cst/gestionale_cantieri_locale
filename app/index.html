@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FIDA EDILE – Gestione Cantieri</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231f3a5f'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='%23f2c94c' font-family='Arial' font-weight='bold'%3EF%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <div id="app"><div style="padding:30px;color:#5b6573">Caricamento…</div></div>
+
+  <script src="js/engine.js"></script>
+  <script src="js/schema.js"></script>
+  <script src="js/demo-data.js"></script>
+  <script src="js/format.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/page-dashboard.js"></script>
+  <script src="js/page-analisi.js"></script>
+  <script src="js/page-commesse.js"></script>
+  <script src="js/page-commessa.js"></script>
+  <script src="js/page-gantt.js"></script>
+  <script src="js/page-movimenti.js"></script>
+  <script src="js/page-costi.js"></script>
+  <script src="js/page-budget.js"></script>
+  <script src="js/page-sostenibilita.js"></script>
+  <script src="js/page-preventivi.js"></script>
+  <script src="js/page-saldi.js"></script>
+  <script src="js/page-cantieri.js"></script>
+  <script src="js/page-parametri.js"></script>
+  <script src="js/page-registro.js"></script>
+  <script>
+    (async function () {
+      try {
+        await Store.init();
+        Store.onChange(function () { UI.render(); });
+        window.addEventListener('hashchange', function () { UI.render(); });
+        UI.render();
+      } catch (e) {
+        console.error(e);
+        document.getElementById('app').innerHTML = '<div style="padding:30px"><h1>Errore di avvio</h1><p>' + String(e.message || e) + '</p></div>';
+      }
+    })();
+  </script>
+</body>
+</html>
