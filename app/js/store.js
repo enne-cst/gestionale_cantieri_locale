@@ -83,7 +83,9 @@
       parametri: ['admin'],
       registro: ['admin'],
       dashboard: ['admin', 'direzione'],
-      cantieri: ['admin', 'direzione']
+      cantieri: ['admin', 'direzione'],
+      // l'importazione crea e modifica commesse: chi è in sola consultazione non la vede
+      importa: ['admin', 'direzione', 'operativo']
     },
     vedePagina(pagina) {
       const ammessi = this.PAGINE_RISERVATE[pagina];

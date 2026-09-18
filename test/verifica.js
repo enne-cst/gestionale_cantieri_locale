@@ -9,6 +9,10 @@
 const Engine = require('../app/js/engine.js');
 const Schema = require('../app/js/schema.js');
 const DemoData = require('../app/js/demo-data.js');
+const Xlsx = require('../app/js/xlsx.js');
+const ImportaExcel = require('../app/js/importa-commesse.js');
+const fs = require('fs');
+const zlib = require('zlib');
 
 let ok = 0, ko = 0;
 function eq(nome, atteso, ottenuto, tol) {
@@ -541,5 +545,161 @@ sezione('Sostenibilità economica – dati dimostrativi');
 }
 
 
-console.log('\nRisultato: ' + ok + ' verifiche superate, ' + ko + ' fallite.');
-process.exit(ko ? 1 : 0);
+// ------------------------------------------------------------------ importazione delle commesse da Excel
+// Il .xlsx è scritto e riletto senza librerie esterne: qui si verifica che quello che il programma
+// scrive sia rileggibile senza perdere né alterare nulla, che un file compilato a mano venga
+// interpretato come lo intende chi lo compila e che si legga anche un file prodotto davvero da Excel
+// (archivio compresso, testi condivisi, date come numero seriale).
+// La lettura è asincrona: il riepilogo finale si stampa al termine, in fine().
+async function verificaImportazioneExcel() {
+  const commesse = db.commesse.filter(c => !c.annullato);
+
+  sezione('Importazione da Excel – modello');
+  const vuoto = Xlsx.crea(ImportaExcel.fogliModello(db, null));
+  eq('firma ZIP del file generato', [0x50, 0x4b], [vuoto[0], vuoto[1]]);
+  const cVuoto = await Xlsx.leggi(vuoto);
+  eq('fogli del modello', ['ISTRUZIONI', 'COMMESSE', 'ELENCHI'], cVuoto.fogli.map(f => f.nome));
+  const testata = cVuoto.foglio('COMMESSE')[0].map(c => Xlsx.testo(c));
+  eq('una colonna per ogni campo inseribile a mano', ImportaExcel.COLONNE.length, testata.length);
+  eq('i campi obbligatori sono marcati con *', ['Data di inserimento *', 'Codice commessa *', 'Cliente *', 'Descrizione / Cantiere *'], testata.slice(0, 4));
+  eq('il modello vuoto non ha righe di dati', 1, cVuoto.foglio('COMMESSE').length);
+  const elenchi = cVuoto.foglio('ELENCHI');
+  eq('valori ammessi per lo stato', Engine.STATI[0], Xlsx.testo(elenchi[1][0]));
+  eq('valori ammessi SI/NO', ['SI', 'NO'], [Xlsx.testo(elenchi[1][2]), Xlsx.testo(elenchi[2][2])]);
+
+  // Andata e ritorno: esportare le commesse e rileggerle non deve cambiare un solo valore.
+  sezione('Importazione da Excel – andata e ritorno');
+  const pieno = Xlsx.crea(ImportaExcel.fogliModello(db, commesse));
+  const cPieno = await Xlsx.leggi(pieno);
+  eq('righe scritte', commesse.length + 1, cPieno.foglio('COMMESSE').length);
+  const rPieno = ImportaExcel.prepara(cPieno, db);
+  eq('nessuna colonna non riconosciuta', [], rPieno.colonneIgnorate);
+  eq('nessuna colonna obbligatoria mancante', [], rPieno.colonneMancantiObbligatorie.map(c => c.titolo));
+  eq('righe esaminate', commesse.length, rPieno.esiti.length);
+  eq('nessuna commessa nuova', 0, rPieno.nNuove);
+  eq('nessuna riga scartata', 0, rPieno.nScartate);
+  eq('nessuna modifica: il file rispecchia l\'archivio', 0, rPieno.nAggiornate);
+  eq('tutte invariate', commesse.length, rPieno.nInvariate);
+
+  // File compilato a mano, come lo consegna il cliente: date e importi all'italiana, SI/NO, percentuali.
+  sezione('Importazione da Excel – file compilato a mano');
+  const T = campo => ImportaExcel.COLONNE.find(c => c.campo === campo).titolo;
+  const campi = ['dataInserimento', 'codice', 'cliente', 'cantiere', 'stato', 'ritenutePreviste',
+    'contrattoIniziale', 'integrazioni', 'dataInizioEffettiva', 'dataFinePrevista',
+    'budget.orePreviste', 'budget.costiDirettiPrevisti', 'sostenibilita.ricarico', 'sostenibilita.datiVerificati'];
+  const esistente = commesse[0];
+  const righeProva = [
+    campi.map(T).concat(['Colonna inventata']),
+    ['15/01/2026', 'IMP001', 'Cliente Alfa', 'Rifacimento copertura', 'In corso', 'SI', '150.000,50', '1.000', '20/01/2026', '30/06/2026', '900', '25.000', '18', 'SI', 'x'],
+    ['15/01/2026', esistente.codice, 'CLIENTE RINOMINATO', 'CANTIERE RINOMINATO', '', '', '', '', '', '', '', '', '', '', ''],
+    ['15/01/2026', 'IMP003', '', 'Cantiere senza cliente', 'Stato inventato', '', '', '', '', '', '', '', '', '', ''],
+    ['15/01/2026', 'IMP001', 'Cliente Beta', 'Doppione', '', '', '', '', '', '', '', '', '', '', ''],
+    ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+  ];
+  const fileProva = Xlsx.crea([{ nome: 'COMMESSE', righe: righeProva }]);
+  const rProva = ImportaExcel.prepara(await Xlsx.leggi(fileProva), db);
+  eq('le colonne non riconosciute sono elencate e ignorate', ['Colonna inventata'], rProva.colonneIgnorate);
+  eq('la riga vuota è saltata senza segnalazioni', 4, rProva.esiti.length);
+  eq('commesse nuove', 1, rProva.nNuove);
+  eq('commesse aggiornate', 1, rProva.nAggiornate);
+  eq('righe scartate', 2, rProva.nScartate);
+
+  const nuova = rProva.esiti.find(x => x.esito === 'NUOVA').commessa;
+  eq('data scritta gg/mm/aaaa', '2026-01-15', nuova.dataInserimento);
+  eq('importo con migliaia e decimali all\'italiana', 150000.5, nuova.contrattoIniziale);
+  eq('ritenute previste come SI/NO', 'SI', nuova.ritenutePreviste);
+  eq('stato riconosciuto', 'In corso', nuova.stato);
+  eq('ore di budget', 900, nuova.budget.orePreviste);
+  eq('ricarico: 18 vale 18 %', 0.18, nuova.sostenibilita.ricarico, 1e-12);
+  eq('dati del computo verificati', true, nuova.sostenibilita.datiVerificati);
+  eq('alla creazione la data fine originaria è quella prevista', '2026-06-30', nuova.dataFinePrevistaOriginale);
+  eq('alla creazione il costo orario arriva dai parametri', db.parametri.costoOrario, nuova.budget.costoOrario);
+  eq('alla creazione "aggiornato al" è valorizzata', true, !!nuova.aggiornatoAl);
+
+  const agg = rProva.esiti.find(x => x.esito === 'AGGIORNA');
+  eq('l\'aggiornamento riconosce la commessa dal codice', esistente.id, agg.commessaId);
+  eq('cambiano solo i campi compilati', ['cantiere', 'cliente', 'dataInserimento'], agg.modifiche.map(m => m.campo).sort());
+  eq('le celle vuote non cancellano il contratto', esistente.contrattoIniziale, agg.commessa.contrattoIniziale);
+  eq('le celle vuote non cancellano il budget', esistente.budget.orePreviste, agg.commessa.budget.orePreviste);
+
+  const scarti = rProva.esiti.filter(x => x.esito === 'SCARTATA');
+  eq('scartata: cliente obbligatorio', true, scarti[0].errori.some(x => /CLIENTE/i.test(x)));
+  eq('scartata: stato non ammesso', true, scarti[0].errori.some(x => /non ammesso|non valido/i.test(x)));
+  eq('scartata: codice ripetuto nello stesso file', true, scarti[1].errori.some(x => /compare già alla riga/i.test(x)));
+
+  // Excel comprime sempre le parti dell'archivio: è la strada che percorrono i file veri.
+  sezione('Importazione da Excel – archivio compresso e file originale');
+  const cCompresso = await Xlsx.leggi(comprimi(fileProva));
+  eq('un archivio compresso si legge come uno non compresso',
+    righeProva[0], cCompresso.foglio('COMMESSE')[0].map(c => Xlsx.testo(c)));
+  eq('e produce lo stesso esito', rProva.nNuove, ImportaExcel.prepara(cCompresso, db).nNuove);
+
+  const rif = __dirname + '/../reference/DATABASE CONTRATTI FIDA EDILE – REV.14 DEFINITIVA.xlsx';
+  if (fs.existsSync(rif)) {
+    const orig = await Xlsx.leggi(fs.readFileSync(rif));
+    eq('fogli del file Excel originale',
+      ['ANAGRAFICA', 'SALDI AL 31.12.2025', 'BUDGET COMMESSA', 'MOVIMENTI 2026', 'COSTI DIRETTI', 'CANTIERI', 'PARAMETRI'],
+      orig.fogli.map(f => f.nome));
+    const ana = orig.foglio('ANAGRAFICA');
+    eq('il foglio ANAGRAFICA si legge', true, ana.length > 5);
+    eq('i testi condivisi si leggono', true, ana.some(r => r.some(c => c.tipo === 'testo' && /ANAGRAFICA COMMESSE/i.test(String(c.valore)))));
+    eq('le date sono riconosciute e convertite', true, ana.some(r => r.some(c => c.tipo === 'data' && /^\d{4}-\d{2}-\d{2}$/.test(c.valore))));
+    eq('i numeri sono riconosciuti', true, ana.some(r => r.some(c => c.tipo === 'numero')));
+  } else {
+    console.log('  (file Excel di riferimento non presente: prova saltata)');
+  }
+}
+
+// Riscrive lo stesso archivio comprimendo ogni voce, come fa Excel quando salva.
+function comprimi(buf) {
+  const b = Buffer.from(buf), voci = [];
+  let p = 0;
+  while (p + 4 <= b.length && b.readUInt32LE(p) === 0x04034b50) {
+    const lunNome = b.readUInt16LE(p + 26), lunExtra = b.readUInt16LE(p + 28), dim = b.readUInt32LE(p + 18);
+    const inizio = p + 30 + lunNome + lunExtra;
+    voci.push({ nome: b.slice(p + 30, p + 30 + lunNome), dati: b.slice(inizio, inizio + dim) });
+    p = inizio + dim;
+  }
+  const locali = [], centrali = [];
+  let off = 0;
+  voci.forEach(v => {
+    const dati = zlib.deflateRawSync(v.dati), crc = crcZip(v.dati);
+    const lh = Buffer.alloc(30);
+    lh.writeUInt32LE(0x04034b50, 0); lh.writeUInt16LE(20, 4); lh.writeUInt16LE(0x0800, 6); lh.writeUInt16LE(8, 8);
+    lh.writeUInt32LE(crc, 14); lh.writeUInt32LE(dati.length, 18); lh.writeUInt32LE(v.dati.length, 22); lh.writeUInt16LE(v.nome.length, 26);
+    locali.push(lh, v.nome, dati);
+    const ch = Buffer.alloc(46);
+    ch.writeUInt32LE(0x02014b50, 0); ch.writeUInt16LE(20, 4); ch.writeUInt16LE(20, 6); ch.writeUInt16LE(0x0800, 8);
+    ch.writeUInt16LE(8, 10); ch.writeUInt32LE(crc, 16); ch.writeUInt32LE(dati.length, 20);
+    ch.writeUInt32LE(v.dati.length, 24); ch.writeUInt16LE(v.nome.length, 28); ch.writeUInt32LE(off, 42);
+    centrali.push(ch, v.nome);
+    off += 30 + v.nome.length + dati.length;
+  });
+  const dir = Buffer.concat(centrali), fine = Buffer.alloc(22);
+  fine.writeUInt32LE(0x06054b50, 0); fine.writeUInt16LE(voci.length, 8); fine.writeUInt16LE(voci.length, 10);
+  fine.writeUInt32LE(dir.length, 12); fine.writeUInt32LE(off, 16);
+  return Buffer.concat([Buffer.concat(locali), dir, fine]);
+}
+let TAB_CRC = null;
+function crcZip(buf) {
+  if (!TAB_CRC) {
+    TAB_CRC = new Int32Array(256);
+    for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); TAB_CRC[n] = c; }
+  }
+  let c = -1;
+  for (let i = 0; i < buf.length; i++) c = TAB_CRC[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ -1) >>> 0;
+}
+
+function fine() {
+  console.log('\nRisultato: ' + ok + ' verifiche superate, ' + ko + ' fallite.');
+  process.exit(ko ? 1 : 0);
+}
+
+// La lettura di un .xlsx richiede DecompressionStream (Node 18+): se manca, il resto della verifica vale comunque.
+if (typeof DecompressionStream === 'function') {
+  verificaImportazioneExcel().then(fine, e => { console.error(e); process.exit(1); });
+} else {
+  console.log('\n(Node troppo vecchio per leggere i file .xlsx: verifica dell\'importazione saltata)');
+  fine();
+}

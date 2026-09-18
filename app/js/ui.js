@@ -16,6 +16,7 @@
     { id: 'preventivi', testo: 'Preventivi', icona: '✎' },
     { gruppo: 'Gestione' },
     { id: 'commesse', testo: 'Anagrafica commesse', icona: '☰' },
+    { id: 'importa', testo: 'Importa da Excel', icona: '⤓' },
     { id: 'movimenti', testo: 'Movimenti', icona: '⇄' },
     { id: 'costi', testo: 'Costi diretti', icona: '€' },
     { id: 'budget', testo: 'Budget commessa', icona: '◫' },

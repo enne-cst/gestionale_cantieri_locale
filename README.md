@@ -69,9 +69,12 @@ app/index.html              applicazione
 app/js/engine.js            motore di calcolo (formule Rev.14)
 app/js/schema.js            struttura del database
 app/js/store.js             salvataggio, registro modifiche, permessi
+app/js/xlsx.js              lettura e scrittura dei file Excel (.xlsx), senza librerie
+app/js/importa-commesse.js  modello Excel delle commesse e controlli di importazione
 app/js/page-*.js            pagine
 app/js/page-sostenibilita.js verifica di sostenibilità economica delle commesse
 app/js/page-preventivi.js   preventivi (ipotesi di commessa) e conversione in commessa
+app/js/page-importa.js      importazione delle commesse da un foglio Excel
 data/database.json          archivio (modalità server)
 test/verifica.js            verifica di equivalenza con l'Excel:  node test/verifica.js
 reference/                  file Excel e indicazioni originali
@@ -103,6 +106,39 @@ reference/                  file Excel e indicazioni originali
 - **Chiusura esercizio** (Direzione): i cumulativi di fine anno diventano i saldi iniziali del nuovo anno; lo storico resta.
 - Movimenti, costi e saldi non si cancellano: si **annullano** con motivo e restano tracciati. Ogni modifica finisce nel
   **Registro modifiche** (autore, data, ora, valore precedente, valore nuovo).
+
+## Importazione delle commesse da Excel
+Pagina **Gestione → Importa da Excel** (visibile ad Amministratore, Direzione e Operativo; la sola consultazione
+può scaricare il modello ma non importare). Il modello si scarica anche da *Parametri → Dati*.
+
+Il file `.xlsx` è generato e riletto dall'applicazione **senza librerie esterne**: un `.xlsx` è un archivio ZIP di
+documenti XML, scritto qui senza compressione e riletto con `DecompressionStream`, funzione standard dei browser
+recenti. Serve quindi un browser aggiornato (Chrome/Edge 80+, Firefox 113+, Safari 16.4+).
+
+Il modello ha tre fogli:
+
+| Foglio | Contenuto |
+|---|---|
+| `ISTRUZIONI` | guida alla compilazione e significato di ogni colonna (non viene letto) |
+| `COMMESSE` | **una riga per commessa**, una colonna per campo |
+| `ELENCHI` | valori ammessi (stati, cause, SI/NO) e suggerimenti di rami, tecnici e preposti |
+
+- Il foglio `COMMESSE` contiene **tutti e soli i campi che di una commessa si inseriscono a mano**, una volta sola
+  ciascuno: anagrafica, budget (iniziale e aggiornato), ricarico e dichiarazione della verifica di sostenibilità,
+  note e data "aggiornato al". Non compaiono i valori calcolati dal programma (contratto aggiornato, costo ore,
+  margine teorico, allerte, prezzo minimo sostenibile), né le fasi del cronoprogramma, i movimenti, i costi diretti
+  e i saldi iniziali, che hanno archivi propri.
+- **Il codice commessa è la chiave**: se non esiste in Anagrafica la commessa viene creata, se esiste viene
+  aggiornata. In aggiornamento **le celle lasciate vuote non cancellano nulla**.
+- I titoli della riga 1 servono a riconoscere le colonne; l'ordine può cambiare e le colonne non necessarie si
+  possono eliminare. Le colonne non riconosciute vengono elencate e ignorate.
+- Prima di scrivere qualcosa viene mostrata l'**anteprima riga per riga** con esito (nuova / aggiorna / invariata /
+  scartata), i campi che cambiano, gli errori bloccanti e gli avvisi. I controlli sono gli stessi delle maschere
+  dell'applicazione. **Le righe valide vengono importate, quelle con errori vengono scartate ed elencate**: si
+  corregge il file e lo si ricarica, senza rischio di duplicati perché il codice viene riconosciuto.
+- Ogni creazione e ogni modifica finisce nel **Registro modifiche** con autore, data, ora e valori precedenti.
+- Il pulsante *"Scarica il modello con le N commesse in archivio"* produce lo stesso file già compilato: serve per
+  correggere e **aggiornare in blocco** quello che è già dentro.
 
 ## Verifica dei calcoli
 ```

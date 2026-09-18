@@ -138,7 +138,8 @@
     const annullate = Store.db.commesse.filter(c => c.annullato);
     const tecnici = Array.from(new Set(rows.map(r => r.tecnico).filter(x => x))).sort();
     cont.innerHTML = UI.testata('Anagrafica commesse', 'Unica fonte master: ogni commessa si crea qui una sola volta e viene richiamata automaticamente nelle altre sezioni.',
-      (Store.puo('commessa.crea') ? '<button type="button" class="primario" id="btn-nuova">+ Nuova commessa</button>' : '') + UI.pulsanteEsporta('commesse')) +
+      (Store.puo('commessa.crea') ? '<button type="button" class="primario" id="btn-nuova">+ Nuova commessa</button>' : '') +
+      (Store.vedePagina('importa') ? '<a class="btn" href="#/importa">⤓ Importa da Excel</a>' : '') + UI.pulsanteEsporta('commesse')) +
       '<div class="pannello compatto"><div class="filtri" id="com-filtri">' +
       '<div class="campo largo"><label>Ricerca</label><input type="search" class="in" name="testo" value="' + esc(F.testo) + '" placeholder="codice, cliente, cantiere, tecnico, preposto"></div>' +
       '<div class="campo"><label>Stato</label><select class="in" name="stato"><option value="">Tutti</option>' + Engine.STATI.map(s => '<option' + (F.stato === s ? ' selected' : '') + '>' + esc(s) + '</option>').join('') + '</select></div>' +

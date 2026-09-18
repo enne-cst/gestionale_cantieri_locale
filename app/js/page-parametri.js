@@ -253,6 +253,7 @@
       '<h2>Dati e copie di sicurezza</h2><div class="pannello"><p>Modalità: <span class="pill ' + Store.modo + '">' + (Store.modo === 'server' ? 'server locale – i dati sono nel file data/database.json (con backup giornaliero in data/backup)' : 'file – i dati sono salvati nel browser di questo PC') + '</span></p>' +
       '<p class="sotto">Commesse: ' + Store.db.commesse.length + ' · Movimenti: ' + Store.db.movimenti.length + ' · Costi: ' + Store.db.costi.length + ' · Saldi: ' + Store.db.saldi.length + ' · Voci registro: ' + Store.db.audit.length + '</p>' +
       '<div class="btn-gruppo"><button type="button" id="btn-backup">Scarica copia di sicurezza (JSON)</button>' +
+      '<button type="button" id="btn-modello-commesse">Scarica il modello Excel delle commesse</button>' +
       (Store.puo('dati') ? '<button type="button" id="btn-ripristino">Ripristina da copia di sicurezza…</button><input type="file" id="file-ripristino" accept=".json,application/json" hidden>' : '') +
       (Store.puo('dati') && Store.db.commesse.length === 0 ? '<button type="button" id="btn-demo">Carica dati dimostrativi (casi di test A, B, C)</button>' : '') + '</div>' +
       (Store.modo === 'file' ? '<p class="sotto">In modalità file, per condividere i dati con un altro PC: scarica la copia di sicurezza e ripristinala sull\'altro PC. Per un archivio condiviso in rete avviare l\'app con server.js (vedi README).</p>' : '') + '</div>';
@@ -265,6 +266,7 @@
     cont.querySelectorAll('[data-utente]').forEach(x => x.onclick = () => apriUtente(x.dataset.utente));
     if (b('btn-chiusura')) b('btn-chiusura').onclick = chiusuraEsercizio;
     b('btn-backup').onclick = () => { Fmt.scarica(Fmt.nomeFileData('backup_fida_edile', 'json'), Store.esportaJson(), 'application/json'); UI.toast('Copia di sicurezza scaricata.'); };
+    b('btn-modello-commesse').onclick = () => Importa.scaricaModello(false);
     if (b('btn-ripristino')) {
       b('btn-ripristino').onclick = () => b('file-ripristino').click();
       b('file-ripristino').onchange = async e => {
