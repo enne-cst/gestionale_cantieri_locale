@@ -9,6 +9,7 @@
 const Engine = require('../app/js/engine.js');
 const Schema = require('../app/js/schema.js');
 const DemoData = require('../app/js/demo-data.js');
+const Dati = require('../app/js/dati.js');
 const Xlsx = require('../app/js/xlsx.js');
 const ImportaExcel = require('../app/js/importa-commesse.js');
 const fs = require('fs');
@@ -542,6 +543,96 @@ sezione('Sostenibilità economica – dati dimostrativi');
   eq('nessun preventivo convertito nei dati dimostrativi', 0, db.preventivi.filter(p => p.commessaId).length);
   eq('i preventivi non entrano fra le commesse', 6, db.commesse.length);
   eq('prossimo numero sui dati dimostrativi', 'P-2026-005', Engine.prossimoNumeroPreventivo(db, 2026));
+}
+
+
+// ------------------------------------------------------------------ esportazione / importazione totale
+// La busta deve contenere TUTTO e bastare a sé stessa: chi la riceve non ha questo codice, quindi
+// deve trovarci dentro anche la descrizione della struttura (chiavi, campi, relazioni, ordine).
+// Il giro completo esporta, reimporta e ricontrolla che nulla sia cambiato: è la garanzia che serve
+// prima di portare l'archivio su un database diverso.
+sezione('Esportazione / importazione totale dei dati');
+{
+  const pieno = DemoData.crea();
+  // si sporca il database con i casi che in un database vero darebbero problemi o perdite di dati
+  pieno.audit.push({ id: 'a_test', ts: '2026-05-05T10:00:00.000Z', utente: 'Tizio', ruolo: 'direzione', entita: 'commessa', entitaId: pieno.commesse[0].id, riferimento: 'x', azione: 'PROVA', modifiche: [{ campo: 'codice', prima: 'A', dopo: 'B' }] });
+  pieno.esercizi.push({ anno: 2025, chiusoIl: '2026-01-02T08:00:00.000Z', utente: 'Direzione', saldiGenerati: 3, commesseDefinite: 1 });
+  // i dati dimostrativi non hanno fasi, esercizi né registro: senza almeno una riga il giro completo
+  // su quelle entità non proverebbe nulla
+  pieno.fasi.push(Object.assign(Schema.nuovaFase(), { commessaId: pieno.commesse[0].id, fase: 'Scavi', inizioPrevisto: '2026-03-01', finePrevista: '2026-03-20', quantita: 120, um: 'm³', prezzoVendita: 4500 }));
+  pieno.commesse[0].campoIgnoto = 'da non perdere';                      // campo aggiunto in futuro
+  pieno.commesse[0].chiusuraDefinitiva = { anno: 2025, data: '2026-01-02', utente: 'Direzione', sal: 1, fatturatoLordo: 2, ritenute: 3, svincoli: 4, perditeSal: 5, ore: 6, costiDiretti: 7 };
+
+  const busta = Dati.esporta(pieno, { modo: 'server', utente: 'Direzione' });
+
+  eq('formato dichiarato', 'fida-edile.export', busta.formato);
+  eq('versione del formato', 1, busta.versioneFormato);
+  eq('entità descritte', Dati.ORDINE.length, Object.keys(busta.struttura.entita).length);
+  eq('ordine di inserimento presente', true, Array.isArray(busta.struttura.ordine) && busta.struttura.ordine[0] === 'utenti');
+  eq('impostazioni esportate', true, !!busta.impostazioni.parametri.costoOrario && Array.isArray(busta.impostazioni.liste.pesiStrutturali));
+  eq('pesi strutturali non persi', pieno.liste.pesiStrutturali.length, busta.impostazioni.liste.pesiStrutturali.length);
+  eq('etichette dei campi incluse', 'Codice commessa', busta.etichette.codice);
+
+  // ogni entità porta con sé quello che serve a creare la tabella
+  Dati.ORDINE.forEach(n => {
+    eq('chiave di ' + n, Dati.CHIAVI[n], busta.struttura.entita[n].chiave);
+    eq('righe di ' + n, pieno[n].length, busta.dati[n].length);
+    eq('conteggio di ' + n, pieno[n].length, busta.conteggi[n]);
+  });
+  eq('riferimento movimenti → commesse', 'commesse', busta.struttura.entita.movimenti.riferimenti.commessaId);
+  eq('preventivi: riferimento facoltativo', true, busta.struttura.entita.preventivi.riferimentiFacoltativi.indexOf('commessaId') >= 0);
+  eq('oggetti annidati delle commesse', true, !!busta.struttura.entita.commesse.oggetti.budget && !!busta.struttura.entita.commesse.oggetti.sostenibilita);
+  eq('budget descritto per intero', true, busta.struttura.entita.commesse.oggetti.budget.indexOf('costiDirettiPrevistiAgg') >= 0);
+  eq('chiusura definitiva descritta', true, busta.struttura.entita.commesse.oggetti.chiusuraDefinitiva.indexOf('costiDiretti') >= 0);
+  eq('collezione annidata dei preventivi', 'id', busta.struttura.entita.preventivi.collezioni.voci.chiave);
+  eq('collezione annidata del registro', true, busta.struttura.entita.audit.collezioni.modifiche.campi.indexOf('prima') >= 0);
+  // un campo comparso dopo non deve restare fuori dalla descrizione, altrimenti si perderebbe nella migrazione
+  eq('campo ignoto descritto', true, busta.struttura.entita.commesse.campi.indexOf('campoIgnoto') >= 0);
+  eq('gli oggetti annidati non sono anche campi', -1, busta.struttura.entita.commesse.campi.indexOf('budget'));
+
+  // giro completo: quello che esce deve rientrare identico
+  const letto = Dati.analizza(JSON.stringify(busta));
+  eq('rilettura riuscita', true, letto.ok);
+  eq('formato riconosciuto', 'portabile', letto.origine);
+  eq('totale righe invariato', Dati.conteggi(pieno).totale, letto.conteggi.totale);
+  Dati.ORDINE.forEach(n => eq('giro completo di ' + n, JSON.stringify(pieno[n]), JSON.stringify(letto.db[n])));
+  eq('giro completo dei parametri', JSON.stringify(pieno.parametri), JSON.stringify(letto.db.parametri));
+  eq('giro completo delle liste', JSON.stringify(pieno.liste), JSON.stringify(letto.db.liste));
+  eq('campo ignoto sopravvissuto', 'da non perdere', letto.db.commesse[0].campoIgnoto);
+
+  // i vecchi backup erano una copia diretta della struttura interna: devono restare importabili
+  const vecchio = Dati.analizza(JSON.stringify(pieno));
+  eq('vecchio backup riconosciuto', 'grezzo', vecchio.origine);
+  eq('vecchio backup leggibile', true, vecchio.ok);
+  eq('vecchio backup completo', Dati.conteggi(pieno).totale, vecchio.conteggi.totale);
+
+  // file non validi: devono essere respinti con un motivo, non accettati a metà
+  eq('JSON malformato respinto', false, Dati.analizza('{ questo non è json').ok);
+  eq('file estraneo respinto', false, Dati.analizza('{"qualcosa":1}').ok);
+  const futuro = JSON.parse(JSON.stringify(busta)); futuro.versioneFormato = 99;
+  const daFuturo = Dati.analizza(JSON.stringify(futuro));
+  eq('formato più recente respinto', false, daFuturo.ok);
+  eq('formato più recente spiegato', true, /versione 99/.test(daFuturo.errori[0]));
+
+  // controlli di integrità: sono quelli che un database con vincoli applicherebbe
+  const rotto = DemoData.crea();
+  rotto.movimenti[0].commessaId = 'c_inesistente';
+  const esitoRotto = Dati.verifica(rotto);
+  eq('riferimento orfano rilevato', false, esitoRotto.ok);
+  eq('riferimento orfano spiegato', true, /movimenti\.commessaId/.test(esitoRotto.errori[0]));
+  const doppio = DemoData.crea();
+  doppio.commesse.push(JSON.parse(JSON.stringify(doppio.commesse[0])));
+  eq('id ripetuto rilevato', false, Dati.verifica(doppio).ok);
+  eq('archivio sano', true, Dati.verifica(DemoData.crea()).ok);
+  // un archivio con riferimenti rotti non deve poter entrare
+  eq('importazione bloccata se i dati sono incoerenti', false, Dati.analizza(JSON.stringify(Dati.esporta(rotto, {}))).ok);
+
+  // archivio vuoto appena creato: deve esportarsi e rientrare senza inventare nulla
+  const vuoto = Schema.migra(null);
+  const giroVuoto = Dati.analizza(JSON.stringify(Dati.esporta(vuoto, {})));
+  eq('archivio vuoto esportabile', true, giroVuoto.ok);
+  eq('archivio vuoto: nessuna commessa', 0, giroVuoto.conteggi.commesse);
+  eq('archivio vuoto: utenti predefiniti', vuoto.utenti.length, giroVuoto.conteggi.utenti);
 }
 
 

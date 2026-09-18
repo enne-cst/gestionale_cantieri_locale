@@ -5,7 +5,8 @@
   --primario: #1f3a5f; --primario2: #2b5285; --primario-chiaro: #e7eef8;
   --input: #fffbe6; --input-bordo: #e6d98a; --calc: #e9f3fb; --calc-bordo: #bcd6ea;
   --verde: #1e7d45; --verde-bg: #e3f4ea; --giallo: #b7791f; --giallo-bg: #fdf1d8; --rosso: #b42318; --rosso-bg: #fbe5e3;
-  --grigio-bg: #eef0f3; --ombra: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  --grigio-bg: #eef0f3; --banda: #eceef2; --primario-graffa: #9fb3cc;
+  --bordo-forte: #a3aebd; --calc-bordo-forte: #83abd0; --ombra: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
   --raggio: 6px; --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 * { box-sizing: border-box; }
@@ -154,6 +155,8 @@ table.kv3 td:last-child { font-weight: 650; }
 .campo-data button { flex: none; color: var(--testo3); }
 .campo-data button:hover { color: var(--rosso); }
 .campo .aiuto { font-size: 11px; color: var(--testo3); margin-top: 2px; }
+/* campi nascosti perché non pertinenti al tipo scelto: dentro una griglia non devono lasciare il posto vuoto */
+.campo[hidden], .msg[hidden], .aiuto[hidden] { display: none !important; }
 input[type=text], input[type=number], input[type=date], input[type=password], input[type=search], select, textarea {
   font: inherit; color: var(--testo); border: 1px solid var(--bordo); border-radius: 4px; padding: 6px 8px; width: 100%; background: #fff; min-height: 32px;
 }
@@ -201,6 +204,21 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .tabs a { padding: 8px 14px; color: var(--testo2); border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 500; }
 .tabs a:hover { text-decoration: none; color: var(--primario); }
 .tabs a.attivo { color: var(--primario); border-bottom-color: var(--primario); font-weight: 650; }
+/* riga delle schede con, a destra, l'interruttore dei saldi storici */
+.tabs-riga { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.tabs-riga .tabs { flex: 1; margin-bottom: 0; }
+/* interruttore a levetta: acceso = si conta anche lo storico, spento = solo l'esercizio in corso */
+.interruttore { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 0; font-size: 12.5px; color: var(--testo2); user-select: none; white-space: nowrap; }
+.interruttore input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.interruttore .leva { position: relative; flex: none; width: 36px; height: 20px; border-radius: 999px; background: var(--testo3); transition: background .15s; }
+.interruttore .leva::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: var(--ombra); transition: transform .15s; }
+.interruttore input:checked + .leva { background: var(--verde); }
+.interruttore input:checked + .leva::after { transform: translateX(16px); }
+.interruttore input:focus-visible + .leva { outline: 2px solid var(--primario2); outline-offset: 2px; }
+.interruttore .testo b { color: var(--testo); }
+/* nessun saldo storico da escludere: l'interruttore resta in vista ma non si può azionare */
+.interruttore.inerte { opacity: .5; cursor: default; }
+@media print { .interruttore { display: none; } }
 
 /* ---------------------------------------------------------------- finestre modali e messaggi */
 .modale-sfondo { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 50; overflow: auto; }
@@ -260,6 +278,42 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   .kpi-confronto .col-tit { display: none; }
   .kpi-confronto .riga-et { grid-column: 1 / -1; margin-top: 6px; }
 }
+/* scheda commessa: "Il conto della commessa" in un'unica tabella a quattro colonne.
+   Nessuna colonna di didascalie: il significato sta scritto dentro ogni scheda, le righe sono
+   raggruppate sotto la domanda a cui rispondono e i segni delle operazioni stanno nella colonna
+   stretta di sinistra, che lega una riga all'altra. */
+/* il padding lascia spazio allo sporgere delle bande: senza, overflow-x:auto farebbe comparire una barra verticale */
+.conto-unico-wrap { overflow-x: auto; padding: 4px 0; }
+/* corsie: etichetta del gruppo · graffa · segni delle operazioni · le quattro situazioni */
+.conto-unico { --tracce: 170px 15px 30px repeat(4, minmax(150px, 1fr)); position: relative; display: grid; grid-template-columns: var(--tracce); gap: 8px 10px; align-items: stretch; min-width: 900px; }
+/* strato di sfondo: una banda continua per colonna, dietro tutte le righe. È ciò che tiene insieme
+   la colonna. Le prime tre corsie (etichetta, graffa, segni) restano trasparenti. */
+.conto-unico .bande { position: absolute; inset: -4px 0 -2px; display: grid; grid-template-columns: var(--tracce); gap: 0 10px; z-index: 0; pointer-events: none; }
+.conto-unico .bande > div:nth-child(n+4) { background: var(--banda); border-radius: var(--raggio); }
+.conto-unico > :not(.bande) { position: relative; z-index: 1; }
+.conto-unico .col-tit { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--primario); font-weight: 650; padding: 0 8px 3px; border-bottom: 2px solid var(--primario-chiaro); align-self: end; }
+.conto-unico .op { display: flex; align-items: center; justify-content: center; font-size: 21px; font-weight: 700; color: var(--testo3); }
+/* la domanda del gruppo sta a lato, allineata alla graffa che ne abbraccia le righe */
+.conto-unico .et-gruppo { grid-column: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; text-align: right; gap: 4px; padding: 6px 6px 6px 0; }
+.conto-unico .et-gruppo b { color: var(--primario); font-size: 13.5px; line-height: 1.3; }
+.conto-unico .et-gruppo span { color: var(--testo2); font-size: 11.5px; line-height: 1.35; }
+.conto-unico .graffa { grid-column: 2; width: 100%; height: 100%; color: var(--primario-graffa); overflow: visible; }
+/* contorni marcati: in una griglia così fitta un bordo tenue non basta a staccare una casella dall'altra */
+.conto-unico .kpi { margin: 0; border-width: 1.5px; border-color: var(--bordo-forte); }
+.conto-unico .kpi.calc { border-color: var(--calc-bordo-forte); }
+.conto-unico .kpi.vuota { background: transparent; border-style: dashed; border-color: var(--bordo-forte); box-shadow: none; }
+.conto-unico .kpi.forte { border-width: 2.5px; border-color: var(--primario); }
+.conto-unico .kpi.forte .val { font-size: 20px; }
+/* caselle di corredo (ore, coperture): stesso peso di lettura delle altre, fondo neutro perché
+   non sono passaggi del conto ma il dato che li spiega */
+.conto-unico .kpi.info { background: var(--carta); border-style: dashed; border-color: var(--bordo-forte); }
+/* "1,11 su 6,74 €/h" è più lungo di un valore secco: va a capo invece di essere troncato */
+.conto-unico .kpi.info .val { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+/* il testo dentro la casella ("anziché 6,74 €/h desiderati", "già comprese nel fatturato") si deve
+   leggere: staccato da una riga, scuro e in grassetto, non una scritta grigia in coda al numero */
+.conto-unico .kpi .sub { margin-top: 7px; padding-top: 5px; border-top: 1px solid var(--bordo-forte); color: var(--testo); font-size: 12.5px; font-weight: 600; line-height: 1.35; }
+.conto-unico .kpi.forte.sfondo.rosso { border-color: var(--rosso); }
+.conto-unico .kpi.forte.sfondo.verde { border-color: var(--verde); }
 .spiegazione { font-size: 12.5px; color: var(--testo2); margin: 0 0 10px; }
 .spiegazione b { color: var(--testo); }
 
@@ -269,6 +323,9 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   #app { grid-template-columns: 1fr; }
   .contenuto { padding: 0; }
   .pannello, .kpi, .tabella-wrap { box-shadow: none; break-inside: avoid; }
+  .conto-unico-wrap { overflow: visible; }
+  .conto-unico { min-width: 0; }
+  .conto-unico .bande { display: none; }
   body { background: #fff; }
 }
 

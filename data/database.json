@@ -1,7 +1,7 @@
 {
  "app": "FIDA EDILE – Gestione Cantieri",
  "schemaVersion": 1,
- "rev": 43,
+ "rev": 45,
  "creatoIl": "2026-09-12T07:48:38.711Z",
  "parametri": {
   "costoOrario": 45.79,
@@ -221,7 +221,7 @@
   },
   {
    "id": "c_mu6x4g1cvxj1ms",
-   "dataInserimento": "2026-09-18",
+   "dataInserimento": "2025-10-18",
    "codice": "C002",
    "cliente": "Smegmatron",
    "cantiere": "Linea di montaggio smegma",
@@ -229,8 +229,8 @@
    "ramo": "smegmatori",
    "tecnico": "sergio",
    "preposto": "tony",
-   "dataInizioPrevista": "2026-09-20",
-   "dataInizioEffettiva": "2026-09-21",
+   "dataInizioPrevista": "2025-09-20",
+   "dataInizioEffettiva": "2025-09-21",
    "dataFinePrevista": "2026-09-22",
    "dataFineEffettiva": "2026-09-23",
    "dataFinePrevistaOriginale": "2026-09-22",
@@ -261,7 +261,23 @@
    "annullato": false
   }
  ],
- "saldi": [],
+ "saldi": [
+  {
+   "id": "s_mu70h4sxeam5g4",
+   "commessaId": "c_mu6x4g1cvxj1ms",
+   "anno": 2026,
+   "sal": null,
+   "fatturatoLordo": null,
+   "ritenute": null,
+   "svincoli": null,
+   "perditeSal": null,
+   "ore": null,
+   "costiDiretti": 3000,
+   "note": "",
+   "annullato": false,
+   "creatoIl": "2026-09-18T13:45:54.528Z"
+  }
+ ],
  "movimenti": [
   {
    "id": "m_mty85xzevzi07u",
@@ -1415,10 +1431,64 @@
      "dopo": 0
     }
    ]
+  },
+  {
+   "id": "a_mu70gzxnz2op6s",
+   "ts": "2026-09-18T13:45:36.491Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "commessa",
+   "entitaId": "c_mu6x4g1cvxj1ms",
+   "riferimento": "C002",
+   "azione": "MODIFICA ANAGRAFICA",
+   "modifiche": [
+    {
+     "campo": "dataInserimento",
+     "prima": "2026-09-18",
+     "dopo": "2025-10-18"
+    },
+    {
+     "campo": "dataInizioPrevista",
+     "prima": "2026-09-20",
+     "dopo": "2025-09-20"
+    },
+    {
+     "campo": "dataInizioEffettiva",
+     "prima": "2026-09-21",
+     "dopo": "2025-09-21"
+    }
+   ]
+  },
+  {
+   "id": "a_mu70hduor0brqk",
+   "ts": "2026-09-18T13:45:54.528Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "saldo",
+   "entitaId": "s_mu70h4sxeam5g4",
+   "riferimento": "C002 | Smegmatron | Linea di montaggio smegma · saldo al 31/12/2025",
+   "azione": "NUOVO SALDO INIZIALE",
+   "modifiche": [
+    {
+     "campo": "commessaId",
+     "prima": "",
+     "dopo": "c_mu6x4g1cvxj1ms"
+    },
+    {
+     "campo": "anno",
+     "prima": "",
+     "dopo": 2026
+    },
+    {
+     "campo": "costiDiretti",
+     "prima": "",
+     "dopo": 3000
+    }
+   ]
   }
  ],
  "esercizi": [],
- "salvatoIl": "2026-09-18T12:11:51.985Z",
+ "salvatoIl": "2026-09-18T13:45:54.529Z",
  "preventivi": [
   {
    "id": "p_mtyf2n5qxmauag",

@@ -252,6 +252,9 @@
 
       '<h2>Dati e copie di sicurezza</h2><div class="pannello"><p>Modalità: <span class="pill ' + Store.modo + '">' + (Store.modo === 'server' ? 'server locale – i dati sono nel file data/database.json (con backup giornaliero in data/backup)' : 'file – i dati sono salvati nel browser di questo PC') + '</span></p>' +
       '<p class="sotto">Commesse: ' + Store.db.commesse.length + ' · Movimenti: ' + Store.db.movimenti.length + ' · Costi: ' + Store.db.costi.length + ' · Saldi: ' + Store.db.saldi.length + ' · Voci registro: ' + Store.db.audit.length + '</p>' +
+      '<p class="sotto">L\'<b>esportazione totale</b> porta via tutto il contenuto dell\'applicazione — commesse, preventivi, movimenti, costi, saldi, fasi, chiusure, registro modifiche, parametri e liste — in un formato che si porta dietro la propria struttura (chiavi, campi, relazioni, ordine di inserimento), così da poter essere caricato anche in un database diverso da questo.</p>' +
+      '<div class="btn-gruppo"><button type="button" class="primario" id="btn-esporta-tutto">Esporta tutti i dati (JSON portabile)</button>' +
+      (Store.puo('dati') ? '<button type="button" id="btn-importa-tutto">Importa tutti i dati…</button><input type="file" id="file-importa" accept=".json,application/json" hidden>' : '') + '</div>' +
       '<div class="btn-gruppo"><button type="button" id="btn-backup">Scarica copia di sicurezza (JSON)</button>' +
       '<button type="button" id="btn-modello-commesse">Scarica il modello Excel delle commesse</button>' +
       (Store.puo('dati') ? '<button type="button" id="btn-ripristino">Ripristina da copia di sicurezza…</button><input type="file" id="file-ripristino" accept=".json,application/json" hidden>' : '') +
@@ -266,6 +269,41 @@
     cont.querySelectorAll('[data-utente]').forEach(x => x.onclick = () => apriUtente(x.dataset.utente));
     if (b('btn-chiusura')) b('btn-chiusura').onclick = chiusuraEsercizio;
     b('btn-backup').onclick = () => { Fmt.scarica(Fmt.nomeFileData('backup_fida_edile', 'json'), Store.esportaJson(), 'application/json'); UI.toast('Copia di sicurezza scaricata.'); };
+    // esportazione totale: la busta portabile, con dentro anche la descrizione della propria struttura
+    b('btn-esporta-tutto').onclick = () => {
+      const c = Dati.conteggi(Store.db), v = Dati.verifica(Store.db);
+      Fmt.scarica(Fmt.nomeFileData('fida_edile_dati_completi', 'json'), Dati.testo(Store.db, { modo: Store.modo, utente: Store.utente.nome }), 'application/json');
+      UI.toast('Esportate ' + c.totale + ' righe' + (v.errori.length ? ' · attenzione: ' + v.errori.length + ' problemi di integrità' : '') + '.', v.errori.length ? 'errore' : '');
+    };
+    if (b('btn-importa-tutto')) {
+      b('btn-importa-tutto').onclick = () => b('file-importa').click();
+      b('file-importa').onchange = async e => {
+        const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+        const esito = Dati.analizza(await f.text());
+        const elenco = (t, l, cls) => l.length ? '<div class="msg ' + cls + '"><b>' + t + '</b><ul style="margin:6px 0 0 18px">' + l.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>' : '';
+        if (!esito.conteggi) return UI.modale({ titolo: 'Importazione non possibile', corpo: elenco('Il file non può essere letto', esito.errori, 'errore'), pulsanti: [] });
+        // si mostra sempre che cosa sta entrando, e a che cosa si sostituisce, prima di toccare qualcosa
+        const att = Dati.conteggi(Store.db);
+        const righe = Dati.ORDINE.map(n => '<tr><th>' + esc(n) + '</th><td class="n">' + att[n] + '</td><td class="n"><b>' + esito.conteggi[n] + '</b></td></tr>').join('');
+        const corpo = '<p>File <b>' + esc(f.name) + '</b> · formato <b>' + (esito.origine === 'portabile' ? 'esportazione totale v' + esito.versioneFormato : 'copia di sicurezza (formato precedente)') + '</b>' +
+          (esito.generatoIl ? ' · generato il ' + Fmt.dataOra(esito.generatoIl) : '') + (esito.generatoDa ? ' da ' + esc(esito.generatoDa) : '') + '</p>' +
+          '<table class="kv kv3"><tr><th></th><th class="col-ini">Adesso</th><th class="col-agg">Dopo l\'importazione</th></tr>' + righe + '</table>' +
+          elenco('Problemi di integrità: l\'importazione è bloccata', esito.errori, 'errore') +
+          elenco('Avvertenze', esito.avvisi, 'avviso') +
+          (esito.ok ? '<div class="msg avviso">Le <b>' + att.totale + '</b> righe attuali verranno <b>sostituite</b> dalle <b>' + esito.conteggi.totale + '</b> del file. Scarica prima un\'esportazione, se non l\'hai già fatto.</div>' +
+            '<div class="campo"><label>Per confermare digita: <b>IMPORTA</b></label><input type="text" class="in" id="imp-conf" autocomplete="off"></div>' : '');
+        UI.modale({
+          titolo: 'Importazione totale dei dati', corpo,
+          pulsanti: esito.ok ? [{
+            testo: 'Sostituisci tutti i dati', classe: 'pericolo', async azione(m) {
+              if (m.el.querySelector('#imp-conf').value.trim() !== 'IMPORTA') { m.msg('<div class="msg errore">Digitare IMPORTA per confermare.</div>'); return; }
+              try { await Store.importaJson(JSON.stringify(esito.db)); m.chiudi(); UI.toast('Importate ' + esito.conteggi.totale + ' righe.'); UI.render(); }
+              catch (err) { m.msg('<div class="msg errore">Importazione non riuscita: ' + esc(err.message) + '</div>'); }
+            }
+          }] : []
+        });
+      };
+    }
     b('btn-modello-commesse').onclick = () => Importa.scaricaModello(false);
     if (b('btn-ripristino')) {
       b('btn-ripristino').onclick = () => b('file-ripristino').click();

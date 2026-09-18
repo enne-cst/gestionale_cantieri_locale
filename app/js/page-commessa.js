@@ -123,11 +123,17 @@
       ]) + '</div></div>';
   }
 
+  // Interruttore dei saldi storici: spento, la scheda considera solo movimenti e costi dell'esercizio
+  // in corso, come se la commessa partisse da zero il 1° gennaio. Vale per tutte le schede calcolate,
+  // così i numeri restano coerenti passando da una all'altra, e si azzera cambiando commessa.
+  let senzaSaldi = false, senzaSaldiPer = null;
+
   UI.registra('commessa', function (cont, params) {
     const id = params[0], tab = TABS.some(t => t[0] === params[1]) ? params[1] : 'riepilogo';
     const c = Store.commessa(id);
     if (!c) { cont.innerHTML = UI.barraRitorno('<b>Scheda commessa</b>') + '<div class="msg errore">Commessa non trovata.</div>'; return; }
-    const r = Engine.calcolaCommessa(c, Store.db);
+    if (senzaSaldiPer !== id) { senzaSaldi = false; senzaSaldiPer = id; }
+    const r = Engine.calcolaCommessa(c, Store.db, null, { senzaSaldi });
     const P = Store.db.parametri;
     const ricarica = () => UI.render();
     // In testata restano solo le azioni generali sulla commessa; le modifiche stanno nelle singole schede.
@@ -136,9 +142,26 @@
       (Store.puo('commessa.elimina') ? '<button type="button" class="pericolo" id="b-del">Elimina / annulla</button>' : '');
     cont.innerHTML = '<div class="scheda-commessa">' + UI.barraRitorno('<b>Scheda commessa ' + esc(c.codice) + '</b>') +
       UI.testata(c.codice + ' · ' + c.cliente, esc(c.cantiere) + ' &nbsp;·&nbsp; ' + UI.badgeStato(c.stato) + ' &nbsp;·&nbsp; ' + UI.badgeAlert(r.alert) + (c.tecnico ? ' &nbsp;·&nbsp; tecnico ' + esc(c.tecnico) : '') + (c.preposto ? ' · preposto ' + esc(c.preposto) : '') + (c.annullato ? ' &nbsp;<span class="badge neutro">COMMESSA ANNULLATA</span>' : '') + (r.definita ? ' &nbsp;<span class="badge neutro">COMMESSA DEFINITA</span>' : ''), azioni, 'Scheda commessa') +
-      '<div class="tabs">' + TABS.map(t => '<a href="#/commessa/' + esc(id) + '/' + t[0] + '" class="' + (tab === t[0] ? 'attivo' : '') + '">' + t[1] + (t[0] === 'movimenti' ? ' (' + r.nMovimenti + ')' : (t[0] === 'costi' ? ' (' + r.nCosti + ')' : (t[0] === 'gantt' ? ' (' + Store.db.fasi.filter(f => f.commessaId === id).length + ')' : ''))) + '</a>').join('') + '</div><div id="tab-corpo"></div></div>';
+      '<div class="tabs-riga">' +
+      '<div class="tabs">' + TABS.map(t => '<a href="#/commessa/' + esc(id) + '/' + t[0] + '" class="' + (tab === t[0] ? 'attivo' : '') + '">' + t[1] + (t[0] === 'movimenti' ? ' (' + r.nMovimenti + ')' : (t[0] === 'costi' ? ' (' + r.nCosti + ')' : (t[0] === 'gantt' ? ' (' + Store.db.fasi.filter(f => f.commessaId === id).length + ')' : ''))) + '</a>').join('') + '</div>' +
+      // L'interruttore è sempre visibile, anche quando non c'è nulla da escludere: se comparisse solo
+      // ogni tanto non si saprebbe che esiste. Senza saldo iniziale resta spento e inerte, col motivo scritto.
+      '<label class="interruttore' + (r.hasSaldo ? '' : ' inerte') + '" title="' + esc(r.hasSaldo
+        ? 'Spento, la scheda considera solo l\'esercizio ' + P.annoGestione + ': il saldo iniziale al ' + Fmt.data(Engine.dataSaldo(P.annoGestione)) + ' non viene conteggiato.'
+        : 'Questa commessa non ha un saldo iniziale al ' + Fmt.data(Engine.dataSaldo(P.annoGestione)) + ': non c\'è storico da escludere dal computo.') + '">' +
+      '<input type="checkbox" id="sw-saldi"' + (senzaSaldi ? '' : ' checked') + (r.hasSaldo ? '' : ' disabled') + '><span class="leva"></span>' +
+      '<span class="testo">Saldi storici <b>' + (r.hasSaldo ? (senzaSaldi ? 'esclusi' : 'inclusi') : 'assenti') + '</b></span></label>' +
+      '</div><div id="tab-corpo"></div></div>';
     const corpo = document.getElementById('tab-corpo');
     const legenda = UI.legenda();
+    // Saldi storici esclusi: si dice a chiare lettere che cosa resta fuori dal computo, voce per voce.
+    if (r.saldoEscluso) {
+      const s = r.saldoEscluso;
+      corpo.insertAdjacentHTML('beforebegin', '<div class="msg avviso"><b>Saldi storici esclusi dal computo</b>: la scheda mostra il solo esercizio ' + esc(P.annoGestione) +
+        ', come se la commessa partisse da zero. Non è conteggiato il saldo iniziale al ' + Dt(Engine.dataSaldo(P.annoGestione)) + ':<br>' +
+        'SAL ' + E(s.sal) + ' · fatturato ' + E(s.fatturatoLordo) + ' · ritenute ' + E(s.ritenute) + ' · svincoli ' + E(s.svincoli) +
+        ' · perdite ' + E(s.perditeSal) + ' · ore ' + O(s.ore) + ' · costi diretti ' + E(s.costiDiretti) + '</div>');
+    }
     // Commessa definita: i cumulativi dell'esercizio in corso sono a zero perché non riceve più saldi
     // iniziali. I valori finali congelati dalla chiusura restano qui, insieme allo storico di movimenti e costi.
     if (r.definita) {
@@ -209,6 +232,7 @@
       note: () => Cantieri.apriNote(id, ricarica)
     };
     cont.querySelectorAll('[data-az]').forEach(el => el.onclick = () => apri[el.dataset.az]());
+    if (b('sw-saldi')) b('sw-saldi').onchange = e => { senzaSaldi = !e.target.checked; ricarica(); };
     if (b('b-del')) b('b-del').onclick = () => Commesse.elimina(id);
     const be = cont.querySelector('[data-esporta="scheda"]');
     if (be) be.onclick = () => {

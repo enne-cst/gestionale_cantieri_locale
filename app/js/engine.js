@@ -164,14 +164,20 @@
     attivi(db.costi).forEach(k => { if (annoDi(k.data) === anno) get(k.commessaId).costi.push(k); });
     return idx;
   }
-  function aggregati(db, commessaId, idx) {
+  // opz.senzaSaldi: il saldo iniziale non entra nei cumulativi. Serve a leggere la commessa come se
+  // partisse da zero il 1° gennaio, cioè a vedere il solo esercizio in corso senza ciò che è stato prima.
+  // Il saldo scartato resta disponibile in `saldoEscluso`, per poter dire che cosa si sta lasciando fuori.
+  function aggregati(db, commessaId, idx, opz) {
     const a = (idx || indicizza(db))[commessaId] || { saldo: null, movimenti: [], costi: [] };
     const sum = (arr, f) => arr.reduce((t, x) => t + num(x[f]), 0);
     const s = a.saldo || {};
-    const saldo = {
+    const senzaSaldi = !!(opz && opz.senzaSaldi);
+    const saldoReale = {
       sal: num(s.sal), fatturatoLordo: num(s.fatturatoLordo), ritenute: num(s.ritenute), svincoli: num(s.svincoli),
       perditeSal: num(s.perditeSal), ore: num(s.ore), costiDiretti: num(s.costiDiretti)
     };
+    const saldo = {};
+    Object.keys(saldoReale).forEach(k => { saldo[k] = senzaSaldi ? 0 : saldoReale[k]; });
     const periodo = {
       sal: sum(a.movimenti, 'sal'), fatturatoLordo: sum(a.movimenti, 'fatturatoLordo'), ritenute: sum(a.movimenti, 'ritenuta'),
       svincoli: sum(a.movimenti, 'svincolo'), perditeSal: sum(a.movimenti, 'perditaSal'), ore: sum(a.movimenti, 'ore'),
@@ -179,13 +185,17 @@
     };
     const cumulato = {};
     Object.keys(saldo).forEach(k => { cumulato[k] = saldo[k] + periodo[k]; });
-    return { saldo, periodo, cumulato, hasSaldo: !!a.saldo, nMovimenti: a.movimenti.length, nCosti: a.costi.length };
+    return {
+      saldo, periodo, cumulato, hasSaldo: !!a.saldo,
+      senzaSaldi, saldoEscluso: (senzaSaldi && a.saldo) ? saldoReale : null,
+      nMovimenti: a.movimenti.length, nCosti: a.costi.length
+    };
   }
 
   // ---------------------------------------------------------------- scheda commessa (foglio CANTIERI)
-  function calcolaCommessa(c, db, idx) {
+  function calcolaCommessa(c, db, idx, opz) {
     const P = db.parametri;
-    const agg = aggregati(db, c.id, idx);
+    const agg = aggregati(db, c.id, idx, opz);
     const cum = agg.cumulato;
     const bud = budgetDi(c);
     const finito = isFinito(c.stato);
@@ -363,7 +373,8 @@
       costiBudgetIni, costiResiduoIni, costiSforamentoIni, costoOrePrevisteIni,
       budgetAggiornatoAl: bud.dataAggiornamento, budgetHaAggiornamento: bud.haAggiornamento,
       giorniRitardo, dataFineIncompleta,
-      budget: bud, sostenibilita, sostenibilitaIniziale, sostenibilitaConsuntivo, saldo: agg.saldo, periodo: agg.periodo, hasSaldo: agg.hasSaldo, nMovimenti: agg.nMovimenti, nCosti: agg.nCosti,
+      budget: bud, sostenibilita, sostenibilitaIniziale, sostenibilitaConsuntivo, saldo: agg.saldo, periodo: agg.periodo, hasSaldo: agg.hasSaldo,
+      senzaSaldi: agg.senzaSaldi, saldoEscluso: agg.saldoEscluso, nMovimenti: agg.nMovimenti, nCosti: agg.nCosti,
       definita, chiusuraDefinitiva: c.chiusuraDefinitiva || null,
       alert, motivi, motiviDettaglio, note
     };
@@ -377,7 +388,7 @@
     let cs = attivi(db.commesse);
     if (o.soloDefinite) cs = cs.filter(isDefinita);
     else if (!o.includiDefinite) cs = cs.filter(c => !isDefinita(c));
-    return cs.map(c => calcolaCommessa(c, db, idx));
+    return cs.map(c => calcolaCommessa(c, db, idx, o));
   }
 
   // ---------------------------------------------------------------- dashboard direzionale
@@ -405,7 +416,7 @@
       perditeCum: sum('perditeCum'), valoreRecuperabile: sum('valoreRecuperabile'),
       // margine operativo previsto = contratto iniziale − costi diretti previsti (budget); % sul contratto iniziale
       // sdoppiato fra budget iniziale (storico) e budget aggiornato (vigente)
-      contrattoIniziale: sum('contrattoIniziale'),
+      contrattoIniziale: sum('contrattoIniziale'), integrazioni: sum('integrazioni'),
       margineOperativoPrevisto: sum('contrattoIniziale') - sum('costiBudget'),
       margineOperativoPrevistoPct: sum('contrattoIniziale') > 0 ? 1 - sum('costiBudget') / sum('contrattoIniziale') : null,
       margineOperativoPrevistoIni: sum('contrattoIniziale') - sum('costiBudgetIni'),

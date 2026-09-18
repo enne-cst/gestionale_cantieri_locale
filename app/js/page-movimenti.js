@@ -3,6 +3,15 @@
   'use strict';
   const esc = UI.esc;
   const CAMPI = ['commessaId', 'data', 'tipo', 'numeroDocumento', 'descrizione', 'sal', 'fatturatoLordo', 'ritenuta', 'svincolo', 'ore', 'perditaSal', 'note'];
+  // Valori del movimento: quali compaiono nella maschera dipende dal tipo scelto (Engine.CAMPI_TIPO).
+  const VALORI = ['sal', 'fatturatoLordo', 'ritenuta', 'svincolo', 'fatturatoNetto', 'ore', 'perditaSal'];
+  const ADDENDI_NETTO = ['fatturatoLordo', 'ritenuta', 'svincolo'];
+  const NOMI_VALORE = { sal: 'SAL maturato', fatturatoLordo: 'fatturato lordo', ritenuta: 'ritenuta', svincolo: 'svincolo ritenuta', ore: 'ore effettive', perditaSal: 'perdita SAL accettata' };
+  // campi di un tipo: i suoi, più il fatturato netto se se ne vede almeno un addendo (è un calcolo, non un dato)
+  function campiDelTipo(tipo) {
+    const campi = Engine.CAMPI_TIPO[tipo] || [];
+    return ADDENDI_NETTO.some(c => campi.indexOf(c) >= 0) ? campi.concat(['fatturatoNetto']) : campi.slice();
+  }
   const D = { commessaId: '', meseDa: 1, meseA: 12 };
   const F = { testo: '', tipo: '', anno: null, annullati: false, commessaId: '' };
 
@@ -22,7 +31,7 @@
         UI.campo({ nome: 'numeroDocumento', etichetta: 'Numero documento' }, m.numeroDocumento) +
         UI.campo({ nome: 'descrizione', etichetta: 'Descrizione', classe: 'doppio' }, m.descrizione) +
         '</div><div class="aiuto" id="mov-hint" style="margin-top:6px;font-size:12px;color:var(--testo2)"></div></fieldset>' +
-        '<fieldset><legend>Valori (compilare solo quelli pertinenti all\'evento)</legend><div class="form-griglia">' +
+        '<fieldset><legend>Valori dell\'evento</legend><div class="msg info" id="mov-scegli-tipo">Scegli il <b>tipo movimento</b> qui sopra: compariranno solo i valori che lo riguardano.</div><div class="form-griglia">' +
         UI.campo({ nome: 'sal', etichetta: 'SAL maturato (€)', tipo: 'euro' }, m.sal) +
         UI.campo({ nome: 'fatturatoLordo', etichetta: 'Fatturato lordo (€)', tipo: 'euro' }, m.fatturatoLordo) +
         UI.campo({ nome: 'ritenuta', etichetta: 'Ritenuta maturata (€)', tipo: 'euro' }, m.ritenuta) +
@@ -30,7 +39,7 @@
         UI.campo({ nome: 'fatturatoNetto', etichetta: 'Fatturato netto (€)', tipo: 'sola', html: Fmt.euro(Engine.fatturatoNetto(m)) }) +
         UI.campo({ nome: 'ore', etichetta: 'Ore effettive', tipo: 'ore', step: '0.5' }, m.ore) +
         UI.campo({ nome: 'perditaSal', etichetta: 'Perdita SAL accettata (€)', tipo: 'euro' }, m.perditaSal) +
-        '</div><div class="aiuto" style="margin-top:6px">Fatturato netto = fatturato lordo − ritenuta + svincolo (calcolato automaticamente).</div></fieldset>' +
+        '</div><div class="aiuto" id="mov-netto-nota" style="margin-top:6px">Fatturato netto = fatturato lordo − ritenuta + svincolo (calcolato automaticamente).</div></fieldset>' +
         '<fieldset><legend>Note</legend>' + UI.campo({ nome: 'note', etichetta: 'Note', tipo: 'textarea', classe: 'largo' }, m.note) + '</fieldset></form>';
       let combo;
       UI.modale({
@@ -70,15 +79,40 @@
         onMount(mm) {
           const form = mm.el.querySelector('#form-mov');
           combo = UI.comboCommessa(form.querySelector('#mov-combo'), { valore: m.commessaId });
-          const hint = () => {
-            const t = form.querySelector('#f-tipo').value;
-            const campi = Engine.CAMPI_TIPO[t];
-            const nomi = { sal: 'SAL maturato', fatturatoLordo: 'fatturato lordo', ritenuta: 'ritenuta', svincolo: 'svincolo ritenuta', ore: 'ore', perditaSal: 'perdita SAL accettata' };
-            form.querySelector('#mov-hint').textContent = t ? (campi && campi.length ? 'Campi tipici per "' + t + '": ' + campi.map(c => nomi[c]).join(', ') + '. Gli altri campi restano disponibili se l\'evento li comprende.' : 'Tipo generico: compilare i valori pertinenti.') : '';
-            const v = UI.leggiForm(form);
-            form.querySelector('#f-fatturatoNetto').textContent = Fmt.euro(Engine.fatturatoNetto(v));
-          };
-          form.addEventListener('input', hint); form.addEventListener('change', hint); hint();
+          const selTipo = form.querySelector('#f-tipo');
+          const riquadro = n => { const el = form.querySelector('#f-' + n); return el ? el.closest('.campo') : null; };
+          // il fatturato netto è uno <span> calcolato: non ha un valore da leggere né da svuotare
+          const haValore = n => { const el = form.querySelector('#f-' + n); return !!(el && 'value' in el && String(el.value).trim() !== ''); };
+
+          // Mostra i soli valori che riguardano il tipo scelto.
+          // Cambiando tipo, i valori non più pertinenti si svuotano prima di sparire: se restassero,
+          // verrebbero salvati pur non essendo più visibili.
+          // All'apertura invece non si svuota nulla: un movimento già registrato che contiene un valore
+          // fuori dal suo tipo lo tiene in vista, altrimenti sparirebbe dagli occhi restando nell'archivio.
+          function mostraValori(cambioTipo) {
+            const t = selTipo.value;
+            const generico = !!t && !(Engine.CAMPI_TIPO[t] || []).length;      // ALTRO: nessun campo tipico
+            const perti = !t ? [] : (generico ? VALORI.slice() : campiDelTipo(t));
+            if (cambioTipo) VALORI.forEach(n => {
+              if (n === 'fatturatoNetto' || perti.indexOf(n) >= 0) return;
+              const el = form.querySelector('#f-' + n);
+              if (el && 'value' in el) el.value = '';
+            });
+            const superstiti = VALORI.filter(n => n !== 'fatturatoNetto' && perti.indexOf(n) < 0 && haValore(n));
+            const visibili = perti.concat(superstiti);
+            if (visibili.indexOf('fatturatoNetto') < 0 && ADDENDI_NETTO.some(c => visibili.indexOf(c) >= 0)) visibili.push('fatturatoNetto');
+            VALORI.forEach(n => { const b = riquadro(n); if (b) b.hidden = visibili.indexOf(n) < 0; });
+            form.querySelector('#mov-scegli-tipo').hidden = !!t;
+            form.querySelector('#mov-netto-nota').hidden = visibili.indexOf('fatturatoNetto') < 0;
+            form.querySelector('#mov-hint').textContent = !t ? ''
+              : (generico ? 'Tipo generico: sono disponibili tutti i valori, si compilano quelli pertinenti.'
+                : 'Per "' + t + '" si compila: ' + Engine.CAMPI_TIPO[t].map(c => NOMI_VALORE[c]).join(', ') + '.') +
+                (superstiti.length ? ' Resta in vista anche ' + superstiti.map(c => NOMI_VALORE[c]).join(', ') + ', che il movimento contiene già.' : '');
+          }
+          const netto = () => { form.querySelector('#f-fatturatoNetto').textContent = Fmt.euro(Engine.fatturatoNetto(UI.leggiForm(form))); };
+          selTipo.addEventListener('change', () => mostraValori(true));
+          form.addEventListener('input', netto); form.addEventListener('change', netto);
+          mostraValori(false); netto();
         }
       });
     },
