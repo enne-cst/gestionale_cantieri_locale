@@ -1,0 +1,30 @@
+# Configurazione per la pubblicazione su Render (https://render.com).
+# Su Render: New → Blueprint → scegliere questo repository.
+#
+# ATTENZIONE - dati non permanenti: sul piano free il disco del container viene azzerato a ogni
+# riavvio o nuova pubblicazione, quindi le modifiche fatte online si perdono e si torna al
+# contenuto di data/database.json presente nel repository. Va bene per provare l'app.
+# Per conservare i dati servono un piano a pagamento e un disco: togliere il commento dalla
+# sezione "disk" qui sotto, impostare plan: starter e la variabile DATA_DIR a /var/data.
+services:
+  - type: web
+    name: gestione-cantieri
+    runtime: node
+    plan: free
+    buildCommand: "echo nessuna dipendenza da installare"
+    startCommand: "node server.js"
+    healthCheckPath: /api/salute
+    envVars:
+      # Utente e password chiesti dal browser all'apertura. Il valore va scritto a mano
+      # nel pannello di Render (Environment): sync: false serve proprio a non metterlo nel repository.
+      - key: APP_UTENTE
+        sync: false
+      - key: APP_PASSWORD
+        sync: false
+      # Dati permanenti: da abilitare insieme al disco qui sotto.
+      # - key: DATA_DIR
+      #   value: /var/data
+    # disk:
+    #   name: dati
+    #   mountPath: /var/data
+    #   sizeGB: 1

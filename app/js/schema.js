@@ -63,7 +63,10 @@
     // commesse definite dalla chiusura esercizio: i database precedenti non hanno il campo
     db.commesse.forEach(c => { if (!c.chiusuraDefinitiva) c.chiusuraDefinitiva = null; });
     // budget sdoppiato in iniziale/aggiornato: i database precedenti hanno solo i valori iniziali
-    db.commesse.forEach(c => { c.budget = Object.assign({ orePreviste: null, costoOrario: null, costiDirettiPrevisti: null, orePrevisteAgg: null, costiDirettiPrevistiAgg: null, dataAggiornamento: '', note: '' }, c.budget || {}); });
+    db.commesse.forEach(c => { c.budget = Object.assign({ orePreviste: null, costiDirettiPrevisti: null, orePrevisteAgg: null, costiDirettiPrevistiAgg: null, dataAggiornamento: '', note: '' }, c.budget || {}); });
+    // costo orario per commessa eliminato: le ore si valorizzano sempre al costo strutturale corrente
+    // (Parametri), così cambiando il parametro si aggiornano insieme previsioni, consuntivo e verifica.
+    db.commesse.forEach(c => { delete c.budget.costoOrario; });
     // Verifica di sostenibilità economica della commessa: i costi specifici arrivano dal Budget, si inserisce
     // solo il ricarico. Nelle versioni intermedie le voci erano inserite a mano: se ce ne sono, il loro ricarico
     // medio diventa il ricarico della commessa, così il risultato della verifica non cambia.
@@ -104,7 +107,7 @@
       note: '',
       // Budget: valori INIZIALI (storico, si congelano alla prima stesura) e valori AGGIORNATI con la data
       // dell'aggiornamento. Se gli aggiornati non ci sono, i vigenti coincidono con gli iniziali.
-      budget: { orePreviste: null, costoOrario: null, costiDirettiPrevisti: null, orePrevisteAgg: null, costiDirettiPrevistiAgg: null, dataAggiornamento: '', note: '' },
+      budget: { orePreviste: null, costiDirettiPrevisti: null, orePrevisteAgg: null, costiDirettiPrevistiAgg: null, dataAggiornamento: '', note: '' },
       // Verifica di sostenibilità economica: nulla si duplica qui. Prezzo del computo = contratto (Anagrafica),
       // ore previste e costi specifici = ore e costi diretti previsti vigenti (Budget). Si inserisce solo il
       // ricarico da applicare ai costi specifici: vuoto = soglia minima della Direzione (Parametri).

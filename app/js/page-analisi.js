@@ -61,14 +61,16 @@
     // `base` è il prezzo sostenibile della parte strutturale su cui è calcolata la redditività: serve a riesprimere
     // in percentuale quanta redditività si riesce davvero a coprire.
     const sv = s => (!s || s.ore === null)
-      ? { prezzo: null, costi: null, costoOre: null, ore: null, redditivita: null, rientro: null, base: null }
-      : { prezzo: s.prezzoMinimo, costi: s.totVoci.costoTotale, costoOre: s.strutturale.costo, ore: s.ore, redditivita: s.strutturale.redditivita, rientro: s.strutturale.rientro, base: s.strutturale.conRedditivita };
+      ? { prezzo: null, costi: null, costoOre: null, ore: null, costoOrario: null, redditivita: null, rientro: null, base: null }
+      : { prezzo: s.prezzoMinimo, costi: s.totVoci.costoTotale, costoOre: s.strutturale.costo, ore: s.ore, costoOrario: S.costoOrario, redditivita: s.strutturale.redditivita, rientro: s.strutturale.rientro, base: s.strutturale.conRedditivita };
     const sIni = sv(opt.sostIni), sAgg = sv(opt.sostAgg), sCons = sv(opt.sostCons);
     const dataAgg = k.budgetAggiornatoAlMax;
 
     // ogni colonna è un conto completo: risultato e avanzi si ricavano dalle righe che li precedono
+    const piu = (a, b) => (Fmt.isNum(a) && Fmt.isNum(b)) ? a + b : null;
     const chiudi = c => {
-      c.risultato = meno(meno(c.totale, c.costi), c.costoOre);
+      c.costiTotali = piu(c.costi, c.costoOre);
+      c.risultato = meno(c.totale, c.costiTotali);
       c.avanzo = meno(c.risultato, c.redditivita);
       c.resta = meno(c.avanzo, c.rientro);
       // quanta redditività e quanto rientro si riesce davvero a coprire, espressi nell'unità del parametro
@@ -86,7 +88,7 @@
         perdite: null, notaPerdite: 'nessuna: è il punto di partenza',
         etTotale: 'Prezzo iniziale al cliente', totale: k.contrattoIniziale,
         etCosti: 'Costi diretti previsti iniziali', costi: k.costiBudgetIni,
-        etOre: 'Ore previste iniziali', etCostoOre: 'Costo delle ore previste iniziali', costoOre: k.costoOrePrevisteIni, ore: k.oreBudgetIni,
+        etOre: 'Ore previste iniziali', etCostoOre: 'Costo delle ore previste iniziali', costoOre: k.costoOrePrevisteIni, ore: k.oreBudgetIni, costoOrario: k.costoOrario,
         redditivita: sIni.redditivita, rientro: sIni.rientro, base: sIni.base, oreSost: sIni.ore
       }),
       // il minimo sostenibile è quello della verifica INIZIALE: fa da metro alla colonna che la precede
@@ -97,7 +99,7 @@
         perdite: null, notaPerdite: 'non previste dal modello',
         etTotale: 'Prezzo minimo sostenibile', totale: sIni.prezzo,
         etCosti: 'Costi specifici al costo', costi: sIni.costi,
-        etOre: 'Ore della verifica iniziale', etCostoOre: 'Costo strutturale delle ore', costoOre: sIni.costoOre, ore: sIni.ore,
+        etOre: 'Ore della verifica iniziale', etCostoOre: 'Costo strutturale delle ore', costoOre: sIni.costoOre, ore: sIni.ore, costoOrario: sIni.costoOrario,
         redditivita: sIni.redditivita, rientro: sIni.rientro, base: sIni.base, oreSost: sIni.ore
       }),
       chiudi({
@@ -107,7 +109,7 @@
         etPerdite: 'Perdite SAL accettate', perdite: k.perditeCum,
         etTotale: 'Valore recuperabile', totale: k.valoreRecuperabile,
         etCosti: 'Costi diretti previsti vigenti', costi: k.costiBudget,
-        etOre: 'Ore previste vigenti', etCostoOre: 'Costo delle ore previste vigenti', costoOre: k.costoOrePreviste, ore: k.oreBudget,
+        etOre: 'Ore previste vigenti', etCostoOre: 'Costo delle ore previste vigenti', costoOre: k.costoOrePreviste, ore: k.oreBudget, costoOrario: k.costoOrario,
         redditivita: sAgg.redditivita, rientro: sAgg.rientro, base: sAgg.base, oreSost: sAgg.ore
       }),
       chiudi({
@@ -117,7 +119,7 @@
         etPerdite: 'Perdite SAL accettate', perdite: k.perditeCum,
         etTotale: 'Totale maturato dal cliente', totale: meno(k.fattCum, k.perditeCum),
         etCosti: 'Costi diretti sostenuti', costi: k.costiSostenuti,
-        etOre: 'Ore consumate', etCostoOre: 'Costo delle ore consumate', costoOre: k.costoOreEffettive, ore: k.oreUsate,
+        etOre: 'Ore consumate', etCostoOre: 'Costo delle ore consumate', costoOre: k.costoOreEffettive, ore: k.oreUsate, costoOrario: k.costoOrario,
         redditivita: sCons.redditivita, rientro: sCons.rientro, base: sCons.base, oreSost: sCons.ore
       })
     ];
@@ -133,25 +135,31 @@
         { op: '=', campo: 'totale', et: c => c.etTotale, forte: true }
       ] },
       { titolo: 'Quanto costa realizzarla?', nota: 'costi diretti e manodopera, quest\'ultima in euro e in ore', righe: [
-        { op: '−', campo: 'costi', et: c => c.etCosti },
+        { op: '', campo: 'costi', et: c => c.etCosti },
         // le ore hanno una casella propria: sono il dato da cui nasce il costo della riga successiva, non un passaggio del conto
         { op: '', campo: 'ore', et: c => c.etOre, fmt: ore, info: true },
-        { op: '−', campo: 'costoOre', et: c => c.etCostoOre },
-        { op: '=', campo: 'risultato', et: 'Risultato dopo i costi', forte: true, segno: true }
+        // il prezzo orario applicato sta sotto al costo: è il costo strutturale corrente dei Parametri, lo stesso per tutte le colonne
+        { op: '+', campo: 'costoOre', et: c => c.etCostoOre, sub: c => Fmt.isNum(c.costoOrario) ? esc((Fmt.isNum(c.ore) ? ore(c.ore) + ' × ' : '') + euro(c.costoOrario) + '/h') : '' },
+        { op: '=', campo: 'costiTotali', et: 'Totale dei costi', forte: true }
+      ] },
+      // l'utile sta fuori dalla graffa: non e' un passaggio del gruppo dei costi, e' il risultato che ne esce
+      { righe: [
+        { op: '=', campo: 'risultato', et: 'Utile/perdita effettivo di commessa', forte: true, sfondo: true, spicca: true,
+          sub: c => (Fmt.isNum(c.totale) && Fmt.isNum(c.costiTotali)) ? esc(euro(c.totale) + ' − ' + euro(c.costiTotali)) : '' }
       ] },
       { titolo: 'Copre la redditività e il rientro? Quanto resta?', nota: 'redditività e rientro bancario richiesti dalla verifica di sostenibilità, sulle ore della colonna', righe: [
         { op: '−', campo: 'redditivita', et: 'Redditività richiesta' },
-        // quanto se ne copre davvero, "coperto su desiderato" in un solo valore, nell'unità del parametro
-        // impostato in Parametri: l'unità di misura si scrive una volta sola, in coda.
-        { op: '', campo: 'copRedditivita', et: 'Redditività coperta', info: true,
-          fmt: v => pct(v).replace(' %', '') + ' su ' + pct(S.redditivita),
-          colore: v => v >= S.redditivita ? 'verde' : 'rosso' },
+        // la redditività che la colonna produce davvero, sulla stessa scala del parametro di Parametri:
+        // verde quando arriva a quella richiesta, rossa quando resta sotto
+        { op: '', campo: 'copRedditivita', et: 'Redditività effettiva', info: true, spicca: true,
+          fmt: v => pct(v),
+          colore: v => 'sfondo ' + (v >= S.redditivita ? 'verde' : 'rosso') },
         { op: '=', campo: 'avanzo', et: 'Avanzo dopo la redditività', segno: true },
         { op: '−', campo: 'rientro', et: 'Rientro bancario richiesto' },
         { op: '', campo: 'copRientro', et: 'Rientro bancario coperto', info: true,
           fmt: v => euro(v).replace(' €', '') + ' su ' + euro(S.rientroOrario) + '/h',
           colore: v => v >= S.rientroOrario ? 'verde' : 'rosso' },
-        { op: '=', campo: 'resta', et: 'Quello che resta', forte: true, sfondo: true }
+        { op: '=', campo: 'resta', et: 'Differenza', segno: true }
       ] }
     ];
 
@@ -165,6 +173,7 @@
         : (r.sfondo ? 'sfondo ' + (v < 0 ? 'rosso' : 'verde') : (r.segno ? (v < 0 ? 'rosso' : 'verde') : ''));
       if (r.forte) colore = (colore ? colore + ' ' : '') + 'forte';
       if (r.info) colore = (colore ? colore + ' ' : '') + 'info';
+      if (r.spicca) colore = (colore ? colore + ' ' : '') + 'spicca';
       return UI.kpi(etichetta, (r.fmt || euro)(v), { colore, calc: r.info ? false : undefined, sub: r.sub ? r.sub(c) : '' });
     };
     // La graffa si allunga sulle righe del gruppo: il tracciato si deforma con il riquadro
@@ -178,8 +187,11 @@
     const corpo = gruppi.map(g => {
       const posizione = 'grid-row:' + riga + '/span ' + g.righe.length;
       riga += g.righe.length;
-      return '<div class="et-gruppo" style="' + posizione + '"><b>' + esc(g.titolo) + '</b><span>' + esc(g.nota) + '</span></div>' + graffa(posizione) +
-        g.righe.map(r => '<div class="op">' + r.op + '</div>' + colonne.map(c => cella(c, r)).join('')).join('');
+      const testa = g.titolo
+        ? '<div class="et-gruppo" style="' + posizione + '"><b>' + esc(g.titolo) + '</b><span>' + esc(g.nota) + '</span></div>' + graffa(posizione)
+        : '';
+      return testa +
+        g.righe.map(r => (g.titolo ? '' : '<div></div><div></div>') + '<div class="op">' + r.op + '</div>' + colonne.map(c => cella(c, r)).join('')).join('');
     }).join('');
 
     return '<div class="pannello"><h2>Il conto della commessa</h2>' +

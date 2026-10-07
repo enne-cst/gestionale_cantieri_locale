@@ -27,12 +27,16 @@
   // barra delle azioni di una scheda (in alto a destra dentro la scheda)
   function barraScheda() { const h = Array.prototype.slice.call(arguments).join(''); return h ? '<div class="azioni-scheda">' + h + '</div>' : ''; }
   // titolo di un pannello con il suo pulsante di modifica a destra
-  // Giudizio in parole sugli scostamenti, coerente con le soglie di Parametri
+  // Giudizio in parole sugli scostamenti, coerente con le soglie di Parametri: ore consumate oltre il
+  // prodotto = cantiere in ritardo, sotto = in anticipo. Mezzo decimo di punto di tolleranza intorno allo
+  // zero, così quello che si legge 0,0 % non viene chiamato né anticipo né ritardo.
   function esitoOre(r, col, P) {
     if (!col) return 'Non calcolabile: ' + (r.orePct === null ? 'manca il budget ore' : 'manca il valore recuperabile');
-    if (col === 'rosso') return 'Ore in eccesso, critico (oltre ' + Pc(P.scartoOreCritico) + ')';
-    if (col === 'giallo') return 'Ore in eccesso, attenzione (oltre ' + Pc(P.scartoOreAttenzione) + ')';
-    return r.scostOre <= 0 ? 'Ore in linea o sotto l\'avanzamento' : 'In linea (entro la soglia)';
+    if (col === 'rosso') return 'Cantiere in ritardo, critico (oltre ' + Pc(P.scartoOreCritico) + ')';
+    if (col === 'giallo') return 'Cantiere in ritardo, attenzione (oltre ' + Pc(P.scartoOreAttenzione) + ')';
+    if (r.scostOre > 0.0005) return 'Cantiere in leggero ritardo (entro la soglia)';
+    if (r.scostOre < -0.0005) return 'Cantiere in anticipo';
+    return 'Cantiere al pari';
   }
   function testaPannello(titolo, azHtml) { return '<div class="pannello-testa"><h2>' + esc(titolo) + '</h2>' + (azHtml || '') + '</div>'; }
 
@@ -44,14 +48,144 @@
       // stessi pannelli della Dashboard di analisi, calcolati sulla sola commessa aperta
       Analisi.pannelli(Engine.riepilogo([r]), { singola: true, sostIni: r.sostenibilitaIniziale, sostAgg: r.sostenibilita, sostCons: r.sostenibilitaConsuntivo }) +
       '<div class="griglia-2">' +
-      '<div class="pannello"><h2>Ore − SAL</h2>' +
+      '<div class="pannello"><h2>Ore − SAL maturato (quarta colonna)</h2>' +
       '<p class="spiegazione">Confronta le ore di manodopera consumate (Ore %) con quanto è stato prodotto (SAL %). <b>Scostamento = Ore % − SAL %</b>: positivo = consumate più ore di quanto prodotto (inefficienza); zero o negativo = ore in linea con l\'avanzamento.</p>' +
       '<div class="confronto"><div class="voce"><div class="et">Ore consumate %</div><div class="val">' + Pc(r.orePct) + '</div>' + UI.barra(r.orePct, r.orePct >= 1 ? 'rosso' : '') + '</div><div class="voce"><div class="et">SAL %</div><div class="val">' + Pc(r.salPct) + '</div>' + UI.barra(r.salPct) + '</div>' +
       '<div class="voce ' + colOre + '"><div class="et">Ore − SAL</div><div class="val">' + Pc(r.scostOre) + '</div><div class="esito">' + esitoOre(r, colOre, P) + '</div></div></div>' +
       '<p class="sotto">Ore budget ' + O(r.oreBudget) + ' · usate (cumulate) ' + O(r.oreUsate) + ' · residue ' + O(r.oreResidue) + '</p></div>' +
       '<div class="pannello"><h2>Costi diretti</h2><div class="confronto"><div class="voce"><div class="et">Budget</div><div class="val">' + E(r.costiBudget) + '</div></div><div class="voce"><div class="et">Sostenuti (cumulati)</div><div class="val">' + E(r.costiSostenuti) + '</div>' + UI.barra(r.costiBudget > 0 ? r.costiSostenuti / r.costiBudget : 0, r.costiSforamento > 0 ? 'rosso' : '') + '</div><div class="voce"><div class="et">' + (r.costiSforamento > 0 ? 'Sforamento' : 'Residuo') + '</div><div class="val" style="color:var(--' + (r.costiSforamento > 0 ? 'rosso' : 'verde') + ')">' + E(r.costiSforamento > 0 ? r.costiSforamento : r.costiResiduo) + '</div></div></div>' +
       '<p class="sotto">Costo effettivo cumulato = ore consumate ' + O(r.oreUsate) + ' × ' + E(P.costoOrario) + '/h + costi diretti sostenuti ' + E(r.costiSostenuti) + '</p></div></div>' +
-      '<div class="pannello">' + testaPannello('Note / Azione', az('note', '✎ Modifica', 'piccolo')) + '<p>' + (c.noteAzione ? esc(c.noteAzione).replace(/\n/g, '<br>') : '<span class="muto">Nessuna annotazione.</span>') + '</p></div>';
+      '<div class="pannello">' + testaPannello('Note / Azione', az('note', '✎ Modifica', 'piccolo')) + '<p>' + (c.noteAzione ? esc(c.noteAzione).replace(/\n/g, '<br>') : '<span class="muto">Nessuna annotazione.</span>') + '</p></div>' +
+      // l'andamento dell'utile chiude il Riepilogo: e' il quadro d'insieme della commessa, non una scheda a se
+      utileMaturato(r, c);
+  }
+
+  // ------------------------------------------------------------ utile maturato (in fondo al Riepilogo)
+  // Grafico scritto a mano in SVG, come il Gantt: una linea sola (l'utile maturato), la riga dello zero
+  // e il punto di arrivo previsto. Il tratteggio che porta al punto finale è una proiezione, non un dato
+  // maturato, e per questo è l'unico tratto non continuo del disegno.
+  function graficoUtile(punti, target) {
+    // Le date stanno tutte su una riga sola. Perché non si tocchino, la tela si allarga finché anche le
+    // due date più ravvicinate distano almeno 78 unità: se servisse una tela smisurata ci si ferma a 3600
+    // e le poche date che ancora si sovrappongono vengono saltate. Oltre il pannello il grafico scorre.
+    const H = 360, ml = 104, mr = 34, mt = 20, mb = 46;
+    const giorni = punti.map(p => Engine.dayNum(p.data)).concat((target && target.data) ? [Engine.dayNum(target.data)] : []).sort((a, b) => a - b);
+    const arco = Math.max(1, giorni[giorni.length - 1] - giorni[0]);
+    let minimo = arco;
+    giorni.forEach((g, i) => { if (i && g - giorni[i - 1] > 0) minimo = Math.min(minimo, g - giorni[i - 1]); });
+    const W = Math.max(1200, Math.min(3600, ml + mr + 78 * arco / minimo));
+    const x0 = ml, x1 = W - mr, y0 = mt, y1 = H - mb;
+    const gg = d => Engine.dayNum(d);
+    const ultimo = punti[punti.length - 1];
+    const dMin = gg(punti[0].data);
+    const dMax = Math.max(gg(ultimo.data), (target && target.data) ? gg(target.data) : 0);
+    const spanX = Math.max(1, dMax - dMin);
+    let vMin = 0, vMax = 0;
+    punti.concat(target ? [target] : []).forEach(p => { vMin = Math.min(vMin, p.utile); vMax = Math.max(vMax, p.utile); });
+    if (vMin === vMax) { vMin -= 1000; vMax += 1000; }
+    const margine = (vMax - vMin) * 0.12;
+    vMin -= margine; vMax += margine;
+    const px = d => x0 + (gg(d) - dMin) / spanX * (x1 - x0);
+    const py = v => y1 - (v - vMin) / (vMax - vMin) * (y1 - y0);
+    // tacche "tonde": 1, 2, 5 × potenza di dieci, quattro intervalli circa
+    const grezzo = (vMax - vMin) / 4, esp = Math.pow(10, Math.floor(Math.log10(grezzo))), m = grezzo / esp;
+    const passo = (m >= 5 ? 10 : m >= 2 ? 5 : m >= 1 ? 2 : 1) * esp;
+    const tacche = [];
+    for (let v = Math.ceil(vMin / passo) * passo; v <= vMax; v += passo) tacche.push(v);
+    const testo = (x, y, t, classe, ancora) => '<text x="' + x + '" y="' + y + '" class="' + classe + '" text-anchor="' + (ancora || 'start') + '">' + esc(t) + '</text>';
+    const griglia = tacche.map(v => '<line x1="' + x0 + '" y1="' + py(v).toFixed(1) + '" x2="' + x1 + '" y2="' + py(v).toFixed(1) + '" class="g-griglia"/>' +
+      testo(x0 - 8, py(v) + 4, Fmt.numero(v, 0) + ' €', 'g-tacca', 'end')).join('');
+    const zero = '<line x1="' + x0 + '" y1="' + py(0).toFixed(1) + '" x2="' + x1 + '" y2="' + py(0).toFixed(1) + '" class="g-zero"/>';
+    // la linea cambia colore quando attraversa lo zero: verde finché l'utile è sopra, rossa sotto.
+    // Il tratto che attraversa lo zero viene spezzato nel punto esatto in cui lo taglia, non al punto dopo.
+    const tratto = (xa, va, xb, vb) => '<path d="M' + xa.toFixed(1) + ' ' + py(va).toFixed(1) + ' L' + xb.toFixed(1) + ' ' + py(vb).toFixed(1) +
+      '" class="g-linea ' + ((va >= 0 && vb >= 0) ? 'pos' : 'neg') + '"/>';
+    const linea = punti.slice(1).map((b, i) => {
+      const a = punti[i], xa = px(a.data), xb = px(b.data);
+      if ((a.utile >= 0) === (b.utile >= 0)) return tratto(xa, a.utile, xb, b.utile);
+      const q = a.utile / (a.utile - b.utile);            // frazione del tratto in cui l'utile vale zero
+      const xm = xa + (xb - xa) * q;
+      return tratto(xa, a.utile, xm, 0) + tratto(xm, 0, xb, b.utile);
+    }).join('');
+    // il punto si prende anche senza centrarlo: sotto ogni pallino c'è un bersaglio trasparente più largo
+    const pallini = punti.map(p => '<g class="g-punto ' + (p.utile >= 0 ? 'pos' : 'neg') + '"><circle cx="' + px(p.data).toFixed(1) + '" cy="' + py(p.utile).toFixed(1) + '" r="4"/>' +
+      '<circle cx="' + px(p.data).toFixed(1) + '" cy="' + py(p.utile).toFixed(1) + '" r="13" class="g-presa"><title>' +
+      esc(Dt(p.data) + (p.saldo ? ' (saldo iniziale)' : '') + '\nUtile maturato ' + E(p.utile) + '\nFatturato ' + E(p.fatt) + ' · perdite SAL ' + E(p.perdite) + '\nCosti diretti ' + E(p.costi) + ' · ore ' + O(p.ore) + ' (' + E(p.costoOre) + ')') + '</title></circle></g>').join('');
+    // etichetta dell'ultimo valore maturato: se sta troppo vicino al punto finale scende sotto la linea
+    const xUlt = px(ultimo.data), xFin = target && target.data ? px(target.data) : x1;
+    // La cifra attuale si scosta dalla linea: si guarda da che parte arriva la curva e da che parte riparte
+    // la proiezione, e la si mette nel quadrante libero. Cima → sopra, avvallamento → sotto, tratto in
+    // discesa → sopra, in salita → sotto. Di lato sta a destra se c'è spazio prima del punto finale.
+    const yUlt = py(ultimo.utile);
+    const yPrec = punti.length > 1 ? py(punti[punti.length - 2].utile) : yUlt;
+    const yProx = target ? py(target.utile) : yPrec;
+    const cima = yPrec >= yUlt && yProx >= yUlt, avvallamento = yPrec <= yUlt && yProx <= yUlt;
+    const dy = cima ? -16 : (avvallamento ? 26 : (yProx > yUlt ? -16 : 26));
+    const aDestra = (xFin - xUlt) > 200 || (!target && (x1 - xUlt) > 130);
+    const etUlt = testo(xUlt + (aDestra ? 12 : -12), yUlt + dy, E(ultimo.utile), 'g-valore ' + (ultimo.utile < 0 ? 'neg' : 'pos'), aDestra ? 'start' : 'end');
+    let fine = '';
+    if (target) {
+      const xt = target.data ? px(target.data) : x1, yt = py(target.utile);
+      fine = '<path d="M' + xUlt.toFixed(1) + ' ' + py(ultimo.utile).toFixed(1) + ' L' + xt.toFixed(1) + ' ' + yt.toFixed(1) + '" class="g-proiezione"/>' +
+        '<g class="g-punto fine"><circle cx="' + xt.toFixed(1) + '" cy="' + yt.toFixed(1) + '" r="5.5"/>' +
+        '<circle cx="' + xt.toFixed(1) + '" cy="' + yt.toFixed(1) + '" r="13" class="g-presa"><title>' +
+        esc('Utile a commessa finita ' + E(target.utile) + (target.data ? '\nData di fine ' + Dt(target.data) : '\nData di fine non indicata')) + '</title></circle></g>' +
+        testo(xt, yt - 17, E(target.utile), 'g-valore fine ' + (target.utile < 0 ? 'neg' : 'pos'), 'end');
+    }
+    const dataFin = target && target.data ? target.data : null;
+    // sotto l'asse, in una riga sola, la data di ogni pallino più quella del punto finale
+    const date = punti.map(p => p.data).concat(dataFin ? [dataFin] : []);
+    // filo tratteggiato che scende da ogni pallino fino all'asse: lega il punto alla sua data
+    const guide = punti.concat(target && target.data ? [target] : []).map(p =>
+      '<line x1="' + px(p.data).toFixed(1) + '" y1="' + py(p.utile).toFixed(1) + '" x2="' + px(p.data).toFixed(1) + '" y2="' + y1 + '" class="g-guida"/>').join('');
+    let ultimaX = -1e9;
+    const etichetteX = date.map((d, i) => {
+      const x = px(d);
+      if (x - ultimaX < 78) return '';
+      ultimaX = x;
+      return testo(x, y1 + 22, Dt(d), 'g-tacca', i === 0 ? 'start' : (i === date.length - 1 ? 'end' : 'middle'));
+    }).join('');
+    return '<div class="grafico-utile"><svg viewBox="0 0 ' + W + ' ' + H + '" style="min-width:' + Math.round(W * 0.9) + 'px" role="img" aria-label="Andamento dell\'utile maturato">' +
+      griglia + zero + '<line x1="' + x0 + '" y1="' + y0 + '" x2="' + x0 + '" y2="' + y1 + '" class="g-griglia"/>' + guide +
+      fine + linea + pallini + etUlt + etichetteX + '</svg></div>';
+  }
+
+  function utileMaturato(r, c) {
+    const P = Store.db.parametri;
+    const serie = Engine.serieUtile(c, Store.db, null, { senzaSaldi });
+    const punti = serie.punti;
+    const ultimo = punti[punti.length - 1];
+    // punto di arrivo: l'utile della situazione aggiornata al (terza colonna del conto della commessa),
+    // cioè valore recuperabile − costi diretti previsti vigenti − costo delle ore previste vigenti
+    const haBudget = r.hasOreBudget && r.hasCostiBudget;
+    const utileFine = haBudget ? r.valoreRecuperabile - r.costiBudget - r.costoOrePreviste : null;
+    const dataFine = c.dataFineEffettiva || c.dataFinePrevista || '';
+    const target = utileFine === null ? null : { data: Engine.dayNum(dataFine) > Engine.dayNum(ultimo.data) ? dataFine : '', utile: utileFine };
+    const manca = utileFine === null ? null : utileFine - ultimo.utile;
+    const col = v => v < 0 ? 'rosso' : 'verde';
+    return '<div class="pannello"><h2>Utile maturato</h2>' +
+      '<p class="spiegazione">L\'utile maturato è quello della colonna <b>Maturato</b> del conto della commessa: <b>fatturato lordo − perdite SAL accettate − costi diretti sostenuti − ore consumate × costo orario</b> (' + E(P.costoOrario) + '/h). ' +
+      'Si aggiorna da sé a ogni movimento, costo diretto o ora registrata. Il punto in fondo è l\'<b>utile a commessa finita</b> secondo la situazione aggiornata al: valore recuperabile − costi diretti previsti vigenti − costo delle ore previste vigenti.</p>' +
+      '<div class="kpi-griglia">' +
+      UI.kpi('Utile maturato a oggi', E(ultimo.utile), { colore: col(ultimo.utile) }) +
+      UI.kpi('Utile a commessa finita', utileFine === null ? Fmt.VUOTO : E(utileFine), { colore: utileFine === null ? '' : col(utileFine) }) +
+      UI.kpi(manca !== null && manca < 0 ? 'Ancora da perdere' : 'Ancora da maturare', manca === null ? Fmt.VUOTO : E(manca)) +
+      UI.kpi('Ore consumate', O(ultimo.ore), { calc: false }) +
+      UI.kpi('Date con movimenti', serie.nEventi, { calc: false }) +
+      '</div>' +
+      (haBudget ? '' : '<div class="msg avviso">Budget incompleto (' + (r.hasOreBudget ? '' : 'ore previste') + (r.hasOreBudget || r.hasCostiBudget ? '' : ' e ') + (r.hasCostiBudget ? '' : 'costi diretti previsti') + ' non indicati): il punto di utile a commessa finita non è calcolabile.</div>') +
+      graficoUtile(punti, target) +
+      (target && !target.data ? '<p class="sotto">La data di fine non è successiva all\'ultimo movimento: il punto di arrivo è disegnato a fine grafico.</p>' : '') +
+      '</div>' +
+      '<div class="pannello"><h2>I numeri del grafico</h2>' +
+      '<div class="tabella-wrap"><table class="tab"><thead><tr><th>Data</th><th class="n">Fatturato lordo</th><th class="n">Perdite SAL</th><th class="n">Costi diretti</th><th class="n">Ore</th><th class="n">Costo delle ore</th><th class="n">Utile maturato</th></tr></thead><tbody>' +
+      punti.map(p => '<tr><td class="nowrap">' + Dt(p.data) + (p.saldo ? ' <span class="badge neutro">saldo iniziale</span>' : '') + '</td>' +
+        '<td class="n calc">' + E(p.fatt) + '</td><td class="n calc">' + E(p.perdite) + '</td><td class="n calc">' + E(p.costi) + '</td>' +
+        '<td class="n calc">' + O(p.ore) + '</td><td class="n calc">' + E(p.costoOre) + '</td>' +
+        '<td class="n calc" style="color:var(--' + col(p.utile) + ')"><b>' + E(p.utile) + '</b></td></tr>').join('') +
+      (utileFine === null ? '' : '<tr class="totale"><td class="nowrap">' + (dataFine ? Dt(dataFine) : 'a commessa finita') + '</td><td class="n">' + E(r.valoreRecuperabile) + '</td><td></td><td class="n">' + E(r.costiBudget) + '</td><td class="n">' + O(r.oreBudget) + '</td><td class="n">' + E(r.costoOrePreviste) + '</td><td class="n">' + E(utileFine) + '</td></tr>') +
+      '</tbody></table></div>' +
+      '<p class="sotto">I valori sono cumulati alla data della riga. L\'ultima riga è il punto di arrivo previsto: non è maturato, viene dal contratto e dal budget vigenti.</p></div>';
   }
 
   function anagrafica(r, c) {
@@ -81,7 +215,7 @@
         ['Costo totale previsto', '<b>' + E(b.costoTotalePrevistoIniziale) + '</b>', '<b>' + E(b.costoTotalePrevisto) + '</b>', 'calc'],
         ['Margine teorico', Pc(b.margineTeoricoIniziale), Pc(b.margineTeorico), 'calc']
       ]) + kv([
-        ['Costo orario (vale per entrambi)', E(b.costoOrario), 'in'],
+        ['Costo orario applicato (costo strutturale, Parametri)', E(b.costoOrario) + '/h', 'calc'],
         ['Data aggiornamento budget', Dt(b.dataAggiornamento), 'in'],
         ['Note budget', T(b.note), 'in']
       ]) + '</div><div class="pannello"><h2>Confronto con il consuntivo</h2>' + kv([

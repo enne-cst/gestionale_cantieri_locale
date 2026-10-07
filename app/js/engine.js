@@ -122,9 +122,11 @@
   function dataSaldo(annoGestione) { return (annoGestione - 1) + '-12-31'; }
   // Budget sdoppiato: valori INIZIALI (storico) e valori AGGIORNATI alla data indicata.
   // I valori "vigenti" (senza suffisso) sono gli aggiornati quando ci sono, altrimenti gli iniziali.
-  function budgetDi(c) {
+  // Le ore si valorizzano sempre al costo strutturale corrente dei Parametri (P): una sola fonte per
+  // tutta l'app, così cambiando il parametro si aggiornano insieme previsioni, consuntivo e verifica.
+  function budgetDi(c, P) {
     const b = (c && c.budget) || {};
-    const costoOrario = has(b.costoOrario) ? num(b.costoOrario) : null;
+    const costoOrario = (P && has(P.costoOrario)) ? num(P.costoOrario) : null;
     const contratto = contrattoAggiornato(c || {});
     const oreIni = has(b.orePreviste) ? num(b.orePreviste) : null;
     const costiIni = has(b.costiDirettiPrevisti) ? num(b.costiDirettiPrevisti) : null;
@@ -192,12 +194,53 @@
     };
   }
 
+  // Andamento dell'utile maturato: un punto per ogni data in cui la commessa si è mossa (un movimento
+  // o un costo diretto). L'utile è quello della colonna "Maturato" del conto della commessa:
+  // fatturato lordo − perdite SAL accettate − costi diretti sostenuti − ore consumate × costo orario.
+  // Il saldo iniziale, quando c'è ed è incluso, è il primo punto: la curva parte da lì, non da zero.
+  function serieUtile(c, db, idx, opz) {
+    const P = db.parametri;
+    const co = num(P.costoOrario);
+    const a = (idx || indicizza(db))[(c && c.id) || ''] || { saldo: null, movimenti: [], costi: [] };
+    const s = (opz && opz.senzaSaldi) ? null : a.saldo;
+    const eventi = {};
+    const agg = (data, campo, v) => {
+      if (!isoOk(data) || !num(v)) return;
+      (eventi[data] || (eventi[data] = { fatt: 0, perdite: 0, costi: 0, ore: 0 }))[campo] += num(v);
+    };
+    a.movimenti.forEach(m => { agg(m.data, 'fatt', m.fatturatoLordo); agg(m.data, 'perdite', m.perditaSal); agg(m.data, 'ore', m.ore); });
+    a.costi.forEach(k => agg(k.data, 'costi', k.importo));
+    const cum = { fatt: 0, perdite: 0, costi: 0, ore: 0 };
+    const punti = [];
+    const segna = (data, saldo) => punti.push({
+      data, saldo: !!saldo, fatt: cum.fatt, perdite: cum.perdite, costi: cum.costi, ore: cum.ore,
+      costoOre: cum.ore * co, utile: cum.fatt - cum.perdite - cum.costi - cum.ore * co
+    });
+    if (s) {
+      cum.fatt = num(s.fatturatoLordo); cum.perdite = num(s.perditeSal); cum.costi = num(s.costiDiretti); cum.ore = num(s.ore);
+      segna(dataSaldo(P.annoGestione), true);
+    } else {
+      // senza saldo iniziale la commessa parte da zero alla sua data di inizio: è lì che comincia la storia.
+      // Se l'inizio manca, o è successivo al primo movimento, si ripiega sul 1° gennaio dell'esercizio.
+      const prima = Object.keys(eventi).sort()[0] || '';
+      const inizio = c ? (c.dataInizioEffettiva || c.dataInizioPrevista || '') : '';
+      const buono = isoOk(inizio) && (!prima || dayNum(inizio) < dayNum(prima));
+      segna(buono ? inizio : P.annoGestione + '-01-01', false);
+    }
+    Object.keys(eventi).sort().forEach(d => {
+      const e = eventi[d];
+      cum.fatt += e.fatt; cum.perdite += e.perdite; cum.costi += e.costi; cum.ore += e.ore;
+      segna(d, false);
+    });
+    return { punti, costoOrario: co, nEventi: punti.length - 1 };
+  }
+
   // ---------------------------------------------------------------- scheda commessa (foglio CANTIERI)
   function calcolaCommessa(c, db, idx, opz) {
     const P = db.parametri;
     const agg = aggregati(db, c.id, idx, opz);
     const cum = agg.cumulato;
-    const bud = budgetDi(c);
+    const bud = budgetDi(c, P);
     const finito = isFinito(c.stato);
     const definita = isDefinita(c);
 
@@ -231,10 +274,10 @@
     const costiResiduo = Math.max(costiBudget - costiSostenuti, 0);             // BQ
     const costiSforamento = Math.max(costiSostenuti - costiBudget, 0);          // BR
     const costoEffettivo = oreUsate * num(P.costoOrario) + costiSostenuti;      // BS
-    // costo della manodopera: previsto da budget (costo orario di budget, in mancanza quello strutturale) ed effettivo
-    const costoOrarioBudget = bud.costoOrario !== null ? bud.costoOrario : num(P.costoOrario);
-    const costoOrePreviste = oreBudget * costoOrarioBudget;
-    const costoOreEffettive = oreUsate * num(P.costoOrario);
+    // costo della manodopera, previsto ed effettivo: ore × costo strutturale corrente (Parametri)
+    const costoOrario = num(P.costoOrario);
+    const costoOrePreviste = oreBudget * costoOrario;
+    const costoOreEffettive = oreUsate * costoOrario;
 
     // stessi calcoli sui valori INIZIALI del budget (storico), per il confronto con i vigenti
     const oreBudgetIni = num(bud.orePrevisteIniziali);
@@ -244,7 +287,7 @@
     const costiBudgetIni = num(bud.costiDirettiPrevistiIniziali);
     const costiResiduoIni = Math.max(costiBudgetIni - costiSostenuti, 0);
     const costiSforamentoIni = Math.max(costiSostenuti - costiBudgetIni, 0);
-    const costoOrePrevisteIni = oreBudgetIni * costoOrarioBudget;
+    const costoOrePrevisteIni = oreBudgetIni * costoOrario;
 
     // Q – giorni di ritardo produttivo (logica Rev.14)
     let giorniRitardo = null;
@@ -367,7 +410,7 @@
       salPct, tempoPct, scostTempo,
       oreBudget, hasOreBudget, oreUsate, oreResidue, orePct, scostOre,
       costiBudget, hasCostiBudget, costiSostenuti, costiResiduo, costiSforamento, costoEffettivo,
-      costoOrePreviste, costoOreEffettive,
+      costoOrePreviste, costoOreEffettive, costoOrario,
       // valori basati sul budget iniziale (storico)
       oreBudgetIni, oreResidueIni, orePctIni, scostOreIni,
       costiBudgetIni, costiResiduoIni, costiSforamentoIni, costoOrePrevisteIni,
@@ -395,6 +438,8 @@
   function riepilogo(rows) {
     const sum = f => rows.reduce((t, r) => t + num(r[f]), 0);
     const count = f => rows.filter(f).length;
+    // valore comune a tutte le righe (es. il costo orario): se le commesse non concordano resta null
+    const unico = f => { const v = rows.map(r => r[f]).filter(x => x !== null && x !== undefined); return v.length && v.every(x => x === v[0]) ? v[0] : null; };
     return {
       n: rows.length,
       daIniziare: count(r => r.stato === 'Da iniziare'),
@@ -427,6 +472,7 @@
       // margine finale = margine operativo al netto del costo della manodopera (ore × costo orario)
       costoOrePreviste: sum('costoOrePreviste'), costoOreEffettive: sum('costoOreEffettive'),
       costoOrePrevisteIni: sum('costoOrePrevisteIni'),
+      costoOrario: unico('costoOrario'),
       margineFinalePrevisto: sum('contrattoIniziale') - sum('costiBudget') - sum('costoOrePreviste'),
       margineFinalePrevistoIni: sum('contrattoIniziale') - sum('costiBudgetIni') - sum('costoOrePrevisteIni'),
       margineFinaleEffettivo: sum('fattCum') - sum('costiSostenuti') - sum('costoOreEffettive'),
@@ -485,10 +531,10 @@
     });
     return {
       n: sel.length,
-      orePreviste: sel.reduce((t, c) => t + num(budgetDi(c).orePreviste), 0),
-      costoTotalePrevisto: sel.reduce((t, c) => t + num(budgetDi(c).costoTotalePrevisto), 0),
-      orePrevisteIniziali: sel.reduce((t, c) => t + num(budgetDi(c).orePrevisteIniziali), 0),
-      costoTotalePrevistoIniziale: sel.reduce((t, c) => t + num(budgetDi(c).costoTotalePrevistoIniziale), 0),
+      orePreviste: sel.reduce((t, c) => t + num(budgetDi(c, db.parametri).orePreviste), 0),
+      costoTotalePrevisto: sel.reduce((t, c) => t + num(budgetDi(c, db.parametri).costoTotalePrevisto), 0),
+      orePrevisteIniziali: sel.reduce((t, c) => t + num(budgetDi(c, db.parametri).orePrevisteIniziali), 0),
+      costoTotalePrevistoIniziale: sel.reduce((t, c) => t + num(budgetDi(c, db.parametri).costoTotalePrevistoIniziale), 0),
       commesse: sel.map(c => c.id)
     };
   }
@@ -603,7 +649,8 @@
     const marginePct = (scostamento === null || !(prezzoComputo > 0)) ? null : scostamento / prezzoComputo;
     // costo strutturale + costi specifici al costo (senza ricarico) e quanto il prezzo minimo lo supera
     const costoStrutturaleConDiretti = ore === null ? null : strutturale.costo + totVoci.costoTotale;
-    const differenzaPrezzoMinimoCosti = (prezzoMinimo === null || costoStrutturaleConDiretti === null) ? null : prezzoMinimo - costoStrutturaleConDiretti;
+    // quello che resta in tasca: prezzo di vendita meno i costi della commessa (ore attribuite + costi diretti)
+    const restaInTasca = (prezzoComputo === null || costoStrutturaleConDiretti === null) ? null : prezzoComputo - costoStrutturaleConDiretti;
 
     const sottoSoglia = voci.filter(v => v.sottoSoglia);
     const datiVerificati = !!d.datiVerificati;
@@ -644,7 +691,7 @@
       prezzoComputo, ore, voci, totVoci,
       strutturale, prezzoMinimoStrutturale, prezzoMinimoSpecifici,
       prezzoMinimo, scostamento, scostamentoPct, marginePct,
-      costoStrutturaleConDiretti, differenzaPrezzoMinimoCosti,
+      costoStrutturaleConDiretti, restaInTasca,
       esito, motivi, avvisi, mancanti, nSottoSoglia: sottoSoglia.length
     };
   }
@@ -658,7 +705,7 @@
   function calcolaSostenibilita(c, db, versione, consuntivo) {
     const S = parametriSostenibilita(db.parametri);
     const s = (c && c.sostenibilita) || {};
-    const bud = budgetDi(c || {});
+    const bud = budgetDi(c || {}, db.parametri);
     const ricarico = has(s.ricarico) ? num(s.ricarico) : S.sogliaRicarico;
     const k = consuntivo || {};
     const cfg = versione === 'iniziale' ? {
@@ -752,7 +799,7 @@
       ramo: p.ramo || '', tecnico: p.tecnico || '',
       contrattoIniziale: v.prezzoComputo,
       budget: {
-        orePreviste: v.ore, costoOrario: num(db.parametri.costoOrario),
+        orePreviste: v.ore,
         costiDirettiPrevisti: v.totVoci.n ? v.totVoci.costoTotale : null,
         orePrevisteAgg: null, costiDirettiPrevistiAgg: null, dataAggiornamento: '',
         note: rif + ': ' + v.totVoci.n + ' voci di costo specifico.'
@@ -838,13 +885,19 @@
     return { errori, avvisi };
   }
 
+  // Il saldo porta con sé l'esercizio cui appartiene (anno): le maschere lavorano sempre sull'anno in
+  // gestione, l'importazione da Excel può caricare anche i saldi al 31/12 degli anni passati.
   function validaSaldo(s, db, idEscluso) {
     const errori = [], avvisi = [];
-    const anno = db.parametri.annoGestione;
+    const annoGestione = db.parametri.annoGestione;
+    const anno = has(s.anno) ? num(s.anno) : annoGestione;
+    if (!(anno >= 1990 && anno <= 2200 && anno === Math.round(anno))) errori.push('Esercizio del saldo non valido.');
+    else if (anno > annoGestione) errori.push('Il saldo è al ' + fmtDataSemplice(dataSaldo(anno)) + ', successivo all\'esercizio in gestione (' + annoGestione + '): non si può inserire.');
+    else if (anno < annoGestione) avvisi.push('Saldo al ' + fmtDataSemplice(dataSaldo(anno)) + ': riguarda l\'esercizio ' + anno + ', già chiuso. Resta nello storico ma non entra nei cumulativi dell\'esercizio in gestione (' + annoGestione + ').');
     const c = attivi(db.commesse).find(x => x.id === s.commessaId);
     if (!c) errori.push('Selezionare una commessa esistente.');
     else if (!isPregressa(c, anno)) errori.push('La commessa non è pregressa: la DATA DI INIZIO EFFETTIVA deve essere precedente al 01/01/' + anno + '.');
-    if (attivi(db.saldi).some(x => x.id !== idEscluso && x.commessaId === s.commessaId && x.anno === anno))
+    if (attivi(db.saldi).some(x => x.id !== idEscluso && x.commessaId === s.commessaId && num(x.anno) === anno))
       errori.push('Esiste già un saldo iniziale per questa commessa nell\'esercizio ' + anno + '.');
     ['sal', 'fatturatoLordo', 'ritenute', 'svincoli', 'perditeSal', 'ore', 'costiDiretti'].forEach(f => {
       if (has(s[f]) && isNaN(Number(s[f]))) errori.push('Valore non numerico nel campo ' + f + '.');
@@ -1002,6 +1055,9 @@
     const v = Math.round(num(n) * 10000) / 100;
     return String(v).replace('.', ',') + ' %';
   }
+  function fmtDataSemplice(iso) {
+    return isoOk(iso) ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : String(iso || '');
+  }
   function fmtEuroSemplice(n) {
     const s = (Math.round(num(n) * 100) / 100).toFixed(2);
     const parti = s.split('.');
@@ -1016,7 +1072,7 @@
     prossimoNumeroPreventivo, commessaDaPreventivo,
     validaSostenibilita, validaVociSostenibilita, validaPreventivo, validaConversione, validaPesiStrutturali,
     has, num, isoOk, dayNum, annoDi, meseDi, isFinito, attivi, isDefinita, operative, etichetta, contrattoAggiornato, isPregressa, dataSaldo, budgetDi,
-    fatturatoNetto, aggregati, indicizza, calcolaCommessa, calcolaTutte, riepilogo, dashboardMovimenti, costoMensile, dashboardBudget,
+    fatturatoNetto, aggregati, indicizza, serieUtile, calcolaCommessa, calcolaTutte, riepilogo, dashboardMovimenti, costoMensile, dashboardBudget,
     validaCommessa, validaMovimento, validaCosto, validaSaldo, validaParametri, preparaChiusura, residuiAperti
   };
 });

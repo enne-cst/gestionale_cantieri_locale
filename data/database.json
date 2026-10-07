@@ -1,7 +1,7 @@
 {
  "app": "FIDA EDILE – Gestione Cantieri",
  "schemaVersion": 1,
- "rev": 45,
+ "rev": 66,
  "creatoIl": "2026-09-12T07:48:38.711Z",
  "parametri": {
   "costoOrario": 45.79,
@@ -201,14 +201,13 @@
    "note": "",
    "budget": {
     "orePreviste": 1500,
-    "costoOrario": 45.79,
     "costiDirettiPrevisti": 20000,
     "orePrevisteAgg": 10000,
     "costiDirettiPrevistiAgg": null,
     "dataAggiornamento": "2026-09-14",
     "note": ""
    },
-   "aggiornatoAl": "2026-09-14",
+   "aggiornatoAl": "2026-09-18",
    "noteAzione": "",
    "annullato": false,
    "sostenibilita": {
@@ -242,7 +241,6 @@
    "note": "",
    "budget": {
     "orePreviste": null,
-    "costoOrario": null,
     "costiDirettiPrevisti": null,
     "orePrevisteAgg": null,
     "costiDirettiPrevistiAgg": null,
@@ -274,8 +272,25 @@
    "ore": null,
    "costiDiretti": 3000,
    "note": "",
+   "annullato": true,
+   "creatoIl": "2026-09-18T13:45:54.528Z",
+   "motivoAnnullamento": "fdc",
+   "annullatoIl": "2026-09-18T17:31:04.554Z"
+  },
+  {
+   "id": "s_mu78j0yyjxa8ta",
+   "commessaId": "c_mu6x4g1cvxj1ms",
+   "anno": 2026,
+   "sal": null,
+   "fatturatoLordo": null,
+   "ritenute": null,
+   "svincoli": null,
+   "perditeSal": null,
+   "ore": 1000,
+   "costiDiretti": null,
+   "note": "",
    "annullato": false,
-   "creatoIl": "2026-09-18T13:45:54.528Z"
+   "creatoIl": "2026-09-18T17:32:16.594Z"
   }
  ],
  "movimenti": [
@@ -327,12 +342,13 @@
    "fatturatoLordo": null,
    "ritenuta": null,
    "svincolo": null,
-   "ore": 1200,
+   "ore": 10,
    "perditaSal": null,
    "note": "",
    "annullato": false,
    "creatoIl": "2026-09-12T10:14:27.415Z",
-   "creatoDa": "Direzione"
+   "creatoDa": "Direzione",
+   "modificatoIl": "2026-09-18T17:08:24.889Z"
   },
   {
    "id": "m_mty8ew2uzw3tdw",
@@ -341,7 +357,7 @@
    "tipo": "SAL",
    "numeroDocumento": "",
    "descrizione": "",
-   "sal": 90000,
+   "sal": 117000,
    "fatturatoLordo": null,
    "ritenuta": null,
    "svincolo": null,
@@ -350,7 +366,8 @@
    "note": "",
    "annullato": false,
    "creatoIl": "2026-09-12T10:18:17.605Z",
-   "creatoDa": "Direzione"
+   "creatoDa": "Direzione",
+   "modificatoIl": "2026-09-18T16:45:15.092Z"
   },
   {
    "id": "m_mty9dqa7nwmizh",
@@ -368,6 +385,84 @@
    "note": "",
    "annullato": false,
    "creatoIl": "2026-09-12T10:45:32.451Z",
+   "creatoDa": "Direzione"
+  },
+  {
+   "id": "m_mu76r4gsg57viq",
+   "commessaId": "c_mty311ufm1gzsu",
+   "data": "2026-09-18",
+   "tipo": "ORE",
+   "numeroDocumento": "",
+   "descrizione": "",
+   "sal": null,
+   "fatturatoLordo": null,
+   "ritenuta": null,
+   "svincolo": null,
+   "ore": 3000,
+   "perditaSal": null,
+   "note": "",
+   "annullato": true,
+   "creatoIl": "2026-09-18T16:41:37.477Z",
+   "creatoDa": "Direzione",
+   "modificatoIl": "2026-09-18T16:50:41.549Z",
+   "motivoAnnullamento": "jhgm",
+   "annullatoIl": "2026-09-18T17:07:27.874Z",
+   "annullatoDa": "Direzione"
+  },
+  {
+   "id": "m_mu77pw6lwoc0ne",
+   "commessaId": "c_mty311ufm1gzsu",
+   "data": "2026-09-18",
+   "tipo": "ORE",
+   "numeroDocumento": "",
+   "descrizione": "",
+   "sal": null,
+   "fatturatoLordo": null,
+   "ritenuta": null,
+   "svincolo": null,
+   "ore": 5,
+   "perditaSal": null,
+   "note": "",
+   "annullato": false,
+   "creatoIl": "2026-09-18T17:08:35.667Z",
+   "creatoDa": "Direzione",
+   "modificatoIl": "2026-09-18T17:08:43.437Z"
+  },
+  {
+   "id": "m_mu77s3p4ubz2f6",
+   "commessaId": "c_mty311ufm1gzsu",
+   "data": "2026-09-23",
+   "tipo": "ORE",
+   "numeroDocumento": "",
+   "descrizione": "",
+   "sal": null,
+   "fatturatoLordo": null,
+   "ritenuta": null,
+   "svincolo": null,
+   "ore": 1000,
+   "perditaSal": null,
+   "note": "",
+   "annullato": false,
+   "creatoIl": "2026-09-18T17:10:21.170Z",
+   "creatoDa": "Direzione",
+   "modificatoIl": "2026-09-18T17:11:02.533Z"
+  },
+  {
+   "id": "m_mu77tifkmr3371",
+   "commessaId": "c_mty311ufm1gzsu",
+   "data": "2026-09-29",
+   "tipo": "ORE",
+   "numeroDocumento": "",
+   "descrizione": "",
+   "sal": null,
+   "fatturatoLordo": null,
+   "ritenuta": null,
+   "svincolo": null,
+   "ore": 2000,
+   "perditaSal": null,
+   "note": "",
+   "annullato": false,
+   "creatoIl": "2026-09-18T17:11:30.267Z",
    "creatoDa": "Direzione"
   }
  ],
@@ -1485,10 +1580,464 @@
      "dopo": 3000
     }
    ]
+  },
+  {
+   "id": "a_mu72pjxsrapegf",
+   "ts": "2026-09-18T14:48:14.896Z",
+   "utente": "Amministratore",
+   "ruolo": "admin",
+   "entita": "parametri",
+   "entitaId": "",
+   "riferimento": "",
+   "azione": "MODIFICA PARAMETRI",
+   "modifiche": [
+    {
+     "campo": "costoOrario",
+     "prima": 45.79,
+     "dopo": 43.87
+    }
+   ]
+  },
+  {
+   "id": "a_mu72ps9zeweqc4",
+   "ts": "2026-09-18T14:48:25.703Z",
+   "utente": "Amministratore",
+   "ruolo": "admin",
+   "entita": "parametri",
+   "entitaId": "",
+   "riferimento": "",
+   "azione": "MODIFICA PARAMETRI",
+   "modifiche": [
+    {
+     "campo": "redditivita",
+     "prima": 0.12,
+     "dopo": 0.05
+    }
+   ]
+  },
+  {
+   "id": "a_mu73kxw8jz79tb",
+   "ts": "2026-09-18T15:12:39.320Z",
+   "utente": "Amministratore",
+   "ruolo": "admin",
+   "entita": "parametri",
+   "entitaId": "",
+   "riferimento": "",
+   "azione": "MODIFICA PARAMETRI",
+   "modifiche": [
+    {
+     "campo": "redditivita",
+     "prima": 0.05,
+     "dopo": 0.12
+    }
+   ]
+  },
+  {
+   "id": "a_mu74hhhsz53642",
+   "ts": "2026-09-18T15:37:57.712Z",
+   "utente": "Amministratore",
+   "ruolo": "admin",
+   "entita": "parametri",
+   "entitaId": "",
+   "riferimento": "",
+   "azione": "MODIFICA PARAMETRI",
+   "modifiche": [
+    {
+     "campo": "costoOrario",
+     "prima": 43.87,
+     "dopo": 45.79
+    }
+   ]
+  },
+  {
+   "id": "a_mu76rcuel97jlm",
+   "ts": "2026-09-18T16:41:37.478Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mu76r4gsg57viq",
+   "riferimento": "C001 | TEST | Capannone · 18/09/2026 · ORE",
+   "azione": "NUOVO MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "commessaId",
+     "prima": "",
+     "dopo": "c_mty311ufm1gzsu"
+    },
+    {
+     "campo": "data",
+     "prima": "",
+     "dopo": "2026-09-18"
+    },
+    {
+     "campo": "tipo",
+     "prima": "",
+     "dopo": "ORE"
+    },
+    {
+     "campo": "ore",
+     "prima": "",
+     "dopo": 7000
+    }
+   ]
+  },
+  {
+   "id": "a_mu76rcuejxisx6",
+   "ts": "2026-09-18T16:41:37.478Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "commessa",
+   "entitaId": "c_mty311ufm1gzsu",
+   "riferimento": "C001",
+   "azione": "AGGIORNAMENTO AUTOMATICO",
+   "modifiche": [
+    {
+     "campo": "aggiornatoAl",
+     "prima": "2026-09-14",
+     "dopo": "2026-09-18"
+    }
+   ]
+  },
+  {
+   "id": "a_mu76t00m8yetsy",
+   "ts": "2026-09-18T16:42:54.166Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mu76r4gsg57viq",
+   "riferimento": "C001 | TEST | Capannone · 18/09/2026 · ORE",
+   "azione": "MODIFICA MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "ore",
+     "prima": 7000,
+     "dopo": 7500
+    }
+   ]
+  },
+  {
+   "id": "a_mu76ugmxga1b7m",
+   "ts": "2026-09-18T16:44:02.361Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mty89tbcolz99j",
+   "riferimento": "C001 | TEST | Capannone · 12/09/2026 · ORE",
+   "azione": "MODIFICA MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "ore",
+     "prima": 1200,
+     "dopo": 2500
+    }
+   ]
+  },
+  {
+   "id": "a_mu76v4hk4u6ehl",
+   "ts": "2026-09-18T16:44:33.272Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mty8ew2uzw3tdw",
+   "riferimento": "C001 | TEST | Capannone · 12/09/2026 · SAL",
+   "azione": "MODIFICA MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "sal",
+     "prima": 90000,
+     "dopo": 120000
+    }
+   ]
+  },
+  {
+   "id": "a_mu76w0r86j1rua",
+   "ts": "2026-09-18T16:45:15.092Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mty8ew2uzw3tdw",
+   "riferimento": "C001 | TEST | Capannone · 12/09/2026 · SAL",
+   "azione": "MODIFICA MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "sal",
+     "prima": 120000,
+     "dopo": 117000
+    }
+   ]
+  },
+  {
+   "id": "a_mu7730nh6b3ayx",
+   "ts": "2026-09-18T16:50:41.549Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mu76r4gsg57viq",
+   "riferimento": "C001 | TEST | Capannone · 18/09/2026 · ORE",
+   "azione": "MODIFICA MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "ore",
+     "prima": 7500,
+     "dopo": 3000
+    }
+   ]
+  },
+  {
+   "id": "a_mu77nkdd0wykrl",
+   "ts": "2026-09-18T17:06:40.225Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mty89tbcolz99j",
+   "riferimento": "C001 | TEST | Capannone · 12/09/2026 · ORE",
+   "azione": "MODIFICA MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "ore",
+     "prima": 2500,
+     "dopo": 100
+    }
+   ]
+  },
+  {
+   "id": "a_mu77ol4yhcbajd",
+   "ts": "2026-09-18T17:07:27.874Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mu76r4gsg57viq",
+   "riferimento": "C001 | TEST | Capannone · 18/09/2026",
+   "azione": "ANNULLAMENTO MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "annullato",
+     "prima": false,
+     "dopo": true
+    },
+    {
+     "campo": "motivoAnnullamento",
+     "prima": "",
+     "dopo": "jhgm"
+    }
+   ]
+  },
+  {
+   "id": "a_mu77orbrgs9j5c",
+   "ts": "2026-09-18T17:07:35.895Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mty89tbcolz99j",
+   "riferimento": "C001 | TEST | Capannone · 12/09/2026 · ORE",
+   "azione": "MODIFICA MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "ore",
+     "prima": 100,
+     "dopo": 1200
+    }
+   ]
+  },
+  {
+   "id": "a_mu77pt4p3pdyox",
+   "ts": "2026-09-18T17:08:24.889Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mty89tbcolz99j",
+   "riferimento": "C001 | TEST | Capannone · 12/09/2026 · ORE",
+   "azione": "MODIFICA MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "ore",
+     "prima": 1200,
+     "dopo": 10
+    }
+   ]
+  },
+  {
+   "id": "a_mu77q1g36sn71s",
+   "ts": "2026-09-18T17:08:35.667Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mu77pw6lwoc0ne",
+   "riferimento": "C001 | TEST | Capannone · 18/09/2026 · ORE",
+   "azione": "NUOVO MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "commessaId",
+     "prima": "",
+     "dopo": "c_mty311ufm1gzsu"
+    },
+    {
+     "campo": "data",
+     "prima": "",
+     "dopo": "2026-09-18"
+    },
+    {
+     "campo": "tipo",
+     "prima": "",
+     "dopo": "ORE"
+    },
+    {
+     "campo": "ore",
+     "prima": "",
+     "dopo": 200
+    }
+   ]
+  },
+  {
+   "id": "a_mu77q7fxexii7x",
+   "ts": "2026-09-18T17:08:43.437Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mu77pw6lwoc0ne",
+   "riferimento": "C001 | TEST | Capannone · 18/09/2026 · ORE",
+   "azione": "MODIFICA MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "ore",
+     "prima": 200,
+     "dopo": 5
+    }
+   ]
+  },
+  {
+   "id": "a_mu77sauq2f4q4e",
+   "ts": "2026-09-18T17:10:21.170Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mu77s3p4ubz2f6",
+   "riferimento": "C001 | TEST | Capannone · 18/09/2026 · ORE",
+   "azione": "NUOVO MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "commessaId",
+     "prima": "",
+     "dopo": "c_mty311ufm1gzsu"
+    },
+    {
+     "campo": "data",
+     "prima": "",
+     "dopo": "2026-09-18"
+    },
+    {
+     "campo": "tipo",
+     "prima": "",
+     "dopo": "ORE"
+    },
+    {
+     "campo": "ore",
+     "prima": "",
+     "dopo": 1000
+    }
+   ]
+  },
+  {
+   "id": "a_mu77t6rpovkts3",
+   "ts": "2026-09-18T17:11:02.533Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mu77s3p4ubz2f6",
+   "riferimento": "C001 | TEST | Capannone · 23/09/2026 · ORE",
+   "azione": "MODIFICA MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "data",
+     "prima": "2026-09-18",
+     "dopo": "2026-09-23"
+    }
+   ]
+  },
+  {
+   "id": "a_mu77ts63gsm59g",
+   "ts": "2026-09-18T17:11:30.267Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "movimento",
+   "entitaId": "m_mu77tifkmr3371",
+   "riferimento": "C001 | TEST | Capannone · 29/09/2026 · ORE",
+   "azione": "NUOVO MOVIMENTO",
+   "modifiche": [
+    {
+     "campo": "commessaId",
+     "prima": "",
+     "dopo": "c_mty311ufm1gzsu"
+    },
+    {
+     "campo": "data",
+     "prima": "",
+     "dopo": "2026-09-29"
+    },
+    {
+     "campo": "tipo",
+     "prima": "",
+     "dopo": "ORE"
+    },
+    {
+     "campo": "ore",
+     "prima": "",
+     "dopo": 2000
+    }
+   ]
+  },
+  {
+   "id": "a_mu78iy96byvd6i",
+   "ts": "2026-09-18T17:31:04.554Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "saldo",
+   "entitaId": "s_mu70h4sxeam5g4",
+   "riferimento": "C002 | Smegmatron | Linea di montaggio smegma",
+   "azione": "ANNULLAMENTO SALDO",
+   "modifiche": [
+    {
+     "campo": "annullato",
+     "prima": false,
+     "dopo": true
+    },
+    {
+     "campo": "motivoAnnullamento",
+     "prima": "",
+     "dopo": "fdc"
+    }
+   ]
+  },
+  {
+   "id": "a_mu78khua76900u",
+   "ts": "2026-09-18T17:32:16.594Z",
+   "utente": "Direzione",
+   "ruolo": "direzione",
+   "entita": "saldo",
+   "entitaId": "s_mu78j0yyjxa8ta",
+   "riferimento": "C002 | Smegmatron | Linea di montaggio smegma · saldo al 31/12/2025",
+   "azione": "NUOVO SALDO INIZIALE",
+   "modifiche": [
+    {
+     "campo": "commessaId",
+     "prima": "",
+     "dopo": "c_mu6x4g1cvxj1ms"
+    },
+    {
+     "campo": "anno",
+     "prima": "",
+     "dopo": 2026
+    },
+    {
+     "campo": "ore",
+     "prima": "",
+     "dopo": 1000
+    }
+   ]
   }
  ],
  "esercizi": [],
- "salvatoIl": "2026-09-18T13:45:54.529Z",
+ "salvatoIl": "2026-09-18T17:32:16.596Z",
  "preventivi": [
   {
    "id": "p_mtyf2n5qxmauag",

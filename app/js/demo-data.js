@@ -34,7 +34,7 @@
       dataInizioEffettiva: '2026-06-08', dataFinePrevista: '2026-08-25', dataFinePrevistaOriginale: '2026-08-15',
       stato: 'In corso', ritenutePreviste: 'SI', contrattoIniziale: 143061.41, integrazioni: null,
       causaAggiornamentoDataFine: 'Proroga/Sospensione autorizzata', aggiornatoAl: '2026-08-25',
-      budget: { orePreviste: 1800, costoOrario: 45.79, costiDirettiPrevisti: 31308, note: 'DATI DIMOSTRATIVI — da sostituire con l\'Analisi di fattibilità approvata' },
+      budget: { orePreviste: 1800, costiDirettiPrevisti: 31308, note: 'DATI DIMOSTRATIVI — da sostituire con l\'Analisi di fattibilità approvata' },
       sostenibilita: { ricarico: 0.15, datiVerificati: true, data: '2026-06-02', note: 'VERIFICA DIMOSTRATIVA: il prezzo del computo non copre il prezzo minimo sostenibile.' }
     });
     const c011 = commessa({
@@ -48,7 +48,7 @@
       ramo: 'TEST', tecnico: 'DIREZIONE', preposto: 'PREPOSTO TEST', dataInizioEffettiva: '2026-01-01', dataFinePrevista: '2026-12-31',
       dataFinePrevistaOriginale: '2026-12-31', stato: 'In corso', ritenutePreviste: 'NO', contrattoIniziale: 100000, integrazioni: 0,
       causaAggiornamentoDataFine: 'Nessuna variazione', aggiornatoAl: '2026-04-20',
-      budget: { orePreviste: 1000, costoOrario: 45.79, costiDirettiPrevisti: 20000, note: '' },
+      budget: { orePreviste: 1000, costiDirettiPrevisti: 20000, note: '' },
       sostenibilita: { ricarico: 0.15, datiVerificati: true, data: '2026-01-02', note: 'VERIFICA DIMOSTRATIVA: commessa congrua.' }
     });
 
@@ -58,7 +58,7 @@
       indirizzo: 'Via Roma 10, Verona', ramo: 'MURATURA', tecnico: 'DAVIDE', preposto: 'AHMET MOUSTAFA',
       dataInizioPrevista: '2026-03-01', dataInizioEffettiva: '2026-03-02', dataFinePrevista: '2026-12-15', dataFinePrevistaOriginale: '2026-12-15',
       stato: 'In corso', ritenutePreviste: 'SI', contrattoIniziale: 200000, integrazioni: 20000, causaAggiornamentoDataFine: 'Nessuna variazione',
-      aggiornatoAl: '2026-06-30', budget: { orePreviste: 3000, costoOrario: 45.79, costiDirettiPrevisti: 50000, note: '' },
+      aggiornatoAl: '2026-06-30', budget: { orePreviste: 3000, costiDirettiPrevisti: 50000, note: '' },
       sostenibilita: { ricarico: 0.15, datiVerificati: false, data: '2026-02-02', note: 'VERIFICA DIMOSTRATIVA: computo ancora da confermare.' }
     });
 
@@ -68,7 +68,7 @@
       indirizzo: 'Via Aurora 5, Padova', ramo: 'RISTRUTTURAZIONE', tecnico: 'ALBAN', preposto: 'MARIO ROSSI',
       dataInizioPrevista: '2026-02-01', dataInizioEffettiva: '2026-02-01', dataFinePrevista: '2026-06-30', dataFinePrevistaOriginale: '2026-06-30',
       stato: 'In corso', ritenutePreviste: 'SI', contrattoIniziale: 120000, integrazioni: 0, causaAggiornamentoDataFine: 'Nessuna variazione',
-      aggiornatoAl: '2026-06-15', budget: { orePreviste: 1000, costoOrario: 45.79, costiDirettiPrevisti: 20000, note: '' },
+      aggiornatoAl: '2026-06-15', budget: { orePreviste: 1000, costiDirettiPrevisti: 20000, note: '' },
       sostenibilita: { ricarico: 0.10, datiVerificati: true, data: '2026-01-21', note: 'VERIFICA DIMOSTRATIVA: ricarico sotto la soglia della Direzione.' }
     });
 
@@ -78,7 +78,7 @@
       indirizzo: 'Via Scuole 1, Vicenza', ramo: 'OPERE PUBBLICHE', tecnico: 'DAVIDE', preposto: 'MARIO ROSSI',
       dataInizioPrevista: '2025-03-01', dataInizioEffettiva: '2025-03-10', dataFinePrevista: '2026-10-31', dataFinePrevistaOriginale: '2026-10-31',
       stato: 'In corso', ritenutePreviste: 'SI', contrattoIniziale: 250000, integrazioni: 0, causaAggiornamentoDataFine: 'Nessuna variazione',
-      aggiornatoAl: '2026-04-30', budget: { orePreviste: 2800, costoOrario: 45.79, costiDirettiPrevisti: 60000, note: '' }
+      aggiornatoAl: '2026-04-30', budget: { orePreviste: 2800, costiDirettiPrevisti: 60000, note: '' }
     });
 
     db.commesse.push(c042, c011, t10, casoA, casoB, casoC);

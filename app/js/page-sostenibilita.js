@@ -171,21 +171,34 @@
           '</tbody></table></div>'
           : '<div class="vuoto">Nessuna voce di costo specifico: la verifica considera la sola parte strutturale.</div>')) + '</div>';
 
+      // sotto ogni importo, la base su cui è calcolato: gli addendi, o la percentuale e l'importo a cui si applica
+      // con un array di righe la formula va a capo, per non stringere la colonna
+      const base = (valore, testo) => Fmt.isNum(valore)
+        ? '<div class="base">' + (Array.isArray(testo) ? testo.map(esc).join('<br>') : esc(testo)) + '</div>'
+        : '';
+      // verde quando il valore regge il confronto, rosso quando non lo regge
+      const segno = (valore, ok) => Fmt.isNum(valore) ? '<span style="color:var(--' + (ok ? 'verde' : 'rosso') + ')">' + E(valore) + '</span>' : E(valore);
       const formazione = '<div class="griglia-2"><div class="pannello"><h2>Formazione del prezzo minimo</h2>' + kvV([
         ['Ore totali previste', w => O(w.ore), 'in'],
-        ['Costo strutturale attribuito alla commessa senza costi diretti', w => E(w.strutturale.costo), 'calc'],
-        ['Costo strutturale attribuito alla commessa con costi diretti', w => E(w.costoStrutturaleConDiretti), 'calc'],
-        ['Rischio / imprevisti sulla parte strutturale (' + Pc(S.rischio) + ')', w => E(w.strutturale.rischio), 'calc'],
-        ['Costo strutturale prudenziale', w => E(w.strutturale.prudenziale), 'calc'],
-        ['Redditività (' + Pc(S.redditivita) + ')', w => E(w.strutturale.redditivita), 'calc'],
-        ['Prezzo con redditività del ' + Pc(S.redditivita), w => E(w.strutturale.conRedditivita), 'calc'],
-        ['Quota di rientro bancario (' + E(S.rientroOrario) + '/h)', w => E(w.strutturale.rientro), 'calc'],
-        ['Prezzo sostenibile della parte strutturale', w => '<b>' + E(w.prezzoMinimoStrutturale) + '</b>', 'calc'],
-        ['Prezzo di vendita dei costi specifici', w => E(w.prezzoMinimoSpecifici), 'calc'],
-        ['PREZZO MINIMO DALL\'ANALISI', w => '<b>' + E(w.prezzoMinimo) + '</b>', 'calc'],
-        ['Prezzo del computo', w => E(w.prezzoComputo), 'in'],
-        ['Scostamento', w => '<b>' + E(w.scostamento) + '</b>', 'calc'],
-        ['Differenza tra prezzo minimo e totale costi', w => E(w.differenzaPrezzoMinimoCosti), 'calc']
+        ['Costo orario attribuito alla commessa', w => E(w.strutturale.costo) + base(w.strutturale.costo, O(w.ore) + ' × ' + E(S.costoOrario) + '/h'), 'calc'],
+        // i costi diretti sono la voce che separa le due righe del costo attribuito: si legge la somma
+        ['Costi diretti della commessa', w => E(w.totVoci.costoTotale) + base(w.totVoci.costoTotale, w.totVoci.n + (w.totVoci.n === 1 ? ' voce di costo specifico' : ' voci di costo specifico')), 'calc'],
+        ['Costo orario più costi diretti', w => '<b>' + E(w.costoStrutturaleConDiretti) + '</b>' + base(w.costoStrutturaleConDiretti, E(w.strutturale.costo) + ' + ' + E(w.totVoci.costoTotale)), 'calc'],
+        // il rischio si applica al costo orario attribuito, non ai costi diretti: la percentuale e la base stanno nella cella
+        ['Rischio imprevisti', w => E(w.strutturale.rischio) + base(w.strutturale.rischio, Pc(S.rischio) + ' di ' + E(w.strutturale.costo)), 'calc'],
+        ['Costo orario prudenziale', w => E(w.strutturale.prudenziale) + base(w.strutturale.prudenziale, E(w.strutturale.costo) + ' + ' + E(w.strutturale.rischio)), 'calc'],
+        ['Costo orario prudenziale con redditività del ' + Pc(S.redditivita), w => E(w.strutturale.conRedditivita) + base(w.strutturale.conRedditivita, E(w.strutturale.prudenziale) + ' ÷ (1 − ' + Pc(S.redditivita) + ')'), 'calc'],
+        // la redditività non si calcola sul costo: è quanto il costo prudenziale portato a redditività supera il costo stesso
+        ['Redditività (' + Pc(S.redditivita) + ')', w => E(w.strutturale.redditivita) + base(w.strutturale.redditivita, E(w.strutturale.conRedditivita) + ' − ' + E(w.strutturale.prudenziale)), 'calc'],
+        ['Quota di rientro bancario (' + E(S.rientroOrario) + '/h)', w => E(w.strutturale.rientro) + base(w.strutturale.rientro, O(w.ore) + ' × ' + E(S.rientroOrario) + '/h'), 'calc'],
+        ['Prezzo sostenibile della parte strutturale', w => E(w.prezzoMinimoStrutturale) + base(w.prezzoMinimoStrutturale, E(w.strutturale.conRedditivita) + ' + ' + E(w.strutturale.rientro)), 'calc'],
+        ['Prezzo di vendita dei costi diretti', w => E(w.prezzoMinimoSpecifici) + base(w.prezzoMinimoSpecifici, w.totVoci.n
+          ? ['(' + E(w.totVoci.costoTotale) + ' + ricarico ' + Pc(w.totVoci.ricaricoMedio) + ')', '÷ (1 − ' + Pc(S.redditivita) + ')']
+          : 'nessun costo diretto'), 'calc'],
+        ['PREZZO MINIMO DALL\'ANALISI', w => '<b>' + E(w.prezzoMinimo) + '</b>' + base(w.prezzoMinimo, E(w.prezzoMinimoStrutturale) + ' + ' + E(w.prezzoMinimoSpecifici)), 'calc'],
+        ['Prezzo di vendita', w => '<b>' + (Fmt.isNum(w.prezzoMinimo) ? segno(w.prezzoComputo, w.prezzoComputo >= w.prezzoMinimo) : E(w.prezzoComputo)) + '</b>', 'in'],
+        ['Scostamento dal prezzo minimo sostenibile', w => segno(w.scostamento, w.scostamento >= 0) + base(w.scostamento, E(w.prezzoComputo) + ' − ' + E(w.prezzoMinimo)), 'calc'],
+        ['Quanto resta in tasca', w => '<b>' + segno(w.restaInTasca, w.restaInTasca >= 0) + '</b>' + base(w.restaInTasca, E(w.prezzoComputo) + ' − ' + E(w.costoStrutturaleConDiretti)), 'calc']
       ]) + '</div><div class="pannello"><h2>Parametri aziendali protetti</h2>' + kv([
         ['Costo strutturale', E(S.costoOrario) + '/h', 'calc'],
         ['Rischio strutturale', Pc(S.rischio), 'calc'],

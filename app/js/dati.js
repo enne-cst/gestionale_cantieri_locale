@@ -67,7 +67,7 @@
   const COLLEZIONI = { preventivi: ['voci'], audit: ['modifiche'] };
 
   const MODELLI_ANNIDATI = {
-    'commesse.budget': { orePreviste: null, costoOrario: null, costiDirettiPrevisti: null, orePrevisteAgg: null, costiDirettiPrevistiAgg: null, dataAggiornamento: '', note: '' },
+    'commesse.budget': { orePreviste: null, costiDirettiPrevisti: null, orePrevisteAgg: null, costiDirettiPrevistiAgg: null, dataAggiornamento: '', note: '' },
     'commesse.sostenibilita': { ricarico: null, datiVerificati: false, data: '', note: '' },
     'commesse.chiusuraDefinitiva': { anno: null, data: '', utente: '', sal: null, fatturatoLordo: null, ritenute: null, svincoli: null, perditeSal: null, ore: null, costiDiretti: null },
     'preventivi.voci': { id: '', voce: '', macroCategoria: '', quantita: null, um: '', costoUnitario: null, ricarico: null },

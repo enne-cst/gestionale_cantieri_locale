@@ -1,0 +1,6 @@
+node_modules/
+*.log
+data/*.tmp
+data/.prova-scrittura
+.DS_Store
+Thumbs.db

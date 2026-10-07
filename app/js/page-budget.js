@@ -9,7 +9,7 @@
     apriForm(commessaId, onSalvato) {
       if (!Store.puo('budget.modifica')) return UI.permessoNegato();
       const c = Store.commessa(commessaId); if (!c) return;
-      const b = Engine.budgetDi(c);
+      const b = Engine.budgetDi(c, Store.db.parametri);
       const row = Engine.calcolaCommessa(c, Store.db);
       const P = Store.db.parametri;
       const corpo = '<form id="form-budget" onsubmit="return false">' +
@@ -17,7 +17,6 @@
         '<fieldset><legend>Budget iniziale (storico)</legend><div class="form-griglia">' +
         UI.campo({ nome: 'orePreviste', etichetta: 'Ore previste iniziali', tipo: 'ore', step: '0.5', aiuto: 'Prima stesura del budget: resta come storico e non va più modificata.' }, b.orePrevisteIniziali) +
         UI.campo({ nome: 'costiDirettiPrevisti', etichetta: 'Costi diretti previsti iniziali (€)', tipo: 'euro', aiuto: 'Prima stesura del budget: resta come storico.' }, b.costiDirettiPrevistiIniziali) +
-        UI.campo({ nome: 'costoOrario', etichetta: 'Costo orario (€/h)', tipo: 'euro', aiuto: 'Vale per entrambe le versioni. Costo strutturale corrente: ' + Fmt.euro(P.costoOrario) + '/h (Parametri).' }, b.costoOrario === null ? P.costoOrario : b.costoOrario) +
         '</div></fieldset>' +
         '<fieldset><legend>Budget aggiornato</legend><div class="form-griglia">' +
         UI.campo({ nome: 'orePrevisteAgg', etichetta: 'Ore previste aggiornate', tipo: 'ore', step: '0.5', aiuto: 'Lasciare vuoto se non è cambiato nulla: vale il valore iniziale.' }, b.orePrevisteAgg) +
@@ -38,24 +37,23 @@
           testo: 'Salva', classe: 'primario', async azione(m) {
             const v = UI.leggiForm(m.el.querySelector('#form-budget'));
             const nuovo = {
-              orePreviste: v.orePreviste, costoOrario: v.costoOrario, costiDirettiPrevisti: v.costiDirettiPrevisti,
+              orePreviste: v.orePreviste, costiDirettiPrevisti: v.costiDirettiPrevisti,
               orePrevisteAgg: v.orePrevisteAgg, costiDirettiPrevistiAgg: v.costiDirettiPrevistiAgg,
               dataAggiornamento: v.dataAggiornamento || '', note: v.note || ''
             };
             const errori = [], avvisi = [];
-            const CAMPI = ['orePreviste', 'costoOrario', 'costiDirettiPrevisti', 'orePrevisteAgg', 'costiDirettiPrevistiAgg'];
+            const CAMPI = ['orePreviste', 'costiDirettiPrevisti', 'orePrevisteAgg', 'costiDirettiPrevistiAgg'];
             CAMPI.forEach(f => { if (nuovo[f] !== null && nuovo[f] < 0) errori.push('Valore negativo nel campo ' + (Schema.ETICHETTE[f] || f) + '.'); });
             const haAgg = nuovo.orePrevisteAgg !== null || nuovo.costiDirettiPrevistiAgg !== null;
             if (haAgg && !nuovo.dataAggiornamento) errori.push('Indicare la DATA AGGIORNAMENTO BUDGET quando si inserisce un valore aggiornato.');
             // data senza valori aggiornati = conferma del budget iniziale a quella data: è un uso normale, non un avviso
-            if (nuovo.orePreviste !== null && nuovo.orePreviste > 0 && nuovo.costoOrario === null) avvisi.push('Indicare il costo orario per calcolare il costo ore.');
             if (nuovo.orePreviste === null) avvisi.push('Ore previste iniziali non indicate: il controllo ore/SAL e il ritardo produttivo non saranno calcolati.');
             await UI.salvaConControlli(m, {
               valida: () => ({ errori, avvisi }),
               salva: async () => {
                 await Store.salva(db => {
                   const cur = db.commesse.find(x => x.id === commessaId);
-                  const mod = Store.diff(cur.budget || {}, nuovo, ['orePreviste', 'costoOrario', 'costiDirettiPrevisti', 'orePrevisteAgg', 'costiDirettiPrevistiAgg', 'dataAggiornamento', 'note']);
+                  const mod = Store.diff(cur.budget || {}, nuovo, ['orePreviste', 'costiDirettiPrevisti', 'orePrevisteAgg', 'costiDirettiPrevistiAgg', 'dataAggiornamento', 'note']);
                   cur.budget = Object.assign({}, cur.budget || {}, nuovo);
                   if (mod.length) Store.log(db, 'budget', cur.id, cur.codice, 'MODIFICA BUDGET', mod);
                 });
@@ -69,7 +67,7 @@
           const form = m.el.querySelector('#form-budget');
           const agg = () => {
             const v = UI.leggiForm(form);
-            const bb = Engine.budgetDi(Object.assign({}, c, { budget: v }));
+            const bb = Engine.budgetDi(Object.assign({}, c, { budget: v }), P);
             form.querySelector('#f-costoOre').innerHTML = Fmt.euro(bb.costoOreIniziale) + ' → <b>' + Fmt.euro(bb.costoOre) + '</b>';
             form.querySelector('#f-costoTotale').innerHTML = Fmt.euro(bb.costoTotalePrevistoIniziale) + ' → <b>' + Fmt.euro(bb.costoTotalePrevisto) + '</b>';
             form.querySelector('#f-margine').innerHTML = Fmt.pct(bb.margineTeoricoIniziale) + ' → <b>' + Fmt.pct(bb.margineTeorico) + '</b>';
@@ -96,7 +94,7 @@
     const P = Store.db.parametri;
     if (!D.da) { D.da = P.annoGestione + '-01-01'; D.a = P.annoGestione + '-12-31'; }
     const rows = Engine.calcolaTutte(Store.db);
-    cont.innerHTML = UI.testata('Budget commessa', 'Budget tecnico per commessa. Codice, cliente e cantiere provengono esclusivamente dall\'Anagrafica; l\'utente inserisce solo ore previste, costo orario e costi diretti previsti.', UI.pulsanteEsporta('budget')) +
+    cont.innerHTML = UI.testata('Budget commessa', 'Budget tecnico per commessa. Codice, cliente e cantiere provengono esclusivamente dall\'Anagrafica; l\'utente inserisce solo ore previste e costi diretti previsti; le ore sono valorizzate al costo strutturale corrente dei Parametri.', UI.pulsanteEsporta('budget')) +
       '<div class="pannello"><h2>Commesse aperte per periodo di fine prevista</h2><div class="filtri" id="bud-dash">' +
       '<div class="campo"><label>Periodo da</label><input type="date" class="in" name="da" value="' + esc(D.da) + '"></div>' +
       '<div class="campo"><label>Periodo a</label><input type="date" class="in" name="a" value="' + esc(D.a) + '"></div></div>' +
@@ -114,7 +112,7 @@
       { campo: 'orePrevisteIni', titolo: 'Ore previste iniziali', tipo: 'n', classe: 'in', fmt: v => Fmt.ore(v) },
       { campo: 'orePreviste', titolo: 'Ore previste aggiornate', tipo: 'n', classe: 'in', fmt: (v, r) => Fmt.ore(v) + (r.budget.orePrevisteAgg !== null ? '' : ' <span class="muto piccolo">(iniziale)</span>') },
       { campo: 'dataAggiornamento', titolo: 'Agg. al', fmt: v => v ? Fmt.data(v) : '<span class="muto">—</span>' },
-      { campo: 'costoOrario', titolo: 'Costo orario', tipo: 'n', classe: 'in', fmt: v => Fmt.euro(v) },
+      { campo: 'costoOrario', titolo: 'Costo orario', tipo: 'n', classe: 'calc', fmt: v => Fmt.euro(v) },
       { campo: 'costoOreIni', titolo: 'Costo ore iniziale', tipo: 'n', classe: 'calc', fmt: v => Fmt.euro(v) },
       { campo: 'costoOre', titolo: 'Costo ore aggiornato', tipo: 'n', classe: 'calc', fmt: v => Fmt.euro(v) },
       { campo: 'costiDirettiPrevistiIni', titolo: 'Costi diretti previsti iniziali', tipo: 'n', classe: 'in', fmt: v => Fmt.euro(v) },

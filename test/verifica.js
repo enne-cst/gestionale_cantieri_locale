@@ -225,6 +225,17 @@ sezione('CASO C – commessa pregressa (saldo 31/12/2025 + movimenti 2026)');
 // ------------------------------------------------------------------ validazioni
 sezione('Controlli di coerenza');
 {
+  // il costo orario ha una sola fonte (Parametri): cambiandolo si muovono previsioni e consuntivo insieme
+  {
+    const dbX = JSON.parse(JSON.stringify(db));
+    dbX.parametri.costoOrario = db.parametri.costoOrario * 2;
+    const prima = Engine.calcolaCommessa(db.commesse.find(c => c.codice === 'C042'), db);
+    const dopo = Engine.calcolaCommessa(dbX.commesse.find(c => c.codice === 'C042'), dbX);
+    eq('raddoppiando il costo orario raddoppia il costo delle ore previste', prima.costoOrePreviste * 2, dopo.costoOrePreviste, 1e-6);
+    eq('raddoppiando il costo orario raddoppia il costo delle ore previste iniziali', prima.costoOrePrevisteIni * 2, dopo.costoOrePrevisteIni, 1e-6);
+    eq('raddoppiando il costo orario raddoppia il costo delle ore effettive', prima.costoOreEffettive * 2, dopo.costoOreEffettive, 1e-6);
+    eq('il costo orario del riepilogo e quello dei Parametri', dbX.parametri.costoOrario, Engine.riepilogo([dopo]).costoOrario, 1e-9);
+  }
   const v1 = Engine.validaMovimento({ commessaId: 'c_A26', data: '', tipo: 'SAL', sal: 100 }, db);
   eq('movimento senza data bloccato', true, v1.errori.some(e => /DATA MOVIMENTO/.test(e)));
   const v2 = Engine.validaMovimento({ commessaId: '', data: '2026-05-01', tipo: 'SAL', sal: 100 }, db);
@@ -523,6 +534,7 @@ sezione('Sostenibilità economica – dati dimostrativi');
   eq('C042: prezzo del computo = contratto aggiornato', 143061.41, s042.prezzoComputo);
   eq('C042: ore previste dal budget', 1800, s042.ore);
   eq('C042: costi specifici = costi diretti previsti', 31308, s042.totVoci.costoTotale, 0.005);
+  eq('C042: quanto resta in tasca = prezzo di vendita − costi', s042.prezzoComputo - s042.costoStrutturaleConDiretti, s042.restaInTasca, 1e-9);
   eq('TEST10: esito', 'CONGRUA', byCod['TEST10'].sostenibilita.esito);
   eq('B-2026-02: esito', 'NON CONGRUO', byCod['B-2026-02'].sostenibilita.esito);
   eq('A-2026-01: esito', 'DA COMPLETARE', byCod['A-2026-01'].sostenibilita.esito);
@@ -649,7 +661,7 @@ async function verificaImportazioneExcel() {
   const vuoto = Xlsx.crea(ImportaExcel.fogliModello(db, null));
   eq('firma ZIP del file generato', [0x50, 0x4b], [vuoto[0], vuoto[1]]);
   const cVuoto = await Xlsx.leggi(vuoto);
-  eq('fogli del modello', ['ISTRUZIONI', 'COMMESSE', 'ELENCHI'], cVuoto.fogli.map(f => f.nome));
+  eq('fogli del modello', ['ISTRUZIONI', 'COMMESSE', 'SALDI', 'MOVIMENTI', 'COSTI', 'ELENCHI'], cVuoto.fogli.map(f => f.nome));
   const testata = cVuoto.foglio('COMMESSE')[0].map(c => Xlsx.testo(c));
   eq('una colonna per ogni campo inseribile a mano', ImportaExcel.COLONNE.length, testata.length);
   eq('i campi obbligatori sono marcati con *', ['Data di inserimento *', 'Codice commessa *', 'Cliente *', 'Descrizione / Cantiere *'], testata.slice(0, 4));
@@ -657,6 +669,20 @@ async function verificaImportazioneExcel() {
   const elenchi = cVuoto.foglio('ELENCHI');
   eq('valori ammessi per lo stato', Engine.STATI[0], Xlsx.testo(elenchi[1][0]));
   eq('valori ammessi SI/NO', ['SI', 'NO'], [Xlsx.testo(elenchi[1][2]), Xlsx.testo(elenchi[2][2])]);
+  const testataSaldi = cVuoto.foglio('SALDI')[0].map(c => Xlsx.testo(c));
+  eq('una colonna per ogni campo del saldo', ImportaExcel.COLONNE_SALDI.length, testataSaldi.length);
+  eq('chiave del foglio SALDI: commessa + data', ['Codice commessa *', 'Data saldo (31/12) *'], testataSaldi.slice(0, 2));
+  eq('il foglio SALDI vuoto non ha righe di dati', 1, cVuoto.foglio('SALDI').length);
+  const testataMov = cVuoto.foglio('MOVIMENTI')[0].map(c => Xlsx.testo(c));
+  eq('una colonna per ogni campo del movimento', ImportaExcel.COLONNE_MOVIMENTI.length, testataMov.length);
+  eq('il movimento si riconosce dall\'ID, commessa e data sono obbligatorie',
+    ['ID movimento (non modificare)', 'Codice commessa *', 'Data movimento *', 'Tipo movimento *'], testataMov.slice(0, 4));
+  const testataKos = cVuoto.foglio('COSTI')[0].map(c => Xlsx.testo(c));
+  eq('una colonna per ogni campo del costo diretto', ImportaExcel.COLONNE_COSTI.length, testataKos.length);
+  eq('nel costo l\'importo è obbligatorio', true, testataKos.indexOf('Importo (€) *') >= 0);
+  eq('i fogli MOVIMENTI e COSTI vuoti non hanno righe di dati', [1, 1], [cVuoto.foglio('MOVIMENTI').length, cVuoto.foglio('COSTI').length]);
+  eq('valori ammessi per il tipo movimento', Engine.TIPI_MOVIMENTO[0], Xlsx.testo(elenchi[1][6]));
+  eq('macro-categorie suggerite', db.liste.macroCategorie[0], Xlsx.testo(elenchi[1][7]));
 
   // Andata e ritorno: esportare le commesse e rileggerle non deve cambiare un solo valore.
   sezione('Importazione da Excel – andata e ritorno');
@@ -671,6 +697,19 @@ async function verificaImportazioneExcel() {
   eq('nessuna riga scartata', 0, rPieno.nScartate);
   eq('nessuna modifica: il file rispecchia l\'archivio', 0, rPieno.nAggiornate);
   eq('tutte invariate', commesse.length, rPieno.nInvariate);
+  const saldiAttivi = db.saldi.filter(s => !s.annullato);
+  eq('i saldi in archivio escono nel foglio SALDI', saldiAttivi.length + 1, cPieno.foglio('SALDI').length);
+  eq('il saldo esce con la sua data (31/12), non con l\'esercizio', '2025-12-31', Xlsx.testo(cPieno.foglio('SALDI')[1][1]));
+  eq('saldi riletti senza modifiche', [saldiAttivi.length, 0, 0], [rPieno.saldi.nInvariati, rPieno.saldi.nNuovi, rPieno.saldi.nScartati]);
+  const movAttivi = db.movimenti.filter(m => !m.annullato), kosAttivi = db.costi.filter(k => !k.annullato);
+  eq('i movimenti in archivio escono nel loro foglio', movAttivi.length + 1, cPieno.foglio('MOVIMENTI').length);
+  eq('ogni movimento esce con il suo ID', true, cPieno.foglio('MOVIMENTI').slice(1).every(r => Xlsx.testo(r[0]).indexOf('m_') === 0));
+  eq('movimenti riletti senza modifiche', [movAttivi.length, 0, 0, 0],
+    [rPieno.movimenti.nInvariati, rPieno.movimenti.nNuovi, rPieno.movimenti.nAggiornati, rPieno.movimenti.nScartati]);
+  eq('i costi diretti in archivio escono nel loro foglio', kosAttivi.length + 1, cPieno.foglio('COSTI').length);
+  eq('costi diretti riletti senza modifiche', [kosAttivi.length, 0, 0, 0],
+    [rPieno.costi.nInvariati, rPieno.costi.nNuovi, rPieno.costi.nAggiornati, rPieno.costi.nScartati]);
+  eq('rileggere il proprio file non segnala doppioni', [0, 0], [rPieno.movimenti.nDoppi, rPieno.costi.nDoppi]);
 
   // File compilato a mano, come lo consegna il cliente: date e importi all'italiana, SI/NO, percentuali.
   sezione('Importazione da Excel – file compilato a mano');
@@ -704,7 +743,8 @@ async function verificaImportazioneExcel() {
   eq('ricarico: 18 vale 18 %', 0.18, nuova.sostenibilita.ricarico, 1e-12);
   eq('dati del computo verificati', true, nuova.sostenibilita.datiVerificati);
   eq('alla creazione la data fine originaria è quella prevista', '2026-06-30', nuova.dataFinePrevistaOriginale);
-  eq('alla creazione il costo orario arriva dai parametri', db.parametri.costoOrario, nuova.budget.costoOrario);
+  eq('il budget non porta un costo orario proprio', undefined, nuova.budget.costoOrario);
+  eq('le ore di budget sono valorizzate al costo strutturale corrente', 900 * db.parametri.costoOrario, Engine.budgetDi(nuova, db.parametri).costoOreIniziale, 1e-9);
   eq('alla creazione "aggiornato al" è valorizzata', true, !!nuova.aggiornatoAl);
 
   const agg = rProva.esiti.find(x => x.esito === 'AGGIORNA');
@@ -717,6 +757,162 @@ async function verificaImportazioneExcel() {
   eq('scartata: cliente obbligatorio', true, scarti[0].errori.some(x => /CLIENTE/i.test(x)));
   eq('scartata: stato non ammesso', true, scarti[0].errori.some(x => /non ammesso|non valido/i.test(x)));
   eq('scartata: codice ripetuto nello stesso file', true, scarti[1].errori.some(x => /compare già alla riga/i.test(x)));
+
+  eq('senza foglio SALDI si importano solo le commesse', [false, 0], [rProva.saldi.presente, rProva.saldi.esiti.length]);
+
+  // Saldi al 31/12 degli anni precedenti: caricati insieme alle commesse, anche per commesse
+  // create dallo stesso file, e su più anni per la stessa commessa.
+  sezione('Importazione da Excel – saldi al 31/12 degli anni precedenti');
+  const TS = campo => ImportaExcel.COLONNE_SALDI.find(c => c.campo === campo).titolo;
+  const campiSaldo = ['codice', 'dataSaldo', 'sal', 'fatturatoLordo', 'ritenute', 'svincoli', 'perditeSal', 'ore', 'costiDiretti', 'note'];
+  const righeCommesse = [
+    ['dataInserimento', 'codice', 'cliente', 'cantiere', 'dataInizioEffettiva'].map(T),
+    ['10/03/2023', 'PREG01', 'Cliente Storico', 'Cantiere pregresso', '01/04/2023']
+  ];
+  const righeSaldi = [
+    ['SALDI AL 31.12 – RIQUADRO DI TESTA'],                                     // titolo sopra la tabella
+    campiSaldo.map(TS).concat(['Colonna inventata']),
+    ['PREG01', '31/12/2023', '40.000', '35.000', '1.750', '0', '0', '400', '12.000', 'Primo anno', 'x'],
+    ['PREG01', '31/12/2025', '90.000', '80.000', '4.000', '500', '0', '900', '28.000', 'Cumulativo a fine 2025', ''],
+    ['C-2025-07', '31/12/2025', '125.000', '110.000', '5.500', '0', '0', '1.500', '30.000', 'Rettifica del SAL', ''],
+    ['PREG01', '31/12/2025', '1', '', '', '', '', '', '', 'Doppione', ''],      // stessa coppia codice + data
+    ['PREG01', '30/06/2025', '1', '', '', '', '', '', '', 'Data non di fine anno', ''],
+    ['IGNOTO', '31/12/2025', '1', '', '', '', '', '', '', 'Commessa inesistente', ''],
+    ['A-2026-01', '31/12/2025', '1', '', '', '', '', '', '', 'Commessa non pregressa', ''],
+    ['', '', '', '', '', '', '', '', '', '', '']
+  ];
+  const rSaldi = ImportaExcel.prepara(await Xlsx.leggi(Xlsx.crea([
+    { nome: 'COMMESSE', righe: righeCommesse }, { nome: 'SALDI', righe: righeSaldi }
+  ])), db);
+  const S = rSaldi.saldi;
+  eq('il riquadro sopra la tabella non confonde la riga dei titoli', 2, S.rigaTestata);
+  eq('le colonne non riconosciute sono elencate e ignorate', ['Colonna inventata'], S.colonneIgnorate);
+  eq('la riga vuota è saltata senza segnalazioni', 7, S.esiti.length);
+  eq('saldi nuovi', 2, S.nNuovi);
+  eq('saldi aggiornati', 1, S.nAggiornati);
+  eq('saldi scartati', 4, S.nScartati);
+
+  const nuovi = S.esiti.filter(x => x.esito === 'NUOVO');
+  eq('più anni per la stessa commessa', ['2023-12-31', '2025-12-31'], nuovi.map(x => x.dataSaldo));
+  eq('il saldo al 31/12 diventa l\'esercizio successivo', [2024, 2026], nuovi.map(x => x.anno));
+  eq('il saldo si aggancia alla commessa creata dallo stesso file',
+    true, !!nuovi[0].commessaId && nuovi[0].commessaId === nuovi[1].commessaId);
+  eq('importi all\'italiana', [90000, 80000, 900, 28000],
+    [nuovi[1].saldo.sal, nuovi[1].saldo.fatturatoLordo, nuovi[1].saldo.ore, nuovi[1].saldo.costiDiretti]);
+  eq('un esercizio già chiuso si carica come storico, con avviso',
+    true, nuovi[0].avvisi.some(a => /già chiuso/.test(a)));
+  eq('il saldo dell\'esercizio in gestione non ha avvisi', [], nuovi[1].avvisi);
+
+  const aggSaldo = S.esiti.find(x => x.esito === 'AGGIORNA');
+  eq('il saldo già in archivio viene riconosciuto, non duplicato', 's_C25', aggSaldo.saldoId);
+  eq('cambiano solo i campi compilati', ['note', 'sal'], aggSaldo.modifiche.map(m => m.campo).sort());
+
+  const scartiSaldi = S.esiti.filter(x => x.esito === 'SCARTATO');
+  eq('scartato: coppia commessa + data ripetuta nel file', true, scartiSaldi[0].errori.some(x => /compare già alla riga/.test(x)));
+  eq('scartato: data che non è un 31 dicembre', true, scartiSaldi[1].errori.some(x => /31 dicembre/.test(x)));
+  eq('scartato: codice commessa inesistente', true, scartiSaldi[2].errori.some(x => /non esiste in archivio/.test(x)));
+  eq('scartato: commessa non pregressa alla data del saldo', true, scartiSaldi[3].errori.some(x => /pregressa/.test(x)));
+  eq('l\'archivio non è stato toccato', [120000, db.saldi.length], [db.saldi.find(s => s.id === 's_C25').sal, db.saldi.length]);
+
+  // Movimenti e costi diretti dell'esercizio in gestione: caricati insieme alle commesse, anche per
+  // una commessa creata dallo stesso file. Senza ID si registra sempre qualcosa di nuovo, con l'ID
+  // si corregge quello che c'è già; i doppioni si segnalano senza bloccare.
+  sezione('Importazione da Excel – movimenti e costi diretti');
+  const TM = campo => ImportaExcel.COLONNE_MOVIMENTI.find(c => c.campo === campo).titolo;
+  const TK = campo => ImportaExcel.COLONNE_COSTI.find(c => c.campo === campo).titolo;
+  const movEsistente = db.movimenti.find(m => m.commessaId === 'c_TEST10' && m.numeroDocumento === 'T10-01');
+  const kosEsistente = db.costi.find(k => k.commessaId === 'c_C042');
+  const campiMov = ['id', 'codice', 'data', 'tipo', 'numeroDocumento', 'descrizione', 'sal', 'fatturatoLordo', 'ritenuta', 'svincolo', 'ore', 'perditaSal', 'note'];
+  const campiKos = ['id', 'codice', 'data', 'macroCategoria', 'descrizione', 'importo', 'fornitore', 'note'];
+  const rReg = ImportaExcel.prepara(await Xlsx.leggi(Xlsx.crea([
+    {
+      nome: 'COMMESSE',
+      righe: [
+        ['dataInserimento', 'codice', 'cliente', 'cantiere'].map(T),
+        ['02/01/2026', 'IMPREG', 'Cliente Nuovo', 'Cantiere caricato da Excel']
+      ]
+    },
+    {
+      nome: 'MOVIMENTI',
+      righe: [
+        campiMov.map(TM).concat(['Colonna inventata']),
+        ['', 'IMPREG', '20/04/2026', 'SAL + FATTURA', 'FT 100', 'SAL di aprile', '50.000', '45.000', '2.250', '', '350', '', 'Da Excel', 'x'],
+        ['', 'IMPREG', '20/04/2026', 'SAL + FATTURA', 'FT 100', 'SAL di aprile', '50.000', '45.000', '2.250', '', '350', '', 'Da Excel', ''],   // ripete la riga sopra
+        ['', 'TEST10', '15/03/2026', 'SAL + FATTURA', 'T10-03', 'SAL/Fattura test marzo', '5.000', '10.000', '0', '0', '80', '0', '', ''],      // ripete l'archivio
+        [movEsistente.id, 'TEST10', '', '', '', '', '', '', '', '', '', '', 'Nota corretta da Excel', ''],                                      // aggiorna per ID
+        ['', 'IGNOTO', '20/04/2026', 'SAL', '', '', '1.000', '', '', '', '', '', '', ''],
+        ['', 'TEST10', '20/04/2025', 'SAL', '', '', '1.000', '', '', '', '', '', '', ''],
+        ['', 'TEST10', '20/04/2026', 'TIPO INVENTATO', '', '', '1.000', '', '', '', '', '', '', ''],
+        ['m_inesistente', 'TEST10', '20/04/2026', 'SAL', '', '', '1.000', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', '', '', '', '', '', '', '']
+      ]
+    },
+    {
+      nome: 'COSTI',
+      righe: [
+        campiKos.map(TK),
+        ['', 'IMPREG', '21/04/2026', 'Noleggi', 'Gru a torre', '3.500,50', 'Noleggi Srl - FT 9', ''],
+        ['', 'IMPREG', '21/04/2026', 'Categoria nuova di zecca', 'Voce inventata', '100', '', ''],
+        [kosEsistente.id, 'C042', '', '', '', '6.000', '', ''],                                    // aggiorna per ID
+        ['', 'IMPREG', '21/04/2026', 'Noleggi', 'Riga senza importo', '', '', ''],
+        ['', '', '', '', '', '', '', '']
+      ]
+    }
+  ])), db);
+
+  const M = rReg.movimenti, K = rReg.costi;
+  eq('le colonne non riconosciute sono elencate e ignorate', ['Colonna inventata'], M.colonneIgnorate);
+  eq('la riga vuota è saltata senza segnalazioni', 8, M.esiti.length);
+  eq('movimenti nuovi, aggiornati e scartati', [3, 1, 4], [M.nNuovi, M.nAggiornati, M.nScartati]);
+
+  const movNuovi = M.esiti.filter(x => x.esito === 'NUOVO');
+  eq('il movimento si aggancia alla commessa creata dallo stesso file',
+    true, !!movNuovi[0].commessaId && movNuovi[0].commessaId === rReg.esiti[0].commessa.id);
+  eq('importi e ore all\'italiana', [50000, 45000, 2250, 350],
+    [movNuovi[0].registrazione.sal, movNuovi[0].registrazione.fatturatoLordo, movNuovi[0].registrazione.ritenuta, movNuovi[0].registrazione.ore]);
+  eq('senza ID si registra sempre un movimento nuovo', null, movNuovi[0].registrazioneId);
+  eq('due righe identiche nello stesso file: la seconda è segnalata',
+    true, movNuovi[1].doppione && movNuovi[1].avvisi.some(a => /riga 2 di questo file/.test(a)));
+  eq('una riga identica a un movimento già in archivio è segnalata',
+    true, movNuovi[2].doppione && movNuovi[2].avvisi.some(a => /già una registrazione identica/.test(a)));
+  eq('i doppioni si contano ma non bloccano', 2, M.nDoppi);
+
+  const movAgg = M.esiti.find(x => x.esito === 'AGGIORNA');
+  eq('con l\'ID si corregge il movimento, non se ne aggiunge uno', movEsistente.id, movAgg.registrazioneId);
+  eq('cambiano solo i campi compilati', ['note'], movAgg.modifiche.map(m => m.campo));
+  eq('le celle vuote non cancellano i valori', movEsistente.sal, movAgg.registrazione.sal);
+
+  const movScarti = M.esiti.filter(x => x.esito === 'SCARTATO');
+  eq('scartato: codice commessa inesistente', true, movScarti[0].errori.some(x => /non esiste in archivio/.test(x)));
+  eq('scartato: data fuori dall\'esercizio in gestione', true, movScarti[1].errori.some(x => /esercizio in gestione/.test(x)));
+  eq('scartato: tipo movimento non ammesso', true, movScarti[2].errori.some(x => /non ammesso/.test(x)));
+  eq('scartato: ID che non esiste in archivio', true, movScarti[3].errori.some(x => /non corrisponde a nessun movimento/.test(x)));
+
+  eq('righe di costo esaminate', 4, K.esiti.length);
+  eq('costi nuovi, aggiornati e scartati', [2, 1, 1], [K.nNuovi, K.nAggiornati, K.nScartati]);
+  const kosNuovi = K.esiti.filter(x => x.esito === 'NUOVO');
+  eq('importo con migliaia e decimali all\'italiana', 3500.5, kosNuovi[0].registrazione.importo);
+  eq('la macro-categoria è testo libero', 'Categoria nuova di zecca', kosNuovi[1].registrazione.macroCategoria);
+  const kosAgg = K.esiti.find(x => x.esito === 'AGGIORNA');
+  eq('con l\'ID si corregge il costo esistente', [kosEsistente.id, ['importo']], [kosAgg.registrazioneId, kosAgg.modifiche.map(m => m.campo)]);
+  eq('scartato: costo senza importo', true, K.esiti.filter(x => x.esito === 'SCARTATO')[0].errori.some(x => /IMPORTO/.test(x)));
+  eq('l\'archivio non è stato toccato', [db.movimenti.length, movEsistente.note, kosEsistente.importo],
+    [db.movimenti.length, 'TEST REV.10 - MESE 1', 5000]);
+
+  // Un file che porta solo registrazioni di commesse già in archivio non ha motivo di avere il
+  // foglio COMMESSE: si legge lo stesso, dicendo che di commesse non ne importa.
+  const rSoloMov = ImportaExcel.prepara(await Xlsx.leggi(Xlsx.crea([
+    {
+      nome: 'MOVIMENTI',
+      righe: [campiMov.map(TM), ['', 'TEST10', '20/04/2026', 'ORE', '', 'Ore di aprile', '', '', '', '', '200', '', '']]
+    }
+  ])), db);
+  eq('senza foglio COMMESSE gli altri fogli si importano lo stesso',
+    [true, 0, 1, 0], [!!rSoloMov.errore, rSoloMov.esiti.length, rSoloMov.movimenti.nNuovi, rSoloMov.movimenti.nScartati]);
+  let bloccato = '';
+  try { ImportaExcel.prepara(await Xlsx.leggi(Xlsx.crea([{ nome: 'FOGLIO1', righe: [['niente', 'di', 'utile']] }])), db); }
+  catch (err) { bloccato = err.message; }
+  eq('un file senza nessun foglio leggibile viene rifiutato', true, /non si riconosce la riga dei titoli/.test(bloccato));
 
   // Excel comprime sempre le parti dell'archivio: è la strada che percorrono i file veri.
   sezione('Importazione da Excel – archivio compresso e file originale');

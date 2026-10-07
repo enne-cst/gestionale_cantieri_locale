@@ -130,12 +130,14 @@ table.kv td { padding: 5px 0; border-bottom: 1px solid var(--bordo2); font-varia
 table.kv td.calc { background: var(--calc); padding-right: 6px; border-left: 3px solid var(--calc-bordo); }
 table.kv td.in { background: var(--input); padding-right: 6px; border-left: 3px solid var(--input-bordo); }
 table.kv td.sx { text-align: left; }
+/* sotto l'importo, la base su cui è calcolato: testo minuto, mai in grassetto */
+table.kv td .base { font-size: 11px; font-weight: 400; color: var(--testo3); line-height: 1.3; margin-top: 1px; white-space: nowrap; }
 /* budget sdoppiato: colonna iniziale (storico) e colonna aggiornata */
 table.kv3 th { width: auto; }
 table.kv3 th:first-child { width: 40%; }
 table.kv3 .col-ini, table.kv3 .col-agg, table.kv3 .col-cons { text-align: right; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding-right: 6px; }
+/* l'ultima colonna si distingue solo nell'intestazione: il grassetto nei valori lo decide chi scrive la riga */
 table.kv3 .col-agg { color: var(--primario); font-weight: 650; }
-table.kv3 td:last-child { font-weight: 650; }
 .vuoto { padding: 26px; text-align: center; color: var(--testo3); }
 .griglia-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .griglia-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
@@ -307,6 +309,9 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 /* caselle di corredo (ore, coperture): stesso peso di lettura delle altre, fondo neutro perché
    non sono passaggi del conto ma il dato che li spiega */
 .conto-unico .kpi.info { background: var(--carta); border-style: dashed; border-color: var(--bordo-forte); }
+/* casella di corredo che dà un esito: il fondo segue il colore, il tratteggio resta */
+.conto-unico .kpi.info.sfondo.verde { background: var(--verde-bg); border-color: #b6e0c5; }
+.conto-unico .kpi.info.sfondo.rosso { background: var(--rosso-bg); border-color: #f0c2bd; }
 /* "1,11 su 6,74 €/h" è più lungo di un valore secco: va a capo invece di essere troncato */
 .conto-unico .kpi.info .val { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
 /* il testo dentro la casella ("anziché 6,74 €/h desiderati", "già comprese nel fatturato") si deve
@@ -314,6 +319,36 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .conto-unico .kpi .sub { margin-top: 7px; padding-top: 5px; border-top: 1px solid var(--bordo-forte); color: var(--testo); font-size: 12.5px; font-weight: 600; line-height: 1.35; }
 .conto-unico .kpi.forte.sfondo.rosso { border-color: var(--rosso); }
 .conto-unico .kpi.forte.sfondo.verde { border-color: var(--verde); }
+/* le due righe di esito (utile/perdita e redditività effettiva) si devono vedere da lontano:
+   contorno pieno e marcato, alone intorno alla casella, numero più grande */
+.conto-unico .kpi.spicca { border-style: solid; border-width: 3px; box-shadow: 0 0 0 3px rgba(31,58,95,.10), var(--ombra); }
+.conto-unico .kpi.spicca .val { font-size: 24px; }
+.conto-unico .kpi.spicca .et { color: var(--testo); font-weight: 650; }
+/* ---------------------------------------------------------------- grafico dell'utile maturato
+   Disegno sobrio: griglia a filo, una linea sola, tratteggio solo per la proiezione a fine commessa. */
+/* con molte date la tela diventa più larga del pannello: si scorre in orizzontale come il Gantt */
+.grafico-utile { margin: 6px 0 4px; overflow-x: auto; }
+.grafico-utile svg { display: block; width: 100%; height: auto; }
+.grafico-utile .g-griglia { stroke: var(--bordo2); stroke-width: 1; }
+.grafico-utile .g-zero { stroke: var(--bordo-forte); stroke-width: 1.5; }
+/* filo che scende dal pallino alla sua data: tenue, deve legare senza farsi notare */
+.grafico-utile .g-guida { stroke: var(--bordo-forte); stroke-width: 1; stroke-dasharray: 3 4; opacity: .65; }
+.grafico-utile .g-tacca { fill: var(--testo3); font-size: 11px; font-variant-numeric: tabular-nums; }
+.grafico-utile .g-linea { fill: none; stroke: var(--primario2); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+/* sopra lo zero si guadagna, sotto si perde: la linea e i suoi punti lo dicono con il colore */
+.grafico-utile .g-linea.pos { stroke: var(--verde); }
+.grafico-utile .g-linea.neg { stroke: var(--rosso); }
+.grafico-utile .g-punto.pos circle { fill: var(--verde); }
+.grafico-utile .g-punto.neg circle { fill: var(--rosso); }
+/* la proiezione non è un dato maturato: tratteggiata e in grigio, non si confonde con la linea */
+.grafico-utile .g-proiezione { fill: none; stroke: var(--testo3); stroke-width: 2; stroke-dasharray: 6 5; }
+.grafico-utile .g-punto circle { fill: var(--primario2); stroke: var(--carta); stroke-width: 2; }
+.grafico-utile .g-punto.fine circle { fill: var(--testo2); }
+.grafico-utile .g-punto circle.g-presa { fill: transparent; stroke: none; cursor: pointer; }
+.grafico-utile .g-valore { font-size: 13px; font-weight: 650; fill: var(--testo); }
+.grafico-utile .g-valore.pos { fill: var(--verde); }
+.grafico-utile .g-valore.neg { fill: var(--rosso); }
+.grafico-utile .g-valore.fine { font-weight: 600; }
 .spiegazione { font-size: 12.5px; color: var(--testo2); margin: 0 0 10px; }
 .spiegazione b { color: var(--testo); }
 

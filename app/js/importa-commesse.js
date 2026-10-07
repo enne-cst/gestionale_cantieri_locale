@@ -5,14 +5,27 @@
  * la costruzione del modello stesso e la lettura di un file compilato con tutti i controlli.
  * Nessuna dipendenza dal browser: lo stesso file gira in Node (test/verifica.js).
  *
- * Il modello contiene TUTTI e SOLI i campi che di una commessa si inseriscono a mano, una volta
- * sola ciascuno: anagrafica, budget, verifica di sostenibilità, note e data di aggiornamento.
- * Restano fuori i valori calcolati dal programma (contratto aggiornato, allerte, prezzo minimo),
- * le fasi del cronoprogramma e le registrazioni che non appartengono alla commessa
- * (movimenti, costi diretti, saldi iniziali), che hanno archivi propri.
+ * Il foglio COMMESSE contiene TUTTI e SOLI i campi che di una commessa si inseriscono a mano, una
+ * volta sola ciascuno: anagrafica, budget, verifica di sostenibilità, note e data di aggiornamento.
+ * Restano fuori i valori calcolati dal programma (contratto aggiornato, allerte, prezzo minimo)
+ * e le fasi del cronoprogramma, che si disegnano dentro il programma.
  *
  * Una riga = una commessa. Il CODICE COMMESSA è la chiave: se non esiste la commessa viene creata,
  * se esiste viene aggiornata (le celle vuote non cancellano nulla).
+ *
+ * Il secondo foglio da compilare è SALDI: i valori cumulativi maturati dalle commesse pregresse al
+ * 31/12 di un anno, cioè il saldo iniziale dell'esercizio successivo. Serve a caricare in una volta
+ * sola lo storico degli anni precedenti, che a mano si inserirebbe una commessa alla volta.
+ * Una riga = una commessa + una data di saldo: la coppia è la chiave, quindi la stessa commessa può
+ * avere il saldo al 31/12/2024, al 31/12/2025 e così via.
+ *
+ * Gli altri due fogli sono MOVIMENTI e COSTI, cioè le registrazioni dell'esercizio in gestione:
+ * una riga = un evento datato di una commessa. Qui non c'è una chiave naturale (la stessa commessa
+ * può avere due registrazioni identiche nello stesso giorno), quindi vale la colonna ID, che il
+ * programma scrive quando il modello esce già compilato: con l'ID si AGGIORNA quella registrazione,
+ * con la cella vuota se ne crea sempre una nuova. Le righe nuove che ripetono una registrazione già
+ * presente sono segnalate con un avviso, così ricaricare due volte lo stesso file non raddoppia i
+ * valori di nascosto.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./engine.js'), require('./schema.js'), require('./xlsx.js'));
@@ -21,6 +34,9 @@
   'use strict';
 
   const FOGLIO_DATI = 'COMMESSE';
+  const FOGLIO_SALDI = 'SALDI';
+  const FOGLIO_MOVIMENTI = 'MOVIMENTI';
+  const FOGLIO_COSTI = 'COSTI';
   const FOGLIO_ELENCHI = 'ELENCHI';
   const FOGLIO_ISTRUZIONI = 'ISTRUZIONI';
   const RIGHE_MODELLO = 500; // righe su cui valgono i menu a tendina del modello
@@ -63,7 +79,6 @@
     // --- budget
     { campo: 'budget.orePreviste', titolo: 'Ore previste iniziali (ore)', tipo: 'ore', larghezza: 18, aiuto: 'Prima stesura del budget: resta come storico. Senza ore non si calcolano il controllo ore/SAL né il ritardo produttivo.' },
     { campo: 'budget.costiDirettiPrevisti', titolo: 'Costi diretti previsti iniziali (€)', tipo: 'euro', larghezza: 22, aiuto: 'Prima stesura del budget: resta come storico.' },
-    { campo: 'budget.costoOrario', titolo: 'Costo orario di budget (€/h)', tipo: 'euro', larghezza: 18, aiuto: 'Vale per budget iniziale e aggiornato. Se vuoto, in creazione viene messo il costo strutturale corrente dei Parametri.' },
     { campo: 'budget.orePrevisteAgg', titolo: 'Ore previste aggiornate (ore)', tipo: 'ore', larghezza: 18, aiuto: 'Da compilare solo se il budget è stato rivisto. Richiede la data di aggiornamento budget.' },
     { campo: 'budget.costiDirettiPrevistiAgg', titolo: 'Costi diretti previsti aggiornati (€)', tipo: 'euro', larghezza: 22, aiuto: 'Da compilare solo se il budget è stato rivisto. Richiede la data di aggiornamento budget.' },
     { campo: 'budget.dataAggiornamento', titolo: 'Data aggiornamento budget', tipo: 'data', larghezza: 18, aiuto: 'Obbligatoria se è indicato un valore aggiornato. Da sola significa: budget rivisto e confermato a quella data.' },
@@ -80,8 +95,86 @@
     { campo: 'noteAzione', titolo: 'Note / Azione', tipo: 'testoLungo', larghezza: 34, aiuto: 'Campo libero per la Direzione: es. chiamare cliente, verificare SAL, recuperare ritenuta.' }
   ];
 
+  // ---------------------------------------------------------------- campi del foglio SALDI
+  // Una riga = i valori cumulativi di una commessa a una certa data di saldo (sempre un 31 dicembre).
+  // Il saldo al 31/12/2025 è il saldo iniziale dell'esercizio 2026: nell'archivio si conserva l'anno
+  // dell'esercizio (2026), nel foglio si scrive la data perché è così che la si legge sui documenti.
+  const COLONNE_SALDI = [
+    {
+      campo: 'codice', titolo: 'Codice commessa', tipo: 'testo', obbligatoria: true, larghezza: 16, maiuscolo: true,
+      aiuto: 'Codice di una commessa del foglio COMMESSE oppure già in archivio. La commessa deve essere pregressa rispetto al saldo: data di inizio effettiva precedente al 1° gennaio dell\'anno successivo alla data del saldo.'
+    },
+    {
+      campo: 'dataSaldo', titolo: 'Data saldo (31/12)', tipo: 'data', obbligatoria: true, larghezza: 16,
+      aiuto: 'Sempre un 31 dicembre. 31/12/2025 = valori cumulativi maturati fino a quella data, cioè il saldo iniziale dell\'esercizio 2026. Per caricare più anni della stessa commessa si ripete il codice su più righe con date diverse.'
+    },
+    { campo: 'sal', titolo: 'SAL maturato (€)', tipo: 'euro', larghezza: 18, aiuto: 'Totale del SAL maturato dall\'inizio della commessa fino alla data del saldo.' },
+    { campo: 'fatturatoLordo', titolo: 'Fatturato lordo (€)', tipo: 'euro', larghezza: 18, aiuto: 'Totale fatturato al lordo delle ritenute fino alla data del saldo.' },
+    { campo: 'ritenute', titolo: 'Ritenute maturate (€)', tipo: 'euro', larghezza: 18, aiuto: 'Totale delle ritenute a garanzia maturate fino alla data del saldo.' },
+    { campo: 'svincoli', titolo: 'Ritenute svincolate (€)', tipo: 'euro', larghezza: 18, aiuto: 'Quota delle ritenute già svincolata alla data del saldo.' },
+    { campo: 'perditeSal', titolo: 'Perdite SAL accettate (€)', tipo: 'euro', larghezza: 20, aiuto: 'Quota di SAL che non verrà mai fatturata, accettata come perdita.' },
+    { campo: 'ore', titolo: 'Ore effettive', tipo: 'ore', larghezza: 14, aiuto: 'Ore di manodopera già impiegate fino alla data del saldo.' },
+    { campo: 'costiDiretti', titolo: 'Costi diretti (€)', tipo: 'euro', larghezza: 18, aiuto: 'Costi diretti già sostenuti fino alla data del saldo.' },
+    { campo: 'note', titolo: 'Note saldo', tipo: 'testoLungo', larghezza: 34, aiuto: 'Testo libero: da dove arrivano i valori, cosa resta da verificare.' }
+  ];
+  // campi del saldo scritti nell'archivio (esclusi 'codice' e 'dataSaldo', che diventano commessaId e anno)
+  const CAMPI_SALDO = COLONNE_SALDI.filter(c => c.campo !== 'codice' && c.campo !== 'dataSaldo').map(c => c.campo);
+
+  // ---------------------------------------------------------------- campi dei fogli MOVIMENTI e COSTI
+  // Registrazioni dell'esercizio in gestione. La colonna ID è tecnica: la scrive il programma quando
+  // il modello esce già compilato ed è l'unico modo per aggiornare una registrazione invece di
+  // aggiungerne una nuova. Il codice commessa dice a quale commessa appartiene la registrazione.
+  const AIUTO_ID = 'Lo scrive il programma: serve solo per aggiornare una registrazione già in archivio. ' +
+    'Da non inventare e da non modificare. Lasciando la cella vuota si registra sempre un movimento nuovo.';
+  const AIUTO_CODICE_REG = 'Codice di una commessa del foglio COMMESSE oppure già in archivio.';
+
+  const COLONNE_MOVIMENTI = [
+    { campo: 'id', titolo: 'ID movimento (non modificare)', tipo: 'testo', larghezza: 20, aiuto: AIUTO_ID },
+    { campo: 'codice', titolo: 'Codice commessa', tipo: 'testo', obbligatoria: true, larghezza: 16, maiuscolo: true, aiuto: AIUTO_CODICE_REG },
+    {
+      campo: 'data', titolo: 'Data movimento', tipo: 'data', obbligatoria: true, larghezza: 16,
+      aiuto: 'Obbligatoria e sempre dentro l\'esercizio in gestione: i valori degli anni precedenti vanno nel foglio SALDI. È la data che usano tutte le dashboard temporali.'
+    },
+    {
+      campo: 'tipo', titolo: 'Tipo movimento', tipo: 'elenco', opzioni: () => Engine.TIPI_MOVIMENTO, obbligatoria: true, larghezza: 24,
+      aiuto: 'Obbligatorio, uno dei valori del foglio ELENCHI. Dice quali valori ci si aspetta di trovare compilati nella riga.'
+    },
+    { campo: 'numeroDocumento', titolo: 'Numero documento', tipo: 'testo', larghezza: 18, aiuto: 'Numero del SAL, della fattura o del documento che origina il movimento.' },
+    { campo: 'descrizione', titolo: 'Descrizione', tipo: 'testoLungo', larghezza: 36, aiuto: 'Testo libero: che cosa registra il movimento.' },
+    { campo: 'sal', titolo: 'SAL maturato (€)', tipo: 'euro', larghezza: 16, aiuto: 'Lavoro maturato con questo evento, non il cumulativo della commessa.' },
+    { campo: 'fatturatoLordo', titolo: 'Fatturato lordo (€)', tipo: 'euro', larghezza: 16, aiuto: 'Importo fatturato al lordo della ritenuta a garanzia.' },
+    { campo: 'ritenuta', titolo: 'Ritenuta maturata (€)', tipo: 'euro', larghezza: 18, aiuto: 'Ritenuta a garanzia trattenuta su questa fattura.' },
+    { campo: 'svincolo', titolo: 'Svincolo ritenuta (€)', tipo: 'euro', larghezza: 18, aiuto: 'Quota di ritenuta svincolata con questo evento.' },
+    { campo: 'ore', titolo: 'Ore effettive', tipo: 'ore', larghezza: 14, aiuto: 'Ore di manodopera impiegate nel periodo del movimento.' },
+    { campo: 'perditaSal', titolo: 'Perdita SAL accettata (€)', tipo: 'euro', larghezza: 20, aiuto: 'Quota di SAL che non verrà mai fatturata, accettata come perdita.' },
+    { campo: 'note', titolo: 'Note movimento', tipo: 'testoLungo', larghezza: 30, aiuto: 'Testo libero sul movimento.' }
+  ];
+
+  const COLONNE_COSTI = [
+    { campo: 'id', titolo: 'ID costo (non modificare)', tipo: 'testo', larghezza: 20, aiuto: AIUTO_ID.replace('un movimento nuovo', 'un costo nuovo') },
+    { campo: 'codice', titolo: 'Codice commessa', tipo: 'testo', obbligatoria: true, larghezza: 16, maiuscolo: true, aiuto: AIUTO_CODICE_REG },
+    {
+      campo: 'data', titolo: 'Data costo', tipo: 'data', obbligatoria: true, larghezza: 16,
+      aiuto: 'Obbligatoria e sempre dentro l\'esercizio in gestione: i costi degli anni precedenti vanno nel foglio SALDI.'
+    },
+    {
+      campo: 'macroCategoria', titolo: 'Macro-categoria', tipo: 'testo', larghezza: 26, elencoSuggerito: 'macroCategorie',
+      aiuto: 'Testo libero. Nel foglio ELENCHI ci sono le macro-categorie già in uso: usare le stesse evita doppioni. Una categoria nuova viene aggiunta all\'elenco del programma.'
+    },
+    { campo: 'descrizione', titolo: 'Descrizione', tipo: 'testoLungo', larghezza: 36, aiuto: 'Testo libero: che cosa è stato acquistato o commissionato.' },
+    {
+      campo: 'importo', titolo: 'Importo (€)', tipo: 'euro', obbligatoria: true, larghezza: 16,
+      aiuto: 'Obbligatorio. Costo effettivo puro: nessun margine, nessun ricarico.'
+    },
+    { campo: 'fornitore', titolo: 'Fornitore / Documento', tipo: 'testo', larghezza: 26, aiuto: 'Chi ha emesso il documento e, se serve, il suo numero.' },
+    { campo: 'note', titolo: 'Note costo', tipo: 'testoLungo', larghezza: 30, aiuto: 'Testo libero sul costo.' }
+  ];
+  // campi scritti nell'archivio: fuori 'id' (chiave tecnica) e 'codice' (diventa commessaId)
+  const CAMPI_MOVIMENTO = COLONNE_MOVIMENTI.filter(c => c.campo !== 'id' && c.campo !== 'codice').map(c => c.campo);
+  const CAMPI_COSTO = COLONNE_COSTI.filter(c => c.campo !== 'id' && c.campo !== 'codice').map(c => c.campo);
+
   const CAMPI_ANAGRAFICA = COLONNE.filter(c => c.campo.indexOf('.') < 0 && c.campo !== 'aggiornatoAl' && c.campo !== 'noteAzione').map(c => c.campo);
-  const CAMPI_BUDGET = ['orePreviste', 'costoOrario', 'costiDirettiPrevisti', 'orePrevisteAgg', 'costiDirettiPrevistiAgg', 'dataAggiornamento', 'note'];
+  const CAMPI_BUDGET = ['orePreviste', 'costiDirettiPrevisti', 'orePrevisteAgg', 'costiDirettiPrevistiAgg', 'dataAggiornamento', 'note'];
   const CAMPI_SOSTENIBILITA = ['ricarico', 'datiVerificati', 'data', 'note'];
 
   function opzioniDi(c) { return typeof c.opzioni === 'function' ? c.opzioni() : (c.opzioni || []); }
@@ -108,6 +201,9 @@
   function oggi() {
     const d = new Date(), p = n => String(n).padStart(2, '0');
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  function dataItaliana(iso) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(iso || '')) ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : String(iso || '');
   }
   function valoreDi(obj, campo) {
     const p = campo.split('.');
@@ -227,22 +323,108 @@
     aggiornatoAl: ['aggiornatoal', 'dataaggiornamento'],
     'budget.orePreviste': ['orepreviste', 'orepervisteiniziali'],
     'budget.costiDirettiPrevisti': ['costidirettiprevisti'],
-    'budget.costoOrario': ['costoorario'],
     'sostenibilita.ricarico': ['ricarico'],
     'sostenibilita.datiVerificati': ['dativerificati'],
     'sostenibilita.data': ['datadellaverifica', 'dataverifica']
   };
-  function indiceIntestazioni() {
+  // Nel foglio SALDI "commessa" da sola non vale come codice: nel vecchio file Excel intesta il
+  // riquadro dei totali, che finirebbe scambiato per la riga dei titoli.
+  const ALIAS_SALDI = {
+    codice: ['codice', 'codicecommessa'],
+    dataSaldo: ['datasaldo', 'data', 'saldoal', 'al'],
+    sal: ['sal', 'salmaturato'],
+    ritenute: ['ritenute', 'ritenutematurate'],
+    svincoli: ['svincoli', 'ritenutesvincolate'],
+    perditeSal: ['perditesal', 'perditesalaccettate'],
+    ore: ['ore', 'oreeffettive'],
+    note: ['note', 'notesaldo']
+  };
+  const ALIAS_MOVIMENTI = {
+    id: ['id', 'idmovimento'],
+    codice: ['codice', 'codicecommessa', 'commessa'],
+    data: ['data', 'datamovimento'],
+    tipo: ['tipo', 'tipomovimento'],
+    numeroDocumento: ['ndoc', 'ndocumento', 'numerodocumento', 'documento'],
+    sal: ['sal', 'salmaturato'],
+    fatturatoLordo: ['fatturatolordo', 'fattlordo'],
+    ritenuta: ['ritenuta', 'ritenutamaturata'],
+    svincolo: ['svincolo', 'svincoloritenuta'],
+    ore: ['ore', 'oreeffettive'],
+    perditaSal: ['perditasal', 'perditasalaccettata'],
+    note: ['note', 'notemovimento']
+  };
+  const ALIAS_COSTI = {
+    id: ['id', 'idcosto'],
+    codice: ['codice', 'codicecommessa', 'commessa'],
+    data: ['data', 'datacosto'],
+    macroCategoria: ['macrocategoria', 'categoria', 'macrocategoriadaanalisi'],
+    importo: ['importo', 'costo'],
+    fornitore: ['fornitore', 'fornitoredocumento'],
+    note: ['note', 'notecosto']
+  };
+
+  // Le due configurazioni con cui lo stesso codice scrive e rilegge i fogli MOVIMENTI e COSTI:
+  // cambiano le colonne, i controlli e la firma con cui si riconosce un doppione, non il meccanismo.
+  function numeroFirma(v) { const n = Number(v); return (v === null || v === undefined || v === '' || isNaN(n)) ? 0 : n; }
+  function testoFirma(v) { return String(v === null || v === undefined ? '' : v).trim().toUpperCase(); }
+  const REGISTRAZIONI = {
+    movimenti: {
+      foglio: FOGLIO_MOVIMENTI, archivio: 'movimenti', colonne: COLONNE_MOVIMENTI, alias: ALIAS_MOVIMENTI, campi: CAMPI_MOVIMENTO,
+      nome: 'movimento', articolo: 'il movimento', unNuovo: 'un movimento nuovo',
+      nuovo: () => Schema.nuovoMovimento(),
+      // Senza riga calcolata: il controllo sulle ritenute svincolate oltre quelle maturate ha senso
+      // su una registrazione alla volta, non su un file che le porta dentro tutte insieme.
+      valida: (m, dbFinto) => Engine.validaMovimento(m, dbFinto, null),
+      firma: m => [m.commessaId, m.data, m.tipo, testoFirma(m.numeroDocumento), testoFirma(m.descrizione),
+        numeroFirma(m.sal), numeroFirma(m.fatturatoLordo), numeroFirma(m.ritenuta), numeroFirma(m.svincolo),
+        numeroFirma(m.ore), numeroFirma(m.perditaSal)].join('|'),
+      tendine: [{ campo: 'tipo', elenco: 6, messaggio: 'Scegliere un tipo fra quelli elencati nel foglio ELENCHI.' }]
+    },
+    costi: {
+      foglio: FOGLIO_COSTI, archivio: 'costi', colonne: COLONNE_COSTI, alias: ALIAS_COSTI, campi: CAMPI_COSTO,
+      nome: 'costo diretto', articolo: 'il costo', unNuovo: 'un costo nuovo',
+      nuovo: () => Schema.nuovoCosto(),
+      valida: (k, dbFinto) => Engine.validaCosto(k, dbFinto),
+      firma: k => [k.commessaId, k.data, testoFirma(k.macroCategoria), testoFirma(k.descrizione),
+        numeroFirma(k.importo), testoFirma(k.fornitore)].join('|'),
+      tendine: []
+    }
+  };
+
+  function indiceIntestazioni(colonne, alias) {
     const idx = {};
-    COLONNE.forEach(c => {
+    colonne.forEach(c => {
       const aggiungi = t => { const n = normalizza(t); if (n && !idx[n]) idx[n] = c; };
       aggiungi(c.titolo);
       aggiungi(c.titolo.replace(/\s*\*\s*$/, ''));
       aggiungi(c.campo);
       aggiungi(c.campo.split('.').pop());
-      (ALIAS[c.campo] || []).forEach(a => { if (!idx[a]) idx[a] = c; });
+      ((alias || {})[c.campo] || []).forEach(a => { if (!idx[a]) idx[a] = c; });
     });
     return idx;
+  }
+  // Riga dei titoli: la prima, fra le prime 12, che riconosce almeno `minime` colonne del modello e
+  // tutte quelle indicate in `richieste`. Così un titolo o un riquadro di totali messo sopra la
+  // tabella non manda all'aria la lettura.
+  function trovaTestata(righe, idx, minime, richieste) {
+    for (let i = 0; i < Math.min(righe.length, 12); i++) {
+      const m = righe[i].map(c => idx[normalizza(Xlsx.testo(c))] || null);
+      const trovate = m.filter(x => x);
+      if (trovate.length < minime) continue;
+      if ((richieste || []).some(campo => !trovate.some(c => c.campo === campo))) continue;
+      return { indice: i, mappa: m };
+    }
+    return null;
+  }
+  // Colonne del modello riconosciute nella riga dei titoli e intestazioni estranee, che vengono ignorate.
+  function colonneDellaTestata(riga, mappa) {
+    const trovate = [], ignorate = [];
+    riga.forEach((c, j) => {
+      const t = Xlsx.testo(c).trim();
+      if (mappa[j]) trovate.push(mappa[j]);
+      else if (t) ignorate.push(t);
+    });
+    return { trovate, ignorate };
   }
 
   // ---------------------------------------------------------------- costruzione del modello
@@ -254,7 +436,9 @@
       { titolo: 'SI / NO', valori: SI_NO.slice() },
       { titolo: 'Rami di attività (suggerimenti)', valori: (L.rami || []).slice() },
       { titolo: 'Tecnici (suggerimenti)', valori: (L.tecnici || []).slice() },
-      { titolo: 'Preposti (suggerimenti)', valori: (L.preposti || []).slice() }
+      { titolo: 'Preposti (suggerimenti)', valori: (L.preposti || []).slice() },
+      { titolo: 'Tipo movimento', valori: Engine.TIPI_MOVIMENTO.slice() },
+      { titolo: 'Macro-categorie di costo (suggerimenti)', valori: (L.macroCategorie || []).slice() }
     ];
     const nRighe = colonne.reduce((m, c) => Math.max(m, c.valori.length), 0);
     const righe = [colonne.map(c => ({ v: c.titolo, s: 'testata' }))];
@@ -275,13 +459,25 @@
     };
   }
 
-  function istruzioniModello() {
+  function istruzioniModello(db) {
+    const annoGestione = (db && db.parametri && db.parametri.annoGestione) || new Date().getFullYear();
     const nota = t => [{ v: t, s: 'nota' }];
+    const tabellaColonne = (titolo, colonne) => {
+      righe.push([]);
+      righe.push([{ v: titolo, s: 'grassetto' }]);
+      righe.push([{ v: 'Colonna', s: 'testata' }, { v: 'Obbligatoria', s: 'testata' }, { v: 'Formato', s: 'testata' }, { v: 'A cosa serve', s: 'testata' }]);
+      colonne.forEach(c => righe.push([
+        { v: c.titolo, s: 'testo' },
+        { v: c.obbligatoria ? 'SI' : '', s: 'testo' },
+        { v: formatoDi(c), s: 'testo' },
+        { v: c.aiuto || '', s: 'testo' }
+      ]));
+    };
     const righe = [
       [{ v: 'FIDA EDILE – Modello per l\'importazione delle commesse', s: 'titolo' }],
-      nota('Compilare il foglio COMMESSE: una riga per ogni commessa. Il foglio ELENCHI contiene i valori ammessi e i suggerimenti; questo foglio è solo una guida e non viene letto dal programma.'),
+      nota('Ci sono quattro fogli da compilare: COMMESSE (una riga per ogni commessa), SALDI (i valori cumulativi al 31/12 degli anni precedenti), MOVIMENTI e COSTI (le registrazioni dell\'esercizio ' + annoGestione + '). Si compilano solo i fogli che servono: quelli lasciati vuoti vengono ignorati. Il foglio ELENCHI contiene i valori ammessi e i suggerimenti; questo foglio è solo una guida e non viene letto dal programma.'),
       [],
-      [{ v: 'Come si compila', s: 'grassetto' }],
+      [{ v: 'Come si compila il foglio COMMESSE', s: 'grassetto' }],
       nota('1. Una riga = una commessa. Le commesse possono essere quante si vuole: basta aggiungere righe.'),
       nota('2. Il CODICE COMMESSA è la chiave. Se il codice non esiste in anagrafica viene creata una nuova commessa; se esiste, quella commessa viene aggiornata.'),
       nota('3. In aggiornamento le celle lasciate vuote non cancellano nulla: restano i valori già presenti nel programma.'),
@@ -289,18 +485,34 @@
       nota('5. Le colonne con l\'intestazione arancione sono obbligatorie per creare una nuova commessa.'),
       nota('6. Date in formato gg/mm/aaaa. Importi in euro senza simbolo. Ricarico in percentuale: scrivere 15 per 15 %.'),
       nota('7. I valori calcolati dal programma non si inseriscono qui: contratto aggiornato, costo ore, margine teorico, allerte ed esito della verifica di sostenibilità si ricavano da soli.'),
-      nota('8. Restano fuori da questo modello le fasi del cronoprogramma (Gantt), i movimenti, i costi diretti e i saldi iniziali: hanno archivi propri dentro il programma.'),
+      nota('8. Restano fuori da questo modello le fasi del cronoprogramma (Gantt), che si disegnano dentro il programma. Movimenti e costi diretti hanno invece i loro fogli, più avanti in questo file.'),
       nota('9. Salvare il file in formato .xlsx e caricarlo dal programma: menu Gestione → Importa da Excel.'),
       [],
-      [{ v: 'Colonne del foglio COMMESSE', s: 'grassetto' }],
-      [{ v: 'Colonna', s: 'testata' }, { v: 'Obbligatoria', s: 'testata' }, { v: 'Formato', s: 'testata' }, { v: 'A cosa serve', s: 'testata' }]
+      [{ v: 'Come si compila il foglio SALDI', s: 'grassetto' }],
+      nota('1. Serve solo per le commesse PREGRESSE, cioè iniziate prima dell\'esercizio in gestione: porta dentro quello che avevano già maturato. Le commesse partite nell\'esercizio in gestione non hanno saldo iniziale, i loro valori arrivano da movimenti e costi.'),
+      nota('2. Una riga = una commessa a una data di saldo. La DATA SALDO è sempre un 31 dicembre: il saldo al 31/12/' + (annoGestione - 1) + ' è il saldo iniziale dell\'esercizio ' + annoGestione + '.'),
+      nota('3. Per caricare più anni della stessa commessa si ripete il codice su più righe con date diverse: 31/12/' + (annoGestione - 2) + ', 31/12/' + (annoGestione - 1) + ' e così via. La coppia codice + data non si può ripetere.'),
+      nota('4. I valori sono CUMULATIVI dall\'inizio della commessa fino a quella data, non i movimenti del singolo anno.'),
+      nota('5. Il codice deve esistere: o è una commessa già in archivio, o è una commessa del foglio COMMESSE di questo stesso file. La commessa deve essere iniziata prima del 1° gennaio dell\'anno successivo alla data del saldo.'),
+      nota('6. Solo il saldo al 31/12/' + (annoGestione - 1) + ' entra nei cumulativi dell\'esercizio ' + annoGestione + ': le date più vecchie si caricano come storico e vengono segnalate con un avviso, non bloccante.'),
+      nota('7. Se la coppia codice + data esiste già nel programma il saldo viene aggiornato, non duplicato. Le celle vuote non cancellano nulla.'),
+      nota('8. Se il foglio SALDI resta vuoto (o si elimina) viene semplicemente ignorato: si importano solo le commesse.'),
+      [],
+      [{ v: 'Come si compilano i fogli MOVIMENTI e COSTI', s: 'grassetto' }],
+      nota('1. Sono le registrazioni dell\'esercizio in gestione: una riga = un evento datato di una commessa. MOVIMENTI porta SAL, fatturato, ritenute, svincoli, ore e perdite; COSTI porta i costi diretti (costo effettivo puro, senza margini).'),
+      nota('2. La DATA deve cadere nell\'esercizio ' + annoGestione + '. Quello che è maturato negli anni precedenti non si registra qui: va nel foglio SALDI, in forma cumulativa.'),
+      nota('3. Il CODICE COMMESSA collega la riga alla sua commessa: o è già in archivio, o è una commessa del foglio COMMESSE di questo stesso file.'),
+      nota('4. Attenzione alla differenza con gli altri fogli: qui NON c\'è una chiave che riconosce la riga, perché la stessa commessa può avere due registrazioni identiche nello stesso giorno. Ogni riga con la colonna ID vuota crea sempre una registrazione NUOVA.'),
+      nota('5. Per correggere una registrazione già in archivio si usa la colonna ID, che il programma scrive quando il modello si scarica già compilato: si cambiano le celle da correggere e si ricarica il file. L\'ID non si inventa e non si modifica.'),
+      nota('6. Se una riga nuova ripete una registrazione già presente (stessa commessa, data, valori) compare un avviso: serve a non raddoppiare i valori ricaricando due volte lo stesso file. Se la ripetizione è voluta si importa lo stesso.'),
+      nota('7. Nel foglio MOVIMENTI il TIPO dice quali valori ci si aspetta: SAL, FATTURA, SAL + FATTURA, SVINCOLO RITENUTA, ORE, PERDITA SAL ACCETTATA, ALTRO. Compilare i valori che non riguardano il tipo scelto non blocca l\'importazione, ma viene segnalato.'),
+      nota('8. Gli importi sono quelli del singolo evento, non i cumulativi della commessa: il programma somma da sé.'),
+      nota('9. Anche questi fogli, se restano vuoti o si eliminano, vengono semplicemente ignorati.')
     ];
-    COLONNE.forEach(c => righe.push([
-      { v: c.titolo, s: 'testo' },
-      { v: c.obbligatoria ? 'SI' : '', s: 'testo' },
-      { v: formatoDi(c), s: 'testo' },
-      { v: c.aiuto || '', s: 'testo' }
-    ]));
+    tabellaColonne('Colonne del foglio COMMESSE', COLONNE);
+    tabellaColonne('Colonne del foglio SALDI', COLONNE_SALDI);
+    tabellaColonne('Colonne del foglio MOVIMENTI', COLONNE_MOVIMENTI);
+    tabellaColonne('Colonne del foglio COSTI', COLONNE_COSTI);
     return {
       nome: FOGLIO_ISTRUZIONI,
       colonne: [{ larghezza: 38 }, { larghezza: 13 }, { larghezza: 24 }, { larghezza: 95 }],
@@ -319,6 +531,68 @@
     }
     if (col.tipo === 'percentuale') return Math.round(Number(v) * 10000) / 100;
     return v;
+  }
+
+  // Foglio SALDI del modello. Con `commesse` valorizzato esce già compilato con i saldi in archivio
+  // delle sole commesse esportate, in ordine di codice e di data: il file torna indietro aggiornabile.
+  function foglioSaldi(db, commesse) {
+    const intestazione = COLONNE_SALDI.map(c => ({ v: c.titolo + (c.obbligatoria ? ' *' : ''), s: c.obbligatoria ? 'testataObbligatoria' : 'testata' }));
+    const righe = [intestazione];
+    if (commesse && commesse.length) {
+      const perId = {};
+      commesse.forEach(c => { perId[c.id] = c; });
+      (db && db.saldi ? db.saldi : []).filter(s => !s.annullato && perId[s.commessaId])
+        .map(s => ({ saldo: s, codice: perId[s.commessaId].codice || '', data: Engine.dataSaldo(Number(s.anno)) }))
+        .sort((a, b) => String(a.codice).localeCompare(String(b.codice), 'it') || String(a.data).localeCompare(String(b.data)))
+        .forEach(x => righe.push(COLONNE_SALDI.map(col => {
+          if (col.campo === 'codice') return x.codice;
+          if (col.campo === 'dataSaldo') return { v: x.data, s: 'data' };
+          const v = x.saldo[col.campo];
+          return (v === null || v === undefined) ? '' : v;
+        })));
+    }
+    return {
+      nome: FOGLIO_SALDI,
+      colonne: COLONNE_SALDI.map(c => ({ larghezza: c.larghezza || 18, stile: stileColonna(c) })),
+      congelaRighe: 1,
+      filtro: true,
+      righe
+    };
+  }
+
+  // Fogli MOVIMENTI e COSTI del modello. Con `commesse` valorizzato escono già compilati con le
+  // registrazioni in archivio delle sole commesse esportate, ciascuna con il suo ID: così il file
+  // che torna indietro le aggiorna invece di aggiungerne di nuove.
+  function foglioRegistrazioni(cfg, db, commesse, elenchi) {
+    const intestazione = cfg.colonne.map(c => ({ v: c.titolo + (c.obbligatoria ? ' *' : ''), s: c.obbligatoria ? 'testataObbligatoria' : 'testata' }));
+    const righe = [intestazione];
+    if (commesse && commesse.length) {
+      const perId = {};
+      commesse.forEach(c => { perId[c.id] = c; });
+      (db && db[cfg.archivio] ? db[cfg.archivio] : []).filter(x => !x.annullato && perId[x.commessaId])
+        .map(x => ({ reg: x, codice: perId[x.commessaId].codice || '' }))
+        .sort((a, b) => String(a.codice).localeCompare(String(b.codice), 'it') || String(a.reg.data).localeCompare(String(b.reg.data)))
+        .forEach(x => righe.push(cfg.colonne.map(col => {
+          if (col.campo === 'codice') return x.codice;
+          const v = x.reg[col.campo];
+          if (v === null || v === undefined || v === '') return '';
+          return col.tipo === 'data' ? { v, s: 'data' } : v;
+        })));
+    }
+    const validazioni = [];
+    (cfg.tendine || []).forEach(t => {
+      const i = cfg.colonne.findIndex(c => c.campo === t.campo);
+      if (i < 0 || elenchi.vuota(t.elenco)) return;
+      validazioni.push({ colonna: i, da: 2, a: Math.max(RIGHE_MODELLO, righe.length), origine: elenchi.riferimento(t.elenco), messaggio: t.messaggio });
+    });
+    return {
+      nome: cfg.foglio,
+      colonne: cfg.colonne.map(c => ({ larghezza: c.larghezza || 18, stile: stileColonna(c) })),
+      congelaRighe: 1,
+      filtro: true,
+      righe,
+      validazioni
+    };
   }
 
   // fogli pronti per Xlsx.crea(). Con `commesse` valorizzato il modello esce già compilato,
@@ -344,7 +618,7 @@
     tendina('sostenibilita.datiVerificati', 2, 'Scrivere SI oppure NO.');
 
     return [
-      istruzioniModello(),
+      istruzioniModello(db),
       {
         nome: FOGLIO_DATI,
         colonne: COLONNE.map(c => ({ larghezza: c.larghezza || 18, stile: stileColonna(c) })),
@@ -353,6 +627,9 @@
         righe,
         validazioni
       },
+      foglioSaldi(db, commesse),
+      foglioRegistrazioni(REGISTRAZIONI.movimenti, db, commesse, elenchi),
+      foglioRegistrazioni(REGISTRAZIONI.costi, db, commesse, elenchi),
       elenchi.foglio
     ];
   }
@@ -360,26 +637,12 @@
   // ---------------------------------------------------------------- lettura di un file compilato
   // cartella: risultato di Xlsx.leggi(). db: l'archivio attuale (non viene modificato).
   function prepara(cartella, db) {
-    const righe = cartella.foglio(FOGLIO_DATI) || (cartella.fogli[0] ? cartella.fogli[0].righe : null);
-    if (!righe || !righe.length) throw new Error('Il file non contiene il foglio "' + FOGLIO_DATI + '" e non ha fogli leggibili.');
-
-    // L'intestazione è la prima riga che riconosce almeno tre colonne del modello: così un eventuale
-    // titolo messo sopra la tabella non manda all'aria la lettura.
-    const idx = indiceIntestazioni();
-    let iTestata = -1, mappa = null;
-    for (let i = 0; i < Math.min(righe.length, 12); i++) {
-      const m = righe[i].map(c => idx[normalizza(Xlsx.testo(c))] || null);
-      if (m.filter(x => x).length >= 3) { iTestata = i; mappa = m; break; }
-    }
-    if (iTestata < 0) throw new Error('Nel foglio "' + FOGLIO_DATI + '" non si riconosce la riga dei titoli. Scaricare di nuovo il modello e ricopiarci i dati senza cambiare le intestazioni.');
-
-    const trovate = [], ignorate = [];
-    righe[iTestata].forEach((c, j) => {
-      const t = Xlsx.testo(c).trim();
-      if (mappa[j]) trovate.push(mappa[j]);
-      else if (t) ignorate.push(t);
-    });
-    const mancantiObbligatorie = COLONNE.filter(c => c.obbligatoria && trovate.indexOf(c) < 0);
+    // Il foglio delle commesse è quello che si chiama COMMESSE; se non c'è, il primo foglio che non
+    // sia uno degli altri del modello (un file vecchio può avere un altro nome).
+    const altri = [FOGLIO_SALDI, FOGLIO_MOVIMENTI, FOGLIO_COSTI, FOGLIO_ELENCHI, FOGLIO_ISTRUZIONI];
+    const primo = cartella.fogli.find(f => altri.indexOf(f.nome) < 0);
+    const righe = cartella.foglio(FOGLIO_DATI) || (primo ? primo.righe : null);
+    const testata = righe && righe.length ? trovaTestata(righe, indiceIntestazioni(COLONNE, ALIAS), 3) : null;
 
     // copia di lavoro delle commesse: serve a riconoscere i duplicati anche fra righe dello stesso file
     const lavoro = (db.commesse || []).map(c => JSON.parse(JSON.stringify(c)));
@@ -387,6 +650,30 @@
     const perCodice = {};
     lavoro.forEach(c => { if (!c.annullato) perCodice[String(c.codice || '').trim().toUpperCase()] = c; });
     const daQuestoFile = {};
+
+    // Senza foglio COMMESSE leggibile non si buttano via gli altri fogli: un file può portare solo
+    // saldi, movimenti o costi di commesse già in archivio. L'errore diventa bloccante più sotto,
+    // se non c'è proprio nulla da leggere.
+    if (!testata) {
+      const senzaCommesse = {
+        errore: righe && righe.length
+          ? 'Nel foglio "' + FOGLIO_DATI + '" non si riconosce la riga dei titoli.'
+          : 'Il file non contiene il foglio "' + FOGLIO_DATI + '".',
+        colonneTrovate: [], colonneIgnorate: [], colonneMancantiObbligatorie: [],
+        rigaTestata: 0, esiti: [], nNuove: 0, nAggiornate: 0, nInvariate: 0, nScartate: 0, nAvvisi: 0,
+        saldi: preparaSaldi(cartella, db, dbFinto, perCodice),
+        movimenti: preparaRegistrazioni(REGISTRAZIONI.movimenti, cartella, db, dbFinto, perCodice),
+        costi: preparaRegistrazioni(REGISTRAZIONI.costi, cartella, db, dbFinto, perCodice)
+      };
+      if (!senzaCommesse.saldi.presente && !senzaCommesse.movimenti.presente && !senzaCommesse.costi.presente) {
+        throw new Error(senzaCommesse.errore + ' Scaricare di nuovo il modello e ricopiarci i dati senza cambiare le intestazioni.');
+      }
+      return senzaCommesse;
+    }
+    const iTestata = testata.indice, mappa = testata.mappa;
+
+    const { trovate, ignorate } = colonneDellaTestata(righe[iTestata], mappa);
+    const mancantiObbligatorie = COLONNE.filter(c => c.obbligatoria && trovate.indexOf(c) < 0);
 
     const esiti = [];
     for (let i = iTestata + 1; i < righe.length; i++) {
@@ -431,7 +718,6 @@
         if (!base.causaAggiornamentoDataFine) base.causaAggiornamentoDataFine = 'Nessuna variazione';
         if (!base.aggiornatoAl) base.aggiornatoAl = oggi();
         base.dataFinePrevistaOriginale = base.dataFinePrevista || '';
-        if (base.budget.orePreviste !== null && base.budget.costoOrario === null && db.parametri) base.budget.costoOrario = db.parametri.costoOrario;
       } else if (!base.dataFinePrevistaOriginale && base.dataFinePrevista) {
         base.dataFinePrevistaOriginale = base.dataFinePrevista;
       }
@@ -478,17 +764,278 @@
 
     const conta = e => esiti.filter(x => x.esito === e).length;
     return {
+      errore: '',
       colonneTrovate: trovate, colonneIgnorate: ignorate, colonneMancantiObbligatorie: mancantiObbligatorie,
       rigaTestata: iTestata + 1,
       esiti,
       nNuove: conta('NUOVA'), nAggiornate: conta('AGGIORNA'), nInvariate: conta('INVARIATA'), nScartate: conta('SCARTATA'),
-      nAvvisi: esiti.filter(x => x.esito !== 'SCARTATA' && x.avvisi.length).length
+      nAvvisi: esiti.filter(x => x.esito !== 'SCARTATA' && x.avvisi.length).length,
+      saldi: preparaSaldi(cartella, db, dbFinto, perCodice),
+      movimenti: preparaRegistrazioni(REGISTRAZIONI.movimenti, cartella, db, dbFinto, perCodice),
+      costi: preparaRegistrazioni(REGISTRAZIONI.costi, cartella, db, dbFinto, perCodice)
+    };
+  }
+
+  // ---------------------------------------------------------------- foglio SALDI
+  // Si legge dopo le commesse, sulla stessa copia di lavoro: così un saldo può riferirsi a una
+  // commessa creata dallo stesso file. Le righe di commessa scartate non entrano nella copia, quindi
+  // i loro saldi risultano senza commessa e vengono scartati a loro volta, con il motivo scritto.
+  function preparaSaldi(cartella, db, dbCommesse, perCodice) {
+    const vuoto = {
+      presente: false, rigaTestata: 0, errore: '',
+      colonneTrovate: [], colonneIgnorate: [], colonneMancantiObbligatorie: [],
+      esiti: [], nNuovi: 0, nAggiornati: 0, nInvariati: 0, nScartati: 0, nAvvisi: 0
+    };
+    const righe = cartella.foglio(FOGLIO_SALDI);
+    if (!righe || !righe.length) return vuoto;
+
+    const testata = trovaTestata(righe, indiceIntestazioni(COLONNE_SALDI, ALIAS_SALDI), 3, ['codice', 'dataSaldo']);
+    if (!testata) {
+      return Object.assign(vuoto, {
+        presente: true,
+        errore: 'Nel foglio "' + FOGLIO_SALDI + '" non si riconosce la riga dei titoli: servono almeno le colonne "' +
+          COLONNE_SALDI[0].titolo + '" e "' + COLONNE_SALDI[1].titolo + '". I saldi non vengono importati; le commesse sì.'
+      });
+    }
+    const iTestata = testata.indice, mappa = testata.mappa;
+    const { trovate, ignorate } = colonneDellaTestata(righe[iTestata], mappa);
+
+    // copia di lavoro dei saldi: riconosce i doppioni anche fra righe dello stesso file
+    const lavoro = (db.saldi || []).map(s => JSON.parse(JSON.stringify(s)));
+    const dbFinto = { commesse: dbCommesse.commesse, saldi: lavoro, parametri: db.parametri };
+    const daQuestoFile = {};
+    const esiti = [];
+
+    for (let i = iTestata + 1; i < righe.length; i++) {
+      const riga = righe[i];
+      const numero = i + 1;
+      const errori = [], avvisi = [];
+      const valori = {};
+      let compilata = false;
+
+      mappa.forEach((col, j) => {
+        if (!col) return;
+        const letto = leggiCella(riga[j], col);
+        if (letto.errore) { errori.push(col.titolo + ': ' + letto.errore); compilata = true; return; }
+        if (letto.valore === undefined) return;
+        compilata = true;
+        valori[col.campo] = letto.valore;
+      });
+      if (!compilata) continue; // riga vuota: si salta senza segnalare nulla
+
+      // commessa: dal codice, fra quelle in archivio e quelle create da questo stesso file
+      const codice = String(valori.codice || '').trim().toUpperCase();
+      const commessa = codice ? (perCodice[codice] || null) : null;
+      if (!codice) errori.push('Codice commessa: obbligatorio, senza codice il saldo non si può importare.');
+      else if (!commessa) errori.push('Codice commessa: "' + codice + '" non esiste in archivio e non viene creato da questo file (o la sua riga nel foglio ' + FOGLIO_DATI + ' è stata scartata).');
+
+      // data del saldo: sempre un 31 dicembre. L'esercizio del saldo è l'anno successivo.
+      const data = valori.dataSaldo || '';
+      let anno = null;
+      if (!data) errori.push('Data saldo: obbligatoria. Scrivere il 31 dicembre dell\'anno cui si riferiscono i valori (es. 31/12/2025).');
+      else if (data.slice(5) !== '12-31') errori.push('Data saldo: "' + dataItaliana(data) + '" non è un 31 dicembre. I saldi sono cumulativi di fine anno: usare 31/12/' + data.slice(0, 4) + '.');
+      else anno = Number(data.slice(0, 4)) + 1;
+
+      // una commessa chiusa in via definitiva non genera più saldi dall'esercizio della chiusura in poi
+      if (commessa && anno && commessa.chiusuraDefinitiva && anno > Number(commessa.chiusuraDefinitiva.anno)) {
+        errori.push('La commessa "' + codice + '" è stata chiusa in via definitiva con l\'esercizio ' + commessa.chiusuraDefinitiva.anno + ': dal ' + dataItaliana(Engine.dataSaldo(Number(commessa.chiusuraDefinitiva.anno) + 1)) + ' non ha più saldi iniziali.');
+      }
+
+      const chiave = codice + '|' + anno;
+      let esistente = null;
+      if (codice && anno) {
+        if (daQuestoFile[chiave]) errori.push('Il saldo al ' + dataItaliana(data) + ' della commessa "' + codice + '" compare già alla riga ' + daQuestoFile[chiave] + ' di questo file.');
+        else esistente = lavoro.find(s => !s.annullato && s.commessaId === (commessa ? commessa.id : null) && Number(s.anno) === anno) || null;
+      }
+
+      // in aggiornamento le celle vuote non cancellano nulla, come nel foglio COMMESSE
+      const base = esistente ? JSON.parse(JSON.stringify(esistente)) : Schema.nuovoSaldo(anno);
+      base.anno = anno;
+      base.commessaId = commessa ? commessa.id : '';
+      CAMPI_SALDO.forEach(f => { if (valori[f] !== undefined) base[f] = valori[f]; });
+
+      if (commessa && anno) {
+        const v = Engine.validaSaldo(base, dbFinto, esistente ? esistente.id : null);
+        v.errori.forEach(e => errori.push(e));
+        v.avvisi.forEach(a => avvisi.push(a));
+      }
+
+      const modifiche = esistente ? differenze(esistente, base, CAMPI_SALDO) : [];
+      const esito = errori.length ? 'SCARTATO' : (esistente ? (modifiche.length ? 'AGGIORNA' : 'INVARIATO') : 'NUOVO');
+      if (!errori.length) {
+        daQuestoFile[chiave] = numero;
+        if (esistente) Object.assign(esistente, JSON.parse(JSON.stringify(base)));
+        else lavoro.push(base);
+      }
+      esiti.push({
+        riga: numero, esito, codice: codice || '(senza codice)',
+        dataSaldo: data, anno,
+        etichetta: commessa ? Engine.etichetta(commessa) : '',
+        saldoId: esistente ? esistente.id : null,
+        commessaId: commessa ? commessa.id : '',
+        saldo: base, valori, modifiche, errori, avvisi
+      });
+    }
+
+    const conta = e => esiti.filter(x => x.esito === e).length;
+    return {
+      presente: true, errore: '',
+      colonneTrovate: trovate, colonneIgnorate: ignorate,
+      colonneMancantiObbligatorie: COLONNE_SALDI.filter(c => c.obbligatoria && trovate.indexOf(c) < 0),
+      rigaTestata: iTestata + 1,
+      esiti,
+      nNuovi: conta('NUOVO'), nAggiornati: conta('AGGIORNA'), nInvariati: conta('INVARIATO'), nScartati: conta('SCARTATO'),
+      nAvvisi: esiti.filter(x => x.esito !== 'SCARTATO' && x.avvisi.length).length
+    };
+  }
+
+  // ---------------------------------------------------------------- fogli MOVIMENTI e COSTI
+  // Stesso meccanismo per i due fogli, che cambiano solo nelle colonne e nei controlli (REGISTRAZIONI).
+  // Si leggono dopo le commesse, sulla stessa copia di lavoro: così una registrazione può riferirsi a
+  // una commessa creata dallo stesso file, e le righe di commessa scartate si portano dietro le loro.
+  //
+  // Differenza sostanziale dagli altri fogli: qui non esiste una chiave naturale, perché la stessa
+  // commessa può avere due registrazioni identiche nello stesso giorno. Vale quindi la colonna ID:
+  // compilata (l'ha scritta il programma) aggiorna quella registrazione, vuota ne crea sempre una
+  // nuova. Perché ricaricare due volte lo stesso file non raddoppi i valori senza dirlo, le righe
+  // nuove identiche a una registrazione già presente sono segnalate con un avviso.
+  function preparaRegistrazioni(cfg, cartella, db, dbCommesse, perCodice) {
+    const vuoto = {
+      presente: false, rigaTestata: 0, errore: '',
+      colonneTrovate: [], colonneIgnorate: [], colonneMancantiObbligatorie: [],
+      esiti: [], nNuovi: 0, nAggiornati: 0, nInvariati: 0, nScartati: 0, nAvvisi: 0, nDoppi: 0
+    };
+    const righe = cartella.foglio(cfg.foglio);
+    if (!righe || !righe.length) return vuoto;
+
+    const colCodice = cfg.colonne.find(c => c.campo === 'codice');
+    const colData = cfg.colonne.find(c => c.campo === 'data');
+    const testata = trovaTestata(righe, indiceIntestazioni(cfg.colonne, cfg.alias), 3, ['codice', 'data']);
+    if (!testata) {
+      return Object.assign(vuoto, {
+        presente: true,
+        errore: 'Nel foglio "' + cfg.foglio + '" non si riconosce la riga dei titoli: servono almeno le colonne "' +
+          colCodice.titolo + '" e "' + colData.titolo + '". Questo foglio non viene importato; gli altri sì.'
+      });
+    }
+    const iTestata = testata.indice, mappa = testata.mappa;
+    const { trovate, ignorate } = colonneDellaTestata(righe[iTestata], mappa);
+
+    // copia di lavoro dell'archivio: riconosce gli ID e i doppioni anche fra righe dello stesso file
+    const lavoro = (db[cfg.archivio] || []).map(x => JSON.parse(JSON.stringify(x)));
+    const dbFinto = { commesse: dbCommesse.commesse, parametri: db.parametri };
+    dbFinto[cfg.archivio] = lavoro;
+    const inArchivio = {};
+    lavoro.forEach(x => { if (!x.annullato) inArchivio[cfg.firma(x)] = true; });
+
+    const idDaQuestoFile = {}, firmaDaQuestoFile = {};
+    const esiti = [];
+
+    for (let i = iTestata + 1; i < righe.length; i++) {
+      const riga = righe[i];
+      const numero = i + 1;
+      const errori = [], avvisi = [];
+      const valori = {};
+      let compilata = false;
+
+      mappa.forEach((col, j) => {
+        if (!col) return;
+        const letto = leggiCella(riga[j], col);
+        if (letto.errore) { errori.push(col.titolo + ': ' + letto.errore); compilata = true; return; }
+        if (letto.valore === undefined) return;
+        compilata = true;
+        valori[col.campo] = letto.valore;
+      });
+      if (!compilata) continue; // riga vuota: si salta senza segnalare nulla
+
+      // commessa: dal codice, fra quelle in archivio e quelle create da questo stesso file
+      const codice = String(valori.codice || '').trim().toUpperCase();
+      const commessa = codice ? (perCodice[codice] || null) : null;
+      if (!codice) errori.push('Codice commessa: obbligatorio, senza codice la riga non si può importare.');
+      else if (!commessa) errori.push('Codice commessa: "' + codice + '" non esiste in archivio e non viene creato da questo file (o la sua riga nel foglio ' + FOGLIO_DATI + ' è stata scartata).');
+
+      // ID: compilato aggiorna una registrazione esistente, vuoto ne crea sempre una nuova
+      const id = String(valori.id || '').trim();
+      let esistente = null;
+      if (id) {
+        if (idDaQuestoFile[id]) errori.push('ID: "' + id + '" compare già alla riga ' + idDaQuestoFile[id] + ' di questo file.');
+        else {
+          const trovato = lavoro.find(x => x.id === id) || null;
+          if (!trovato) errori.push('ID: "' + id + '" non corrisponde a nessun ' + cfg.nome + ' in archivio. Per registrarne uno nuovo lasciare la cella vuota.');
+          else if (trovato.annullato) errori.push('ID: ' + cfg.articolo + ' "' + id + '" è annullato e non può essere modificato.');
+          else esistente = trovato;
+        }
+      }
+
+      // in aggiornamento le celle vuote non cancellano nulla, come negli altri fogli
+      const base = esistente ? JSON.parse(JSON.stringify(esistente)) : cfg.nuovo();
+      base.commessaId = commessa ? commessa.id : '';
+      cfg.campi.forEach(f => { if (valori[f] !== undefined) base[f] = valori[f]; });
+
+      // una commessa chiusa in via definitiva è uscita dal portafoglio operativo: non accetta nuove
+      // registrazioni (correggerne una già in archivio, con il suo ID, resta possibile)
+      if (commessa && !esistente && commessa.chiusuraDefinitiva) {
+        errori.push('La commessa "' + codice + '" è stata chiusa in via definitiva con l\'esercizio ' +
+          commessa.chiusuraDefinitiva.anno + ': non accetta nuove registrazioni.');
+      }
+
+      if (commessa) {
+        const v = cfg.valida(base, dbFinto);
+        v.errori.forEach(e => errori.push(e));
+        v.avvisi.forEach(a => avvisi.push(a));
+      }
+
+      // doppioni: solo per le righe che creano una registrazione nuova
+      let doppione = false;
+      const firma = commessa ? cfg.firma(base) : null;
+      if (!esistente && firma) {
+        if (firmaDaQuestoFile[firma]) {
+          doppione = true;
+          avvisi.push('Registrazione identica a quella della riga ' + firmaDaQuestoFile[firma] + ' di questo file: se non è una ripetizione voluta, eliminarne una.');
+        } else if (inArchivio[firma]) {
+          doppione = true;
+          avvisi.push('In archivio c\'è già una registrazione identica (stessa commessa, stessa data, stessi valori): importandola i valori si sommano. ' +
+            'Per correggere quella esistente indicarne l\'ID; se la ripetizione è voluta, importare pure.');
+        }
+      }
+
+      const modifiche = esistente ? differenze(esistente, base, ['commessaId'].concat(cfg.campi)) : [];
+      const esito = errori.length ? 'SCARTATO' : (esistente ? (modifiche.length ? 'AGGIORNA' : 'INVARIATO') : 'NUOVO');
+      if (!errori.length) {
+        if (id) idDaQuestoFile[id] = numero;
+        if (esistente) Object.assign(esistente, JSON.parse(JSON.stringify(base)));
+        else {
+          lavoro.push(base);
+          if (firma) firmaDaQuestoFile[firma] = numero;
+        }
+      }
+      esiti.push({
+        riga: numero, esito, codice: codice || '(senza codice)',
+        data: base.data || '', doppione,
+        etichetta: commessa ? Engine.etichetta(commessa) : '',
+        registrazioneId: esistente ? esistente.id : null,
+        commessaId: commessa ? commessa.id : '',
+        registrazione: base, valori, modifiche, errori, avvisi
+      });
+    }
+
+    const conta = e => esiti.filter(x => x.esito === e).length;
+    return {
+      presente: true, errore: '',
+      colonneTrovate: trovate, colonneIgnorate: ignorate,
+      colonneMancantiObbligatorie: cfg.colonne.filter(c => c.obbligatoria && trovate.indexOf(c) < 0),
+      rigaTestata: iTestata + 1,
+      esiti,
+      nNuovi: conta('NUOVO'), nAggiornati: conta('AGGIORNA'), nInvariati: conta('INVARIATO'), nScartati: conta('SCARTATO'),
+      nAvvisi: esiti.filter(x => x.esito !== 'SCARTATO' && x.avvisi.length).length,
+      nDoppi: esiti.filter(x => x.esito !== 'SCARTATO' && x.doppione).length
     };
   }
 
   return {
-    FOGLIO_DATI, FOGLIO_ELENCHI, FOGLIO_ISTRUZIONI,
-    COLONNE, CAMPI_ANAGRAFICA, CAMPI_BUDGET, CAMPI_SOSTENIBILITA,
-    fogliModello, prepara, differenze, normalizza, numeroDa, dataDa, leggiCella, valoreDi, imposta, oggi, formatoDi
+    FOGLIO_DATI, FOGLIO_SALDI, FOGLIO_MOVIMENTI, FOGLIO_COSTI, FOGLIO_ELENCHI, FOGLIO_ISTRUZIONI,
+    COLONNE, COLONNE_SALDI, COLONNE_MOVIMENTI, COLONNE_COSTI,
+    CAMPI_ANAGRAFICA, CAMPI_BUDGET, CAMPI_SOSTENIBILITA, CAMPI_SALDO, CAMPI_MOVIMENTO, CAMPI_COSTO,
+    fogliModello, prepara, differenze, normalizza, numeroDa, dataDa, leggiCella, valoreDi, imposta, oggi, formatoDi, dataItaliana
   };
 });

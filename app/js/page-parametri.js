@@ -4,7 +4,7 @@
   const esc = UI.esc;
   const GRUPPI = ['Controllo cantieri', 'Sostenibilità economica della commessa'];
   const PARAMETRI = [
-    { nome: 'costoOrario', gruppo: 0, etichetta: 'Costo strutturale aziendale corrente', tipo: 'euro', unita: '€/h', spiegazione: 'Parametro unico FIDA EDILE utilizzato per valorizzare economicamente le ore effettive delle commesse. Il costo effettivo cumulato è determinato da: ore effettive cumulative × costo strutturale corrente + costi diretti cumulativi. È anche il costo strutturale orario della verifica di sostenibilità economica: una sola fonte per tutta l\'applicazione.' },
+    { nome: 'costoOrario', gruppo: 0, etichetta: 'Costo strutturale aziendale corrente', tipo: 'euro', unita: '€/h', spiegazione: 'Parametro unico FIDA EDILE utilizzato per valorizzare economicamente tutte le ore delle commesse, previste a budget ed effettive: cambiandolo si aggiornano insieme previsioni, consuntivo e verifica di sostenibilità. Il costo effettivo cumulato è determinato da: ore effettive cumulative × costo strutturale corrente + costi diretti cumulativi. È anche il costo strutturale orario della verifica di sostenibilità economica: una sola fonte per tutta l\'applicazione.' },
     { nome: 'scartoTempoAttenzione', etichetta: 'Scarto tempo – attenzione', tipo: 'pct', spiegazione: 'Soglia di attenzione quando la % di SAL maturato risulta inferiore alla % di avanzamento temporale della commessa oltre questo scostamento.' },
     { nome: 'scartoTempoCritico', etichetta: 'Scarto tempo – critico', tipo: 'pct', spiegazione: 'Soglia critica quando la % di SAL maturato risulta inferiore alla % di avanzamento temporale della commessa oltre questo scostamento.' },
     { nome: 'scartoOreAttenzione', etichetta: 'Scarto ore – attenzione', tipo: 'pct', spiegazione: 'Soglia di attenzione quando la % di ore consumate supera la % di SAL maturato oltre questo scostamento.' },
@@ -256,7 +256,7 @@
       '<div class="btn-gruppo"><button type="button" class="primario" id="btn-esporta-tutto">Esporta tutti i dati (JSON portabile)</button>' +
       (Store.puo('dati') ? '<button type="button" id="btn-importa-tutto">Importa tutti i dati…</button><input type="file" id="file-importa" accept=".json,application/json" hidden>' : '') + '</div>' +
       '<div class="btn-gruppo"><button type="button" id="btn-backup">Scarica copia di sicurezza (JSON)</button>' +
-      '<button type="button" id="btn-modello-commesse">Scarica il modello Excel delle commesse</button>' +
+      '<button type="button" id="btn-modello-commesse">Scarica il modello Excel (commesse, saldi, movimenti, costi)</button>' +
       (Store.puo('dati') ? '<button type="button" id="btn-ripristino">Ripristina da copia di sicurezza…</button><input type="file" id="file-ripristino" accept=".json,application/json" hidden>' : '') +
       (Store.puo('dati') && Store.db.commesse.length === 0 ? '<button type="button" id="btn-demo">Carica dati dimostrativi (casi di test A, B, C)</button>' : '') + '</div>' +
       (Store.modo === 'file' ? '<p class="sotto">In modalità file, per condividere i dati con un altro PC: scarica la copia di sicurezza e ripristinala sull\'altro PC. Per un archivio condiviso in rete avviare l\'app con server.js (vedi README).</p>' : '') + '</div>';
