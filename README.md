@@ -70,11 +70,11 @@ app/js/engine.js            motore di calcolo (formule Rev.14)
 app/js/schema.js            struttura del database
 app/js/store.js             salvataggio, registro modifiche, permessi
 app/js/xlsx.js              lettura e scrittura dei file Excel (.xlsx), senza librerie
-app/js/importa-commesse.js  modello Excel delle commesse e controlli di importazione
+app/js/importa-commesse.js  modello Excel (commesse, saldi, movimenti, costi) e controlli di importazione
 app/js/page-*.js            pagine
 app/js/page-sostenibilita.js verifica di sostenibilità economica delle commesse
 app/js/page-preventivi.js   preventivi (ipotesi di commessa) e conversione in commessa
-app/js/page-importa.js      importazione delle commesse da un foglio Excel
+app/js/page-importa.js      importazione da un foglio Excel: modello, anteprima, conferma
 data/database.json          archivio (modalità server)
 test/verifica.js            verifica di equivalenza con l'Excel:  node test/verifica.js
 reference/                  file Excel e indicazioni originali
@@ -107,7 +107,7 @@ reference/                  file Excel e indicazioni originali
 - Movimenti, costi e saldi non si cancellano: si **annullano** con motivo e restano tracciati. Ogni modifica finisce nel
   **Registro modifiche** (autore, data, ora, valore precedente, valore nuovo).
 
-## Importazione delle commesse da Excel
+## Importazione da Excel (commesse, saldi, movimenti, costi)
 Pagina **Gestione → Importa da Excel** (visibile ad Amministratore, Direzione e Operativo; la sola consultazione
 può scaricare il modello ma non importare). Il modello si scarica anche da *Parametri → Dati*.
 
@@ -115,30 +115,47 @@ Il file `.xlsx` è generato e riletto dall'applicazione **senza librerie esterne
 documenti XML, scritto qui senza compressione e riletto con `DecompressionStream`, funzione standard dei browser
 recenti. Serve quindi un browser aggiornato (Chrome/Edge 80+, Firefox 113+, Safari 16.4+).
 
-Il modello ha tre fogli:
+Il modello ha sei fogli; si compilano solo quelli che servono, gli altri vengono ignorati:
 
 | Foglio | Contenuto |
 |---|---|
 | `ISTRUZIONI` | guida alla compilazione e significato di ogni colonna (non viene letto) |
 | `COMMESSE` | **una riga per commessa**, una colonna per campo |
-| `ELENCHI` | valori ammessi (stati, cause, SI/NO) e suggerimenti di rami, tecnici e preposti |
+| `SALDI` | valori cumulativi delle commesse pregresse al 31/12 di un anno: **una riga per commessa e data** |
+| `MOVIMENTI` | registrazioni dell'esercizio in gestione: **una riga per evento** (SAL, fatturato, ritenute, svincoli, ore, perdite) |
+| `COSTI` | costi diretti dell'esercizio in gestione: **una riga per costo** |
+| `ELENCHI` | valori ammessi (stati, cause, SI/NO, tipi di movimento) e suggerimenti di rami, tecnici, preposti, macro-categorie |
 
 - Il foglio `COMMESSE` contiene **tutti e soli i campi che di una commessa si inseriscono a mano**, una volta sola
   ciascuno: anagrafica, budget (iniziale e aggiornato), ricarico e dichiarazione della verifica di sostenibilità,
   note e data "aggiornato al". Non compaiono i valori calcolati dal programma (contratto aggiornato, costo ore,
-  margine teorico, allerte, prezzo minimo sostenibile), né le fasi del cronoprogramma, i movimenti, i costi diretti
-  e i saldi iniziali, che hanno archivi propri.
+  margine teorico, allerte, prezzo minimo sostenibile) né le fasi del cronoprogramma, che si disegnano dentro
+  l'applicazione.
 - **Il codice commessa è la chiave**: se non esiste in Anagrafica la commessa viene creata, se esiste viene
-  aggiornata. In aggiornamento **le celle lasciate vuote non cancellano nulla**.
+  aggiornata. In aggiornamento **le celle lasciate vuote non cancellano nulla**. Lo stesso codice collega a una
+  commessa le righe degli altri fogli, anche quando la commessa è creata dallo stesso file.
+- Nel foglio `SALDI` la chiave è la coppia **codice + data saldo** (sempre un 31 dicembre): ripetendo il codice su
+  più righe con date diverse si carica lo storico di più anni in una volta sola.
+- Nei fogli `MOVIMENTI` e `COSTI` **non esiste una chiave naturale**, perché la stessa commessa può avere due
+  registrazioni identiche nello stesso giorno. Vale quindi la colonna **ID**, che il programma scrive quando il
+  modello si scarica già compilato: con l'ID quella registrazione viene **corretta**, con la cella vuota se ne
+  crea sempre una **nuova**. Le righe nuove identiche a una registrazione già presente (stessa commessa, data e
+  valori) sono segnalate con un avviso non bloccante, così ricaricare due volte lo stesso file non raddoppia i
+  valori senza dirlo. La data deve cadere nell'esercizio in gestione: quello che è maturato prima va nei `SALDI`.
+- I saldi, i movimenti e i costi si importano solo se il **ruolo** può gestirli: altrimenti quei fogli vengono
+  letti e mostrati in anteprima, ma non scritti.
 - I titoli della riga 1 servono a riconoscere le colonne; l'ordine può cambiare e le colonne non necessarie si
   possono eliminare. Le colonne non riconosciute vengono elencate e ignorate.
-- Prima di scrivere qualcosa viene mostrata l'**anteprima riga per riga** con esito (nuova / aggiorna / invariata /
-  scartata), i campi che cambiano, gli errori bloccanti e gli avvisi. I controlli sono gli stessi delle maschere
-  dell'applicazione. **Le righe valide vengono importate, quelle con errori vengono scartate ed elencate**: si
-  corregge il file e lo si ricarica, senza rischio di duplicati perché il codice viene riconosciuto.
+- Prima di scrivere qualcosa viene mostrata l'**anteprima riga per riga**, un foglio alla volta, con esito (nuovo /
+  aggiorna / invariato / scartato), i campi che cambiano, gli errori bloccanti e gli avvisi. I controlli sono gli
+  stessi delle maschere dell'applicazione. **Le righe valide vengono importate, quelle con errori vengono scartate
+  ed elencate**: si corregge il file e lo si ricarica.
 - Ogni creazione e ogni modifica finisce nel **Registro modifiche** con autore, data, ora e valori precedenti.
-- Il pulsante *"Scarica il modello con le N commesse in archivio"* produce lo stesso file già compilato: serve per
-  correggere e **aggiornare in blocco** quello che è già dentro.
+- Il pulsante *"Scarica il modello con le N commesse in archivio"* produce lo stesso file già compilato — saldi,
+  movimenti e costi compresi, ciascuna registrazione con il suo ID: serve per correggere e **aggiornare in blocco**
+  quello che è già dentro.
+- Un file che porta **solo** registrazioni di commesse già in archivio non ha bisogno del foglio `COMMESSE`: viene
+  letto lo stesso, segnalando che di commesse non se ne importano.
 
 ## Verifica dei calcoli
 ```
@@ -151,4 +168,52 @@ sostenibilità economica** (formazione del prezzo strutturale, pesi, prezzo di v
 esiti su commesse e preventivi) e la **conversione preventivo → commessa**, verificando che la commessa generata
 produca lo stesso prezzo minimo e lo stesso esito del preventivo di origine.
 #   g e s t i o n a l e _ c a n t i e r i  
+ 
+## Pubblicazione online su Render
+
+Per provare l'applicazione come servizio raggiungibile da internet. Il repository contiene già
+`package.json` e `render.yaml`: non servono librerie da installare.
+
+**Passaggi**
+1. Portare il repository su GitHub (`git push`).
+2. Su [render.com](https://render.com): **New → Blueprint**, scegliere questo repository e confermare.
+   Render legge `render.yaml` e crea il servizio web.
+3. Alla creazione vengono chiesti i valori di **APP_UTENTE** e **APP_PASSWORD**: sono l'utente e la
+   password che il browser chiederà all'apertura. Sceglierli e annotarli.
+4. Al termine si ottiene un indirizzo tipo `https://gestione-cantieri.onrender.com`.
+
+**Variabili d'ambiente riconosciute dal server**
+
+| Variabile | A cosa serve |
+|---|---|
+| `PORT` | porta assegnata dall'hosting (impostata da Render) |
+| `RENDER` | impostata da Render: fa ascoltare il server su tutte le interfacce |
+| `APP_UTENTE` | utente chiesto dal browser. Se vuoto, l'accesso resta libero |
+| `APP_PASSWORD` | password chiesta dal browser. Se vuota, l'accesso resta libero |
+| `DATA_DIR` | cartella dei dati; da puntare a un disco persistente (es. `/var/data`) |
+
+Senza `APP_UTENTE` e `APP_PASSWORD` nulla cambia rispetto all'uso in locale: l'avvio con doppio clic e
+`node server.js --rete` continuano a funzionare esattamente come prima.
+
+### Due avvertenze importanti
+
+**I dati non sono permanenti.** Sul piano gratuito il disco del contenitore viene azzerato a ogni
+riavvio e a ogni nuova pubblicazione: le modifiche fatte online si perdono e si riparte dal contenuto di
+`data/database.json` presente nel repository. Il piano gratuito inoltre spegne il servizio dopo un
+quarto d'ora di inattività, e il primo accesso successivo richiede circa un minuto.
+Va bene per provare, **non per lavorarci davvero**: prima di chiudere, esportare sempre il backup JSON
+dall'applicazione.
+
+Per conservare i dati serve un disco: in `render.yaml` togliere il commento alla sezione `disk` e alla
+variabile `DATA_DIR`, e passare a `plan: starter` (a pagamento). Al primo avvio su un disco vuoto il
+server copia automaticamente `data/database.json` come archivio di partenza.
+
+**Il livello di permessi non è una difesa.** L'applicazione si apre come *Direzione* e la password
+interna (`PASSWORD_ATTIVA` in `app/js/store.js`) risiede nel codice JavaScript, quindi è leggibile da
+chiunque apra il sorgente della pagina. La protezione reale è `APP_UTENTE` / `APP_PASSWORD`, che agisce
+sul server prima di servire qualsiasi contenuto. Chi ha quelle credenziali entra con i permessi pieni.
+
+**Riservatezza:** `data/database.json` è versionato nel repository e finisce quindi anche su Render.
+Se i dati dei cantieri sono reali, il repository GitHub va tenuto **privato**.
+#   g e s t i o n a l e _ c a n t i e r i _ l o c a l e  
  
