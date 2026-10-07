@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const esc = UI.esc;
-  const CAMPI = ['commessaId', 'data', 'tipo', 'numeroDocumento', 'descrizione', 'sal', 'fatturatoLordo', 'ritenuta', 'svincolo', 'ore', 'perditaSal', 'note'];
+  const CAMPI = ['commessaId', 'data', 'tipo', 'numeroDocumento', 'descrizione', 'sal', 'fatturatoLordo', 'ritenuta', 'svincolo', 'ore', 'faseId', 'perditaSal', 'note'];
   // Valori del movimento: quali compaiono nella maschera dipende dal tipo scelto (Engine.CAMPI_TIPO).
   const VALORI = ['sal', 'fatturatoLordo', 'ritenuta', 'svincolo', 'fatturatoNetto', 'ore', 'perditaSal'];
   const ADDENDI_NETTO = ['fatturatoLordo', 'ritenuta', 'svincolo'];
@@ -38,6 +38,7 @@
         UI.campo({ nome: 'svincolo', etichetta: 'Svincolo ritenuta (€)', tipo: 'euro' }, m.svincolo) +
         UI.campo({ nome: 'fatturatoNetto', etichetta: 'Fatturato netto (€)', tipo: 'sola', html: Fmt.euro(Engine.fatturatoNetto(m)) }) +
         UI.campo({ nome: 'ore', etichetta: 'Ore effettive', tipo: 'ore', step: '0.5' }, m.ore) +
+        UI.campo({ nome: 'faseId', etichetta: 'Fase di lavoro (Gantt)', tipo: 'select', opzioni: [], vuotoTesto: 'Nessuna fase', aiuto: 'A quale fase del cronoprogramma appartengono queste ore: serve a confrontarle con le ore previste della fase. Le fasi date in subappalto non compaiono: le loro ore non si rilevano.' }, m.faseId) +
         UI.campo({ nome: 'perditaSal', etichetta: 'Perdita SAL accettata (€)', tipo: 'euro' }, m.perditaSal) +
         '</div><div class="aiuto" id="mov-netto-nota" style="margin-top:6px">Fatturato netto = fatturato lordo − ritenuta + svincolo (calcolato automaticamente).</div></fieldset>' +
         '<fieldset><legend>Note</legend>' + UI.campo({ nome: 'note', etichetta: 'Note', tipo: 'textarea', classe: 'largo' }, m.note) + '</fieldset></form>';
@@ -49,6 +50,8 @@
             const v = UI.leggiForm(mm.el.querySelector('#form-mov'));
             delete v.fatturatoNetto;
             const nuovo = Object.assign({}, m, v, { commessaId: combo.valore });
+            // la fase vale solo con delle ore e solo se appartiene alla commessa scelta
+            if (!Engine.num(nuovo.ore) || !Store.db.fasi.some(f => f.id === nuovo.faseId && f.commessaId === nuovo.commessaId)) nuovo.faseId = '';
             const row = nuovo.commessaId ? Engine.calcolaCommessa(Store.commessa(nuovo.commessaId), Store.db) : null;
             nuovo._svincoloPrecedente = esistente ? Engine.num(esistente.svincolo) : 0;
             await UI.salvaConControlli(mm, {
@@ -78,7 +81,16 @@
         }],
         onMount(mm) {
           const form = mm.el.querySelector('#form-mov');
-          combo = UI.comboCommessa(form.querySelector('#mov-combo'), { valore: m.commessaId });
+          // le fasi proposte sono quelle della commessa scelta: cambiando commessa l'elenco si rifà
+          const selFase = form.querySelector('#f-faseId');
+          function elencoFasi(commessaId, scelta) {
+            const fasi = Store.db.fasi.filter(f => f.commessaId === commessaId && (f.esecutore !== 'subappalto' || f.id === scelta)).sort((a, b) => String(a.inizioPrevisto).localeCompare(String(b.inizioPrevisto)));
+            selFase.innerHTML = '<option value="">' + (fasi.length ? 'Nessuna fase' : 'Nessuna fase nel Gantt della commessa') + '</option>' +
+              fasi.map(f => '<option value="' + esc(f.id) + '"' + (f.id === scelta ? ' selected' : '') + '>' + esc(f.fase) + '</option>').join('');
+            selFase.disabled = !fasi.length;
+          }
+          combo = UI.comboCommessa(form.querySelector('#mov-combo'), { valore: m.commessaId, onChange: c => elencoFasi(c ? c.id : '', '') });
+          elencoFasi(m.commessaId, m.faseId);
           const selTipo = form.querySelector('#f-tipo');
           const riquadro = n => { const el = form.querySelector('#f-' + n); return el ? el.closest('.campo') : null; };
           // il fatturato netto è uno <span> calcolato: non ha un valore da leggere né da svuotare
@@ -102,6 +114,7 @@
             const visibili = perti.concat(superstiti);
             if (visibili.indexOf('fatturatoNetto') < 0 && ADDENDI_NETTO.some(c => visibili.indexOf(c) >= 0)) visibili.push('fatturatoNetto');
             VALORI.forEach(n => { const b = riquadro(n); if (b) b.hidden = visibili.indexOf(n) < 0; });
+            riquadro('faseId').hidden = visibili.indexOf('ore') < 0;   // la fase accompagna le ore
             form.querySelector('#mov-scegli-tipo').hidden = !!t;
             form.querySelector('#mov-netto-nota').hidden = visibili.indexOf('fatturatoNetto') < 0;
             form.querySelector('#mov-hint').textContent = !t ? ''
@@ -148,17 +161,19 @@
         { campo: 'ritenuta', titolo: 'Ritenuta', tipo: 'n', classe: 'in', fmt: v => Fmt.euro(v, { zeroVuoto: true }) },
         { campo: 'svincolo', titolo: 'Svincolo', tipo: 'n', classe: 'in', fmt: v => Fmt.euro(v, { zeroVuoto: true }) },
         { campo: 'fatturatoNetto', titolo: 'Fatt. netto', tipo: 'n', classe: 'calc', fmt: v => Fmt.euro(v, { zeroVuoto: true }) },
-        { campo: 'ore', titolo: 'Ore', tipo: 'n', classe: 'in', fmt: v => Fmt.ore(v, { zeroVuoto: true }) },
-        { campo: 'perditaSal', titolo: 'Perdita SAL', tipo: 'n', classe: 'in', fmt: v => Fmt.euro(v, { zeroVuoto: true }) },
+        { campo: 'ore', titolo: 'Ore', tipo: 'n', classe: 'in', fmt: (v, r) => Fmt.ore(v, { zeroVuoto: true }) + (r.fase ? '<div class="muto piccolo">' + esc(r.fase) + '</div>' : '') },
+        { campo: 'perditaSal', titolo: 'Perdita SAL', tipo: 'n', classe: 'in', fmt: v => Engine.num(v) > 0 ? '<span class="perdita">' + Fmt.euro(v) + '</span>' : Fmt.euro(v, { zeroVuoto: true }) },
         { campo: 'note', titolo: 'Note', classe: 'desc piccolo', fmt: (v, r) => esc(v || '') + (r.annullato ? '<div class="muto">Annullato: ' + esc(r.motivoAnnullamento || '') + '</div>' : '') },
         { campo: 'azioni', titolo: '', ord: false, classe: 'azioni-riga no-barra', fmt: (v, r) => r.annullato ? (Store.puo('saldo.modifica') ? '<button type="button" data-azione="ripristina" data-id="' + esc(r.id) + '">Ripristina</button>' : '') :
           ((Store.puo('movimento.modifica') && r.anno === Store.db.parametri.annoGestione ? '<button type="button" data-azione="modifica" data-id="' + esc(r.id) + '">Modifica</button>' : '') + (Store.puo('movimento.annulla') ? '<button type="button" class="pericolo" data-azione="annulla" data-id="' + esc(r.id) + '">Annulla</button>' : '')) }
       ]);
     },
     righe(filtro) {
+      const fasi = {};
+      Store.db.fasi.forEach(f => { fasi[f.id] = f.fase; });
       return Store.db.movimenti.filter(filtro || (() => true)).map(m => {
         const c = Store.commessa(m.commessaId) || {};
-        return Object.assign({}, m, { codice: c.codice || '?', cliente: c.cliente || '', cantiere: c.cantiere || '', etichetta: Engine.etichetta(c), fatturatoNetto: Engine.fatturatoNetto(m), anno: Engine.annoDi(m.data) });
+        return Object.assign({}, m, { fase: (m.faseId && fasi[m.faseId]) || '', codice: c.codice || '?', cliente: c.cliente || '', cantiere: c.cantiere || '', etichetta: Engine.etichetta(c), fatturatoNetto: Engine.fatturatoNetto(m), anno: Engine.annoDi(m.data) });
       });
     },
     azione(az, id) {
@@ -170,7 +185,7 @@
       { titolo: 'Data', valore: r => Fmt.data(r.data) }, { titolo: 'Codice', campo: 'codice' }, { titolo: 'Cliente', campo: 'cliente' }, { titolo: 'Cantiere', campo: 'cantiere' },
       { titolo: 'Tipo', campo: 'tipo' }, { titolo: 'N. documento', campo: 'numeroDocumento' }, { titolo: 'Descrizione', campo: 'descrizione' },
       { titolo: 'SAL maturato', campo: 'sal' }, { titolo: 'Fatturato lordo', campo: 'fatturatoLordo' }, { titolo: 'Ritenuta', campo: 'ritenuta' }, { titolo: 'Svincolo', campo: 'svincolo' },
-      { titolo: 'Fatturato netto', campo: 'fatturatoNetto' }, { titolo: 'Ore', campo: 'ore' }, { titolo: 'Perdita SAL accettata', campo: 'perditaSal' }, { titolo: 'Note', campo: 'note' },
+      { titolo: 'Fatturato netto', campo: 'fatturatoNetto' }, { titolo: 'Ore', campo: 'ore' }, { titolo: 'Fase di lavoro', campo: 'fase' }, { titolo: 'Perdita SAL accettata', campo: 'perditaSal' }, { titolo: 'Note', campo: 'note' },
       { titolo: 'Annullato', valore: r => r.annullato ? 'SI' : '' }, { titolo: 'Motivo annullamento', campo: 'motivoAnnullamento' }
     ]
   };

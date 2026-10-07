@@ -2,22 +2,27 @@
 (function () {
   'use strict';
   const esc = UI.esc;
-  const GRUPPI = ['Controllo cantieri', 'Sostenibilità economica della commessa'];
+  const GRUPPI = ['Controllo cantieri', 'Sostenibilità economica della commessa', 'Soglie degli alert critici', 'Obiettivi dell\'anno (Dashboard direzionale)'];
   const PARAMETRI = [
     { nome: 'costoOrario', gruppo: 0, etichetta: 'Costo strutturale aziendale corrente', tipo: 'euro', unita: '€/h', spiegazione: 'Parametro unico FIDA EDILE utilizzato per valorizzare economicamente tutte le ore delle commesse, previste a budget ed effettive: cambiandolo si aggiornano insieme previsioni, consuntivo e verifica di sostenibilità. Il costo effettivo cumulato è determinato da: ore effettive cumulative × costo strutturale corrente + costi diretti cumulativi. È anche il costo strutturale orario della verifica di sostenibilità economica: una sola fonte per tutta l\'applicazione.' },
-    { nome: 'scartoTempoAttenzione', etichetta: 'Scarto tempo – attenzione', tipo: 'pct', spiegazione: 'Soglia di attenzione quando la % di SAL maturato risulta inferiore alla % di avanzamento temporale della commessa oltre questo scostamento.' },
-    { nome: 'scartoTempoCritico', etichetta: 'Scarto tempo – critico', tipo: 'pct', spiegazione: 'Soglia critica quando la % di SAL maturato risulta inferiore alla % di avanzamento temporale della commessa oltre questo scostamento.' },
-    { nome: 'scartoOreAttenzione', etichetta: 'Scarto ore – attenzione', tipo: 'pct', spiegazione: 'Soglia di attenzione quando la % di ore consumate supera la % di SAL maturato oltre questo scostamento.' },
-    { nome: 'scartoOreCritico', etichetta: 'Scarto ore – critico', tipo: 'pct', spiegazione: 'Soglia critica quando la % di ore consumate supera la % di SAL maturato oltre questo scostamento.' },
+    { nome: 'scartoTempoAttenzione', etichetta: 'Scarto tempo – attenzione', tipo: 'pct', spiegazione: 'Alert di ATTENZIONE «avanzamento più lento del tempo» quando la % di SAL maturato risulta inferiore alla % di avanzamento temporale della commessa oltre questo scostamento.' },
+    { nome: 'scartoTempoCritico', etichetta: 'Scarto tempo – evidenza in rosso', tipo: 'pct', spiegazione: 'Oltre questo scostamento fra SAL e tempo il valore è scritto in rosso nel Controllo cantieri. L\'alert resta di attenzione: il ritardo sul tempo non è fra gli alert critici.' },
+    { nome: 'scartoOreAttenzione', etichetta: 'Scarto ore – attenzione', tipo: 'pct', spiegazione: 'Alert di ATTENZIONE «consumo ore superiore all\'avanzamento» quando la % di ore consumate supera la % di SAL maturato oltre questo scostamento.' },
+    { nome: 'scartoOreCritico', etichetta: 'Scarto ore – critico (SAL da emettere)', tipo: 'pct', spiegazione: 'Alert CRITICO «SAL da emettere» quando la % di ore segnate nei movimenti supera la % di SAL maturato oltre questo scostamento: il SAL è in ritardo rispetto al lavoro fatto.' },
     { nome: 'sogliaSalNonFatturato', etichetta: 'Soglia SAL non fatturato', tipo: 'pct', spiegazione: 'Percentuale del valore contrattuale oltre la quale il SAL maturato ma non ancora fatturato viene considerato significativo.' },
     { nome: 'annoGestione', etichetta: 'Anno di gestione', tipo: 'number', spiegazione: 'Anno operativo utilizzato per distinguere saldi iniziali e movimenti dell\'esercizio. Si modifica di norma con la funzione "Chiusura esercizio".' },
     { nome: 'giorniAggiornamentoRecente', etichetta: 'Giorni per "aggiornamento recente"', tipo: 'number', unita: 'gg', spiegazione: 'Numero intero di giorni oltre il quale una commessa è considerata non aggiornata: alimenta il filtro "senza aggiornamento da oltre N gg" della Dashboard, confrontando la data AGGIORNATO AL con oggi.' },
     { nome: 'rischioStrutturale', gruppo: 1, etichetta: 'Rischio strutturale', tipo: 'pct', spiegazione: 'Maggiorazione prudenziale applicata al costo strutturale attribuito alla commessa, a copertura di imprevisti: costo strutturale prudenziale = costo strutturale × (1 + rischio).' },
     { nome: 'redditivita', gruppo: 1, etichetta: 'Redditività', tipo: 'pct', spiegazione: 'Margine che l\'azienda deve conservare sul prezzo. Un costo viene "portato a redditività" dividendolo per (1 − redditività): vale sia per la parte strutturale sia per i costi specifici.' },
     { nome: 'rientroOrario', gruppo: 1, etichetta: 'Rientro bancario per ora', tipo: 'euro', unita: '€/h', spiegazione: 'Quota oraria destinata al rientro bancario, che si somma al prezzo della parte strutturale: si ottiene dividendo il rientro bancario mensile per le ore produttive aziendali mensili.' },
-    { nome: 'sogliaRicaricoDirezione', gruppo: 1, etichetta: 'Soglia minima di ricarico (Direzione)', tipo: 'pct', spiegazione: 'Ricarico minimo stabilito dalla Direzione sulle voci di costo specifico. Nelle righe il ricarico può essere aumentato, ma un valore inferiore rende la verifica NON CONGRUO.' }
+    { nome: 'sogliaRicaricoDirezione', gruppo: 1, etichetta: 'Soglia minima di ricarico (Direzione)', tipo: 'pct', spiegazione: 'Ricarico minimo stabilito dalla Direzione sulle voci di costo specifico. Nelle righe il ricarico può essere aumentato, ma un valore inferiore rende la verifica NON CONGRUO.' },
+    { nome: 'sogliaErroreAcquisizione', gruppo: 2, etichetta: 'Errore di acquisizione', tipo: 'pct', spiegazione: 'Alert CRITICO quando il prezzo venduto (contratto iniziale) sta sotto il prezzo minimo sostenibile della verifica iniziale di oltre questa percentuale.' },
+    { nome: 'sogliaOreOltrePreviste', gruppo: 2, etichetta: 'Ore oltre le previste', tipo: 'pct', spiegazione: 'Alert CRITICO quando le ore segnate superano quelle previste a budget di oltre questa percentuale. Sotto la soglia, le ore oltre il budget restano un alert di attenzione.' },
+    { nome: 'sogliaCostiOltrePrevisti', gruppo: 2, etichetta: 'Costi diretti oltre i previsti', tipo: 'pct', spiegazione: 'Alert CRITICO quando i costi diretti segnati superano quelli previsti a budget di oltre questa percentuale. Sotto la soglia, lo sforamento resta un alert di attenzione.' },
+    { nome: 'sogliaPerditeAccettate', gruppo: 2, etichetta: 'Perdite accettate sul prezzo di vendita', tipo: 'pct', spiegazione: 'Alert CRITICO quando le perdite SAL accettate superano questa percentuale del prezzo di vendita (contratto aggiornato). Sotto la soglia, una perdita accettata resta un alert di attenzione.' },
+    { nome: 'obiettivoRientroAnnuo', gruppo: 3, etichetta: 'Rientro bancario desiderato nell\'anno', tipo: 'euro', unitaTesto: '€', spiegazione: 'Obiettivo di rientro bancario dell\'anno mostrato nella Dashboard direzionale. Lasciato vuoto, è ricavato dal portafoglio: ore previste delle commesse × rientro bancario per ora.' }
   ];
-  function valoreParam(p, v) { return p.tipo === 'pct' ? Fmt.pct(v, 2) : (p.tipo === 'euro' ? Fmt.euro(v) + (p.unita ? '/h' : '') : (Fmt.isNum(v) ? String(v) + (p.unita ? ' ' + p.unita : '') : '—')); }
+  function valoreParam(p, v) { return p.tipo === 'pct' ? Fmt.pct(v, 2) : (p.tipo === 'euro' ? (Fmt.isNum(v) ? Fmt.euro(v) + (p.unita ? '/h' : '') : 'ricavato dal portafoglio') : (Fmt.isNum(v) ? String(v) + (p.unita ? ' ' + p.unita : '') : '—')); }
 
   function apriParametri() {
     if (!Store.puo('parametri')) return UI.permessoNegato();
@@ -103,6 +108,11 @@
               UI.toast('Pesi del costo strutturale salvati.');
             }
           });
+        }
+      }, {
+        testo: 'Svuota: righe da compilare', azione(m) {
+          tabella.imposta(Engine.GRUPPI_STRUTTURALI.map(g => ({ gruppo: g, voce: '', peso: null })));
+          m.msg('<div class="msg info">Tabella svuotata: scrivere le voci con cui l\'azienda forma il proprio costo orario (la somma dei pesi deve fare 100 %) e premere <b>Salva</b>.</div>');
         }
       }, {
         testo: 'Ripristina i pesi del modello', azione(m) {
@@ -222,6 +232,7 @@
     const P = Store.db.parametri, puo = Store.puo('parametri');
     cont.innerHTML = UI.testata('Parametri di controllo', 'Solo i parametri realmente modificabili dall\'utente. Ogni modifica viene tracciata nel registro.',
       (puo ? '<button type="button" class="primario" id="btn-par">Modifica parametri</button>' : '')) +
+      '<div class="msg info">Gli alert hanno tre livelli. <b>CRITICO</b> (rosso): solo i casi con una soglia qui sotto, più commessa in perdita e integrazioni senza riferimento documentale. <b>ATTENZIONE</b> (ambra): tutti gli altri problemi di andamento. <b>INCOMPLETO</b> (bluette): dati mancanti.</div>' +
       '<div class="tabella-wrap"><table class="tab"><thead><tr><th>Parametro</th><th class="n">Valore</th><th>Spiegazione</th></tr></thead><tbody>' +
       GRUPPI.map((g, i) => '<tr class="totale"><td colspan="3">' + esc(g) + '</td></tr>' +
         PARAMETRI.filter(x => (x.gruppo || 0) === i).map(x => '<tr><td><b>' + esc(x.etichetta) + '</b></td><td class="n in">' + valoreParam(x, P[x.nome]) + '</td><td class="sotto">' + esc(x.spiegazione) + '</td></tr>').join('')).join('') + '</tbody></table></div>' +

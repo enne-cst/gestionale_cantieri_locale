@@ -19,7 +19,7 @@
         '<fieldset><legend>Commessa</legend><div class="campo"><label class="req">Commessa (codice | cliente | cantiere)</label><div id="costo-combo"></div></div></fieldset>' +
         '<fieldset><legend>Costo</legend><div class="form-griglia">' +
         UI.campo({ nome: 'data', etichetta: 'Data costo', tipo: 'date', req: true, aiuto: 'Nell\'esercizio ' + anno + '.' }, k.data) +
-        UI.campo({ nome: 'macroCategoria', etichetta: 'Macro-categoria da analisi', tipo: 'select', opzioni: cat, vuotoTesto: 'Seleziona…' }, k.macroCategoria) +
+        UI.campo({ nome: 'macroCategoria', etichetta: 'Voce di costo (macro-categoria)', tipo: 'select', opzioni: cat, vuotoTesto: cat.length ? 'Seleziona…' : 'Nessuna voce: crearle con «Voci di costo…»', aiuto: 'Le voci si creano e si modificano dalla pagina Costi diretti, pulsante «Voci di costo…».' }, k.macroCategoria) +
         UI.campo({ nome: 'importo', etichetta: 'Importo (€)', tipo: 'euro', req: true, aiuto: 'Costo effettivo puro: nessun margine o ricarico.' }, k.importo) +
         UI.campo({ nome: 'descrizione', etichetta: 'Descrizione', classe: 'doppio' }, k.descrizione) +
         UI.campo({ nome: 'fornitore', etichetta: 'Fornitore / Documento' }, k.fornitore) +
@@ -56,6 +56,53 @@
           }
         }],
         onMount(mm) { combo = UI.comboCommessa(mm.el.querySelector('#costo-combo'), { valore: k.commessaId }); }
+      });
+    },
+    // Voci di costo diretto (macro-categorie): le crea l'azienda, perché dipendono da che cosa ha già messo
+    // dentro il proprio costo orario. Sono righe libere: si aggiungono, si rinominano, si tolgono.
+    apriVoci(onSalvato) {
+      if (!Store.puo('parametri')) return UI.permessoNegato();
+      const attuali = Store.db.liste.macroCategorie.slice();
+      const usate = {};
+      Store.db.costi.forEach(k => { if (k.macroCategoria) usate[k.macroCategoria] = (usate[k.macroCategoria] || 0) + 1; });
+      let tabella = null;
+      UI.modale({
+        titolo: 'Voci di costo diretto', stretta: true,
+        corpo: '<div class="msg info">Sono le voci fra cui si sceglie registrando un costo diretto o una voce di preventivo. Dipendono da come l\'azienda forma il proprio <b>costo orario</b>: ciò che è già compreso lì non va fra i costi diretti. Si possono aggiungere, rinominare e togliere liberamente.</div><div id="voci-righe"></div>',
+        pulsanti: [{
+          testo: 'Salva', classe: 'primario', async azione(m) {
+            const righe = tabella.righe.map(x => ({ prima: x.prima, voce: String(x.voce || '').trim() }));
+            const nomi = righe.map(x => x.voce).filter(x => x);
+            const doppie = nomi.filter((x, i) => nomi.findIndex(y => y.toLowerCase() === x.toLowerCase()) !== i);
+            if (doppie.length) { m.msg('<div class="msg errore">Voce ripetuta: ' + esc(doppie[0]) + '.</div>'); return; }
+            // una voce rinominata si porta dietro i costi e le voci di preventivo che la usavano
+            const rinomine = righe.filter(x => x.prima && x.voce && x.prima !== x.voce);
+            await Store.salva(db => {
+              rinomine.forEach(x => {
+                db.costi.forEach(k => { if (k.macroCategoria === x.prima) k.macroCategoria = x.voce; });
+                db.preventivi.forEach(p => (p.voci || []).forEach(v => { if (v.macroCategoria === x.prima) v.macroCategoria = x.voce; }));
+              });
+              const mod = Store.diff({ macroCategorie: db.liste.macroCategorie }, { macroCategorie: nomi }, ['macroCategorie']);
+              db.liste.macroCategorie = nomi;
+              if (mod.length) Store.log(db, 'parametri', '', '', 'MODIFICA VOCI DI COSTO DIRETTO', mod);
+            });
+            m.chiudi(); UI.toast('Voci di costo salvate.');
+            if (onSalvato) onSalvato();
+          }
+        }],
+        onMount(m) {
+          tabella = UI.righeEditabili(m.el.querySelector('#voci-righe'), {
+            colonne: [
+              { nome: 'voce', titolo: 'Voce di costo', tipo: 'text', larghezza: '260px', placeholder: 'es. Materiali, Noleggi, Subappalti…' },
+              { nome: 'uso', titolo: 'Costi registrati', tipo: 'calc', calc: r => r.prima && usate[r.prima] ? String(usate[r.prima]) : '<span class="muto">—</span>' }
+            ],
+            righe: attuali.map(v => ({ voce: v, prima: v })),
+            nuova: () => ({ voce: '', prima: '' }),
+            testoAggiungi: '+ Aggiungi voce di costo',
+            vuoto: 'Nessuna voce: aggiungere quelle che servono all\'azienda.',
+            aiuto: 'Le righe lasciate vuote non vengono salvate. Togliendo una voce, i costi già registrati la conservano.'
+          });
+        }
       });
     },
     async annulla(id) {
@@ -109,7 +156,8 @@
     if (F.anno === null) F.anno = P.annoGestione;
     const anni = Array.from(new Set(Store.db.costi.map(k => Engine.annoDi(k.data)).filter(x => x).concat([P.annoGestione]))).sort((a, b) => b - a);
     cont.innerHTML = UI.testata('Costi diretti ' + esc(P.annoGestione), 'Registrare esclusivamente i costi specifici della commessa non già assorbiti dal costo orario aziendale. Nessun margine o ricarico viene applicato.',
-      (Store.puo('costo.crea') ? '<button type="button" class="primario" id="btn-nuovo-costo">+ Nuovo costo</button>' : '') + UI.pulsanteEsporta('costi')) +
+      (Store.puo('costo.crea') ? '<button type="button" class="primario" id="btn-nuovo-costo">+ Nuovo costo</button>' : '') +
+      (Store.puo('parametri') ? '<button type="button" id="btn-voci-costo">Voci di costo…</button>' : '') + UI.pulsanteEsporta('costi')) +
       '<div id="costi-kpi"></div>' +
       '<div class="pannello compatto"><div class="filtri" id="costi-filtri">' +
       '<div class="campo largo"><label>Ricerca</label><input type="search" class="in" name="testo" value="' + esc(F.testo) + '" placeholder="codice, cliente, cantiere, descrizione, fornitore"></div>' +
@@ -136,6 +184,7 @@
     const onCambio = UI.debounce(() => { fil.querySelectorAll('[name]').forEach(el => { F[el.name] = el.type === 'checkbox' ? el.checked : el.value; }); aggiorna(); }, 150);
     fil.addEventListener('input', onCambio); fil.addEventListener('change', onCambio);
     const bn = document.getElementById('btn-nuovo-costo'); if (bn) bn.onclick = () => Costi.apriForm(null);
+    const bv = document.getElementById('btn-voci-costo'); if (bv) bv.onclick = () => Costi.apriVoci();
     const be = cont.querySelector('[data-esporta="costi"]'); if (be) be.onclick = () => UI.esportaCsv('costi_diretti_' + F.anno, UI.righeOrdinate('costi'), Costi.COLONNE_EXPORT);
     aggiorna();
   });

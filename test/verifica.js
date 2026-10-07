@@ -59,9 +59,10 @@ sezione('C042 – valori foglio CANTIERI');
   eq('costi sforamento (BR)', 1000, r.costiSforamento);
   eq('costo effettivo cumulato (BS)', 63445.2, r.costoEffettivo);
   eq('giorni ritardo produttivo (Q)', 0, r.giorniRitardo);
-  eq('allerta (A)', 'CRITICO', r.alert);
+  // Rev.5: lo sforamento dei costi (+3,2 %) e lo scarto ore/SAL (7,5 %) stanno sotto le soglie critiche
+  eq('allerta (A)', 'ATTENZIONE', r.alert);
   eq('motivi (B)', [
-    'PERDITA SAL ACCETTATA (€ 2.000,00)', 'AVANZAMENTO PIÙ LENTO DEL TEMPO', "CONSUMO ORE SUPERIORE ALL'AVANZAMENTO", 'COSTI DIRETTI OLTRE BUDGET'
+    "CONSUMO ORE SUPERIORE ALL'AVANZAMENTO", 'COSTI DIRETTI OLTRE BUDGET', 'PERDITA SAL ACCETTATA (€ 2.000,00)', 'AVANZAMENTO PIÙ LENTO DEL TEMPO'
   ], r.motivi);
   eq('budget: costo ore (F)', 82422, r.budget.costoOre);
   eq('budget: costo totale (H)', 113730, r.budget.costoTotalePrevisto);
@@ -85,10 +86,14 @@ sezione('C011 – valori foglio CANTIERI');
   eq('ore %', null, r.orePct);
   eq('giorni ritardo (budget assente)', null, r.giorniRitardo);
   eq('costo effettivo', 0, r.costoEffettivo);
-  eq('allerta', 'ATTENZIONE', r.alert);
+  // Rev.5: integrazioni senza riferimento documentale = critico; i dati mancanti sono motivi INCOMPLETO
+  eq('allerta', 'CRITICO', r.alert);
   eq('motivi', [
-    'PERDITA SAL ACCETTATA (€ 1.000,00)', 'SAL MATURATO NON FATTURATO', 'CANTIERE FINITO CON RESIDUO LAVORI', 'DATA FINE EFFETTIVA MANCANTE', 'AGGIORNATO AL MANCANTE'
+    'INTEGRAZIONI SENZA RIFERIMENTO DOCUMENTALE',
+    'PERDITA SAL ACCETTATA (€ 1.000,00)', 'SAL MATURATO NON FATTURATO', 'CANTIERE FINITO CON RESIDUO LAVORI', 'DATA FINE EFFETTIVA MANCANTE',
+    'AGGIORNATO AL MANCANTE', 'BUDGET ORE NON DEFINITO', 'BUDGET COSTI DIRETTI NON DEFINITO'
   ], r.motivi);
+  eq('livelli dei motivi', ['CRITICO', 'ATTENZIONE', 'ATTENZIONE', 'ATTENZIONE', 'ATTENZIONE', 'INCOMPLETO', 'INCOMPLETO', 'INCOMPLETO'], r.motiviDettaglio.map(m => m.livello));
   eq('budget: margine teorico senza budget', 1, r.budget.margineTeorico, 1e-9);
 }
 
@@ -182,8 +187,9 @@ sezione('CASO A – commessa ordinaria 2026');
   eq('costo effettivo', 1700 * 45.79 + 25000, r.costoEffettivo);
   eq('SAL %', 0.5, r.salPct, 1e-9);
   eq('tempo %', (Engine.dayNum('2026-06-30') - Engine.dayNum('2026-03-02')) / (Engine.dayNum('2026-12-15') - Engine.dayNum('2026-03-02')), r.tempoPct, 1e-9);
-  eq('allerta', 'REGOLARE', r.alert);
-  eq('motivi', [], r.motivi);
+  // Rev.5: il contratto iniziale (200.000) sta sotto il prezzo minimo sostenibile della verifica iniziale
+  eq('allerta', 'CRITICO', r.alert);
+  eq('motivi', ['ERRORE DI ACQUISIZIONE'], r.motivi);
 }
 
 // ------------------------------------------------------------------ CASO B – scostamento
@@ -196,7 +202,8 @@ sezione('CASO B – commessa con scostamento');
   eq('scostamento ore > critico', true, r.scostOre > db.parametri.scartoOreCritico);
   eq('scostamento tempo < -critico', true, r.scostTempo < -db.parametri.scartoTempoCritico);
   eq('allerta', 'CRITICO', r.alert);
-  eq('motivi', ['AVANZAMENTO PIÙ LENTO DEL TEMPO', "CONSUMO ORE SUPERIORE ALL'AVANZAMENTO"], r.motivi);
+  eq('motivi', ['SAL DA EMETTERE', 'AVANZAMENTO PIÙ LENTO DEL TEMPO'], r.motivi);
+  eq('livelli dei motivi', ['CRITICO', 'ATTENZIONE'], r.motiviDettaglio.map(m => m.livello));
 }
 
 // ------------------------------------------------------------------ CASO C – pregressa
@@ -219,7 +226,211 @@ sezione('CASO C – commessa pregressa (saldo 31/12/2025 + movimenti 2026)');
   eq('dashboard 2026: ore solo 2026', 500, dm.ore);
   eq('dashboard 2026: costi solo 2026', 12000, dm.costiDiretti);
   eq('allerta', 'ATTENZIONE', r.alert);
-  eq('motivi', ['AVANZAMENTO PIÙ LENTO DEL TEMPO', "CONSUMO ORE SUPERIORE ALL'AVANZAMENTO"], r.motivi);
+  eq('motivi', ["CONSUMO ORE SUPERIORE ALL'AVANZAMENTO", 'AVANZAMENTO PIÙ LENTO DEL TEMPO'], r.motivi);
+}
+
+// ------------------------------------------------------------------ Rev.5: tre livelli di alert, soglie, Gantt, dashboard direzionale
+sezione('Rev.5 – alert a tre livelli e soglie impostabili');
+{
+  const nuovoDb = () => { const d = Schema.nuovoDb(); d.parametri.annoGestione = 2026; return d; };
+  const commessa = o => Object.assign(Schema.nuovaCommessa(), { dataInserimento: '2026-01-01', cliente: 'X', cantiere: 'Y' }, o);
+  const calc = (d, cod) => Engine.calcolaTutte(d).find(r => r.codice === cod);
+  const mov = (d, o) => d.movimenti.push(Object.assign(Schema.nuovoMovimento(), o));
+
+  // commessa appena inserita, con la sola anagrafica: mai critica, mai in attenzione
+  let d = nuovoDb();
+  d.commesse.push(commessa({ id: 'n1', codice: 'N1', stato: 'In corso', dataInizioEffettiva: '2026-01-10', dataFinePrevista: '2026-03-31', dataFinePrevistaOriginale: '2026-03-31', contrattoIniziale: 40000, aggiornatoAl: '2026-06-30' }));
+  let r = calc(d, 'N1');
+  eq('nuova, solo anagrafica: livello INCOMPLETO', 'INCOMPLETO', r.alert);
+  eq('nuova, solo anagrafica: mancano solo i budget', ['BUDGET ORE NON DEFINITO', 'BUDGET COSTI DIRETTI NON DEFINITO'], r.motivi);
+  d.commesse[0].budget = { orePreviste: 100, costiDirettiPrevisti: 1000 };
+  d.commesse[0].contrattoIniziale = 20000;
+  r = calc(d, 'N1');
+  eq('nuova con budget, senza movimenti: REGOLARE anche a tempo scaduto', 'REGOLARE', r.alert);
+  // da iniziare: la data di inizio effettivo non è un dato mancante
+  d.commesse[0].stato = 'Da iniziare'; d.commesse[0].dataInizioEffettiva = '';
+  eq('da iniziare senza inizio effettivo: REGOLARE', 'REGOLARE', calc(d, 'N1').alert);
+  d.commesse[0].stato = 'In corso';
+  eq('in corso senza inizio effettivo: INCOMPLETO', 'INCOMPLETO', calc(d, 'N1').alert);
+  eq('in corso senza inizio effettivo: motivo', ['DATI PREVISIONALI INCOMPLETI'], calc(d, 'N1').motivi);
+  d.commesse[0].dataInizioEffettiva = '2026-01-10';
+
+  // integrazioni: critico senza riferimento documentale, regolare con
+  d.commesse[0].integrazioni = 5000;
+  eq('integrazioni senza riferimento: CRITICO', ['INTEGRAZIONI SENZA RIFERIMENTO DOCUMENTALE'], calc(d, 'N1').motivi);
+  d.commesse[0].integrazioniRiferimento = 'integrazione contrattuale n. 1 del 02/02/2026';
+  eq('integrazioni con riferimento: nessun motivo', [], calc(d, 'N1').motivi);
+  d.commesse[0].integrazioni = null; d.commesse[0].integrazioniRiferimento = '';
+
+  // ore oltre le previste: attenzione sotto la soglia (10 %), critico sopra
+  mov(d, { id: 'mo', commessaId: 'n1', data: '2026-02-01', tipo: 'SAL + FATTURA', sal: 20000, fatturatoLordo: 20000, ore: 105 });
+  r = calc(d, 'N1');
+  eq('ore +5 %: ATTENZIONE', 'ORE OLTRE BUDGET', r.motiviDettaglio.find(m => /ORE OLTRE/.test(m.motivo)).motivo);
+  eq('ore +5 %: livello', 'ATTENZIONE', r.motiviDettaglio.find(m => /ORE OLTRE/.test(m.motivo)).livello);
+  d.movimenti[0].ore = 120;
+  r = calc(d, 'N1');
+  eq('ore +20 %: CRITICO', 'CRITICO', r.motiviDettaglio.find(m => m.motivo === 'ORE OLTRE IL PREVISTO').livello);
+  d.parametri.sogliaOreOltrePreviste = 0.25;
+  eq('ore +20 % con soglia al 25 %: torna ATTENZIONE', 'ATTENZIONE', calc(d, 'N1').motiviDettaglio.find(m => /ORE OLTRE/.test(m.motivo)).livello);
+  d.parametri.sogliaOreOltrePreviste = 0.10; d.movimenti[0].ore = 50;
+
+  // costi diretti oltre i previsti
+  d.costi.push(Object.assign(Schema.nuovoCosto(), { id: 'k1', commessaId: 'n1', data: '2026-02-02', importo: 1050 }));
+  eq('costi +5 %: ATTENZIONE', 'ATTENZIONE', calc(d, 'N1').motiviDettaglio.find(m => /COSTI DIRETTI OLTRE/.test(m.motivo)).livello);
+  d.costi[0].importo = 1200;
+  eq('costi +20 %: CRITICO', 'CRITICO', calc(d, 'N1').motiviDettaglio.find(m => /COSTI DIRETTI OLTRE/.test(m.motivo)).livello);
+  d.costi[0].importo = 500;
+
+  // perdite accettate sul prezzo di vendita: soglia 5 % di 20.000 = 1.000
+  d.movimenti[0].perditaSal = 800;
+  eq('perdite 4 %: ATTENZIONE', 'ATTENZIONE', calc(d, 'N1').motiviDettaglio.find(m => /PERDIT/.test(m.motivo)).livello);
+  d.movimenti[0].perditaSal = 1500;
+  eq('perdite 7,5 %: CRITICO', 'PERDITE ACCETTATE OLTRE SOGLIA', calc(d, 'N1').motiviDettaglio.find(m => /PERDIT/.test(m.motivo)).motivo);
+  d.movimenti[0].perditaSal = null;
+
+  // fatturato oltre il recuperabile e ritenute da sbloccare: attenzione, non critico
+  d.movimenti[0].fatturatoLordo = 21000; d.movimenti[0].ritenuta = 500;
+  d.commesse[0].stato = 'Finito con sblocco ritenute'; d.commesse[0].dataFineEffettiva = '';
+  r = calc(d, 'N1');
+  const liv = cod => (r.motiviDettaglio.find(m => m.motivo === cod) || {}).livello;
+  eq('fatturato oltre recuperabile: ATTENZIONE', 'ATTENZIONE', liv('FATTURATO OLTRE VALORE RECUPERABILE'));
+  eq('ritenute da sbloccare: ATTENZIONE', 'ATTENZIONE', liv('RITENUTE DA SBLOCCARE'));
+  eq('finita senza data di fine effettiva: ATTENZIONE', 'ATTENZIONE', liv('DATA FINE EFFETTIVA MANCANTE'));
+  eq('finita: niente «avanzamento più lento del tempo»', undefined, liv('AVANZAMENTO PIÙ LENTO DEL TEMPO'));
+  eq('finita in utile: nessun critico', 'ATTENZIONE', r.alert);
+
+  // commessa finita in perdita / in perdita a finire
+  d.costi[0].importo = 30000;
+  r = calc(d, 'N1');
+  eq('finita in perdita: CRITICO', 'COMMESSA FINITA IN PERDITA', r.motivi[0]);
+  eq('finita: utile maturato', 21000 - 30000 - 50 * 45.79, r.utileMaturato);
+  d.commesse[0].stato = 'In corso';
+  r = calc(d, 'N1');
+  eq('in corso, costi già oltre il budget: in perdita a finire', true, r.motivi.indexOf('COMMESSA IN PERDITA A FINIRE') >= 0);
+  eq('utile a finire: a finire valgono i costi già sostenuti', 20000 - 30000 - 100 * 45.79, r.utileAFinire);
+  eq('utile a finire non calcolabile senza budget', null, calc(nuovoDbCon(commessa({ id: 'z', codice: 'Z', contrattoIniziale: 1000 })), 'Z').utileAFinire);
+  function nuovoDbCon(c) { const x = nuovoDb(); x.commesse.push(c); return x; }
+
+  // errore di acquisizione: prezzo venduto sotto il minimo sostenibile oltre la soglia
+  d = nuovoDb();
+  d.commesse.push(commessa({ id: 'e1', codice: 'E1', stato: 'Da iniziare', dataFinePrevista: '2026-12-31', dataFinePrevistaOriginale: '2026-12-31', contrattoIniziale: 100000, aggiornatoAl: '2026-01-01', budget: { orePreviste: 1000, costiDirettiPrevisti: 20000 } }));
+  const minimo = calc(d, 'E1').sostenibilitaIniziale.prezzoMinimo;
+  d.commesse[0].contrattoIniziale = Math.round(minimo * 0.97);
+  eq('prezzo 3 % sotto il minimo: nessun errore di acquisizione', [], calc(d, 'E1').motivi.filter(m => m !== 'COMMESSA IN PERDITA A FINIRE'));
+  d.commesse[0].contrattoIniziale = Math.round(minimo * 0.90);
+  eq('prezzo 10 % sotto il minimo: ERRORE DI ACQUISIZIONE', true, calc(d, 'E1').motivi.indexOf('ERRORE DI ACQUISIZIONE') >= 0);
+  d.parametri.sogliaErroreAcquisizione = 0.15;
+  eq('con soglia al 15 % non è più errore', false, calc(d, 'E1').motivi.indexOf('ERRORE DI ACQUISIZIONE') >= 0);
+
+  // parametri: le nuove soglie sono validate
+  eq('parametri di default validi', [], Engine.validaParametri(Schema.nuovoDb().parametri).errori);
+  eq('soglia negativa rifiutata', 1, Engine.validaParametri(Object.assign({}, Schema.nuovoDb().parametri, { sogliaPerditeAccettate: -0.1 })).errori.length);
+  // migrazione: un archivio precedente riceve soglie e campi nuovi
+  const vecchio = Schema.migra({ parametri: { costoOrario: 40, annoGestione: 2026 }, commesse: [{ id: 'v', codice: 'V', budget: {} }], fasi: [{ id: 'f', commessaId: 'v' }], movimenti: [{ id: 'm', commessaId: 'v' }] });
+  eq('migrazione: soglia ore', 0.10, vecchio.parametri.sogliaOreOltrePreviste);
+  eq('migrazione: riferimento integrazioni', '', vecchio.commesse[0].integrazioniRiferimento);
+  eq('migrazione: ore della fase', null, vecchio.fasi[0].orePreviste);
+  eq('migrazione: fase del movimento', '', vecchio.movimenti[0].faseId);
+}
+
+sezione('Rev.5 – ore per fase dal Gantt');
+{
+  const d = Schema.nuovoDb(); d.parametri.annoGestione = 2026;
+  d.commesse.push(Object.assign(Schema.nuovaCommessa(), { id: 'g1', codice: 'G1', cliente: 'X', cantiere: 'Y', stato: 'In corso', dataInizioEffettiva: '2026-01-10', dataFinePrevista: '2026-12-31', dataFinePrevistaOriginale: '2026-12-31', contrattoIniziale: 100000, aggiornatoAl: '2026-01-20', budget: { orePreviste: 300, costiDirettiPrevisti: 0 } }));
+  const fase = o => d.fasi.push(Object.assign(Schema.nuovaFase(), { commessaId: 'g1' }, o));
+  fase({ id: 'fa', fase: 'Demolizioni', orePreviste: 100, uomini: 2 });
+  fase({ id: 'fb', fase: 'Murature', orePreviste: 200, uomini: 3 });
+  fase({ id: 'fc', fase: 'Finiture' });
+  const mov = o => d.movimenti.push(Object.assign(Schema.nuovoMovimento(), { commessaId: 'g1', tipo: 'ORE' }, o));
+  mov({ id: 'm1', data: '2026-01-15', ore: 80, faseId: 'fa' });
+  mov({ id: 'm2', data: '2025-12-15', ore: 40, faseId: 'fa' });       // anno precedente: per la fase conta comunque
+  mov({ id: 'm3', data: '2026-01-16', ore: 50, faseId: 'fb' });
+  mov({ id: 'm4', data: '2026-01-17', ore: 10 });                     // ore senza fase
+  mov({ id: 'm5', data: '2026-01-18', ore: 999, faseId: 'fb', annullato: true });
+  const o = Engine.oreFasi(d, 'g1');
+  eq('ore previste dal Gantt', 300, o.previste);
+  eq('fasi con le ore indicate', 2, o.nConOre);
+  eq('ore attribuite alle fasi', 170, o.attribuite);
+  eq('fase A: effettive (tutti gli anni, annullati esclusi)', 120, o.righe.find(x => x.id === 'fa').effettive);
+  eq('fase A: oltre le previste', true, o.righe.find(x => x.id === 'fa').oltre);
+  eq('fase B: non oltre', false, o.righe.find(x => x.id === 'fb').oltre);
+  eq('fase senza ore: non giudicata', null, o.righe.find(x => x.id === 'fc').scostamento);
+  const r = Engine.calcolaTutte(d)[0];
+  eq('alert di attenzione sulla fase sforata', 'ATTENZIONE', (r.motiviDettaglio.find(m => /NELLA FASE DEMOLIZIONI/.test(m.motivo)) || {}).livello);
+  eq('ore usate della commessa: solo esercizio in corso', 140, r.oreUsate);
+  // la stessa fase sforata, data in subappalto: le sue ore non si controllano più
+  d.fasi.find(f => f.id === 'fa').esecutore = 'subappalto';
+  d.fasi.find(f => f.id === 'fa').subappaltatore = 'Demolizioni Srl';
+  const o2 = Engine.oreFasi(d, 'g1');
+  eq('subappalto: la fase non è più oltre le ore', false, o2.righe.find(x => x.id === 'fa').oltre);
+  eq('subappalto: le sue ore previste escono dal totale del Gantt', 200, o2.previste);
+  eq('subappalto: fasi dell\u2019azienda', 2, o2.nFasi);
+  eq('subappalto: fasi in subappalto', 1, o2.nSubappalto);
+  eq('subappalto: nessun alert sulla fase', undefined, Engine.calcolaTutte(d)[0].motiviDettaglio.find(m => /NELLA FASE/.test(m.motivo)));
+  eq('migrazione: una fase senza esecutore è dell\u2019azienda', 'azienda', Schema.migra({ commesse: [], fasi: [{ id: 'x', commessaId: 'y' }] }).fasi[0].esecutore);
+}
+
+sezione('Rev.5 – dashboard direzionale');
+{
+  const P = db.parametri;
+  const D = Engine.direzionale(rows, P);
+  eq('stato del portafoglio: basta una critica', 'CRITICO', D.stato);
+  eq('conteggi per livello', rows.length, D.critiche + D.attenzione + D.incomplete + D.regolari);
+  eq('redditività richiesta %', P.redditivita, D.redditivita.richiestaPct);
+  const eseguite = rows.filter(r => r.oreUsate > 0);
+  eq('redditività effettiva € = utile maturato delle eseguite', eseguite.reduce((t, r) => t + r.utileMaturato, 0), D.redditivita.effettiva);
+  // sulla singola commessa i numeri sono quelli del conto della commessa (colonna Maturato)
+  const t10 = byCod['TEST10'];
+  const D1 = Engine.direzionale([t10], P);
+  const sC = t10.sostenibilitaConsuntivo.strutturale;
+  eq('TEST10: utile maturato', 40000 - 5000 - 6000 - 300 * 45.79, t10.utileMaturato);
+  eq('TEST10: redditività effettiva %', t10.utileMaturato / sC.conRedditivita, D1.redditivita.effettivaPct, 1e-9);
+  eq('TEST10: rientro effettivo = utile − redditività richiesta', t10.utileMaturato - sC.redditivita, D1.rientro.effettivo);
+  eq('TEST10: rientro desiderato = ore previste × €/h', 1000 * P.rientroOrario, D1.rientro.desiderato);
+  eq('obiettivo di rientro impostato a mano', 50000, Engine.direzionale([t10], Object.assign({}, P, { obiettivoRientroAnnuo: 50000 })).rientro.desiderato);
+  eq('in corso: utile a finire', t10.utileAFinire, D1.inCorso.totale);
+  eq('TEST10: utile a finire', 95000 - 20000 - 1000 * 45.79, t10.utileAFinire);
+  eq('finite: C011', byCod['C011'].utileMaturato, D.finite.totale);
+  eq('portafoglio vuoto: in linea', 'REGOLARE', Engine.direzionale([], P).stato);
+  // fatturazione dell'esercizio: solo il contributo dell'anno
+  {
+    const f10 = Engine.direzionale([t10], P).fatturazione;                 // tutta nel 2026: contratto 100.000, perdite 5.000, fatturato 40.000
+    eq('TEST10: fatturato nell\u2019anno', 40000, f10.fatturato);
+    eq('TEST10: fatturabile = contratto − perdite', 95000, f10.fatturabile);
+    eq('TEST10: ancora da fatturare', 55000, f10.daFatturare);
+    eq('TEST10: quota', 40000 / 95000, f10.quota, 1e-9);
+    const fC = Engine.direzionale([byCod['C-2025-07']], P).fatturazione;   // pregressa: 110.000 già fatturati nel saldo, 35.000 nel 2026
+    eq('C-2025-07: fatturato del solo 2026', 35000, fC.fatturato);
+    eq('C-2025-07: fatturabile nel 2026 = contratto − già fatturato negli anni prima', 250000 - 110000, fC.fatturabile);
+    eq('C-2025-07: ancora da fatturare', 105000, fC.daFatturare);
+    eq('C-2025-07: SAL maturato da fatturare', 5000, fC.salDaFatturare);
+    eq('portafoglio vuoto: quota non calcolabile', null, Engine.direzionale([], P).fatturazione.quota);
+    // mese per mese: TEST10 fattura 15.000 a gennaio, 15.000 a febbraio, 10.000 a marzo
+    const mesi = Engine.fatturatoMensile(db, ['c_TEST10']);
+    eq('fatturato mensile: gennaio, febbraio, marzo, aprile', [15000, 15000, 10000, 0], mesi.slice(0, 4).map(x => x.fatturato));
+    const tuttiMesi = Engine.fatturatoMensile(db, rows.map(r => r.id));
+    eq('fatturato mensile: i dodici mesi sommano al fatturato dell\u2019anno', Engine.direzionale(rows, P).fatturazione.fatturato, tuttiMesi.reduce((t, x) => t + x.fatturato, 0));
+    eq('fatturato mensile: senza commesse, tutto a zero', 0, Engine.fatturatoMensile(db, []).reduce((t, x) => t + x.fatturato, 0));
+  }
+  // rientro bancario sul solo esercizio e sull'intera vita: la pregressa C-2025-07 ha 1.500 ore nel saldo e 500 nel 2026
+  {
+    const c25 = byCod['C-2025-07'];
+    const anno = Engine.calcolaTutte(db, { senzaSaldi: true }).find(r => r.codice === 'C-2025-07');
+    const rV = Engine.direzionale([c25], P, { vita: true }).rientro, rA = Engine.direzionale([anno], P).rientro;
+    eq('vita: ore consumate cumulate', 2000, c25.oreUsate);
+    eq('esercizio: ore consumate del solo anno', 500, anno.oreUsate);
+    eq("vita: desiderato sull'intero budget", 2800 * P.rientroOrario, rV.desiderato);
+    eq('esercizio: desiderato sulle ore ancora da fare a inizio anno', (2800 - 1500) * P.rientroOrario, rA.desiderato);
+    eq('vita: dovuto sul lavoro eseguito', 2000 * P.rientroOrario, rV.dovutoEseguito);
+    eq('esercizio: dovuto sul lavoro eseguito', 500 * P.rientroOrario, rA.dovutoEseguito);
+    eq('vita: effettivo = utile − redditività richiesta', c25.utileMaturato - c25.sostenibilitaConsuntivo.strutturale.redditivita, rV.effettivo);
+    eq('esercizio: effettivo sul solo anno', (35000 - 12000 - 500 * 45.79) - anno.sostenibilitaConsuntivo.strutturale.redditivita, rA.effettivo);
+    const conObiettivo = Object.assign({}, P, { obiettivoRientroAnnuo: 50000 });
+    eq("l'obiettivo dell'anno vale per l'esercizio", 50000, Engine.direzionale([anno], conObiettivo).rientro.desiderato);
+    eq("e non per l'intera vita", 2800 * P.rientroOrario, Engine.direzionale([c25], conObiettivo, { vita: true }).rientro.desiderato);
+  }
+  const soloAtt = Engine.direzionale([t10], P);
+  eq('solo attenzione: ambra', 'ATTENZIONE', soloAtt.stato);
 }
 
 // ------------------------------------------------------------------ validazioni
@@ -539,11 +750,12 @@ sezione('Sostenibilità economica – dati dimostrativi');
   eq('B-2026-02: esito', 'NON CONGRUO', byCod['B-2026-02'].sostenibilita.esito);
   eq('A-2026-01: esito', 'DA COMPLETARE', byCod['A-2026-01'].sostenibilita.esito);
   eq('C011: senza budget la verifica non è calcolabile', null, byCod['C011'].sostenibilita.prezzoMinimo);
-  // la verifica non modifica le regole di allerta Rev.14: resta solo una nota informativa
-  eq('C042: allerta Rev.14 invariata', 'CRITICO', byCod['C042'].alert);
+  // l'esito della verifica aggiornata resta una nota informativa; solo l'errore di acquisizione
+  // (verifica INIZIALE oltre soglia) è un alert, e C042 sta dentro la soglia
+  eq('C042: allerta', 'ATTENZIONE', byCod['C042'].alert);
   eq('C042: nessun motivo di allerta dalla sostenibilità', false, byCod['C042'].motivi.some(m => /SOSTENIBILIT/i.test(m)));
   eq('C042: nota informativa presente', true, byCod['C042'].note.some(n => /NON CONGRUA/.test(n)));
-  eq('B-2026-02: allerta Rev.14 invariata', 'CRITICO', byCod['B-2026-02'].alert);
+  eq('B-2026-02: allerta', 'CRITICO', byCod['B-2026-02'].alert);
 
   // preventivi dimostrativi: i quattro esiti possibili
   eq('preventivi dimostrativi', 4, db.preventivi.length);

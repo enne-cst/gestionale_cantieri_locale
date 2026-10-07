@@ -62,6 +62,13 @@
     if (!db.utenti.some(u => u.ruolo === 'admin')) db.utenti.unshift({ id: 'u_admin', nome: 'Amministratore', ruolo: 'admin', attivo: true });
     // commesse definite dalla chiusura esercizio: i database precedenti non hanno il campo
     db.commesse.forEach(c => { if (!c.chiusuraDefinitiva) c.chiusuraDefinitiva = null; });
+    // riferimento documentale delle integrazioni, ore e uomini delle fasi, fase di un movimento di ore:
+    // campi introdotti dopo, i database precedenti non li hanno
+    db.commesse.forEach(c => { if (typeof c.integrazioniRiferimento !== 'string') c.integrazioniRiferimento = ''; });
+    db.fasi.forEach(f => { if (f.orePreviste === undefined) f.orePreviste = null; if (f.uomini === undefined) f.uomini = null; });
+    // chi esegue la fase: i database precedenti non lo dicono, e allora è l'azienda
+    db.fasi.forEach(f => { if (f.esecutore !== 'subappalto') f.esecutore = 'azienda'; if (typeof f.subappaltatore !== 'string') f.subappaltatore = ''; });
+    db.movimenti.forEach(m => { if (typeof m.faseId !== 'string') m.faseId = ''; });
     // budget sdoppiato in iniziale/aggiornato: i database precedenti hanno solo i valori iniziali
     db.commesse.forEach(c => { c.budget = Object.assign({ orePreviste: null, costiDirettiPrevisti: null, orePrevisteAgg: null, costiDirettiPrevistiAgg: null, dataAggiornamento: '', note: '' }, c.budget || {}); });
     // costo orario per commessa eliminato: le ore si valorizzano sempre al costo strutturale corrente
@@ -103,6 +110,8 @@
       stato: 'Da iniziare',
       ritenutePreviste: 'NO',
       contrattoIniziale: null, integrazioni: null,
+      // documento che giustifica le integrazioni: "integrazione contrattuale n. … del …"
+      integrazioniRiferimento: '',
       causaAggiornamentoDataFine: 'Nessuna variazione',
       note: '',
       // Budget: valori INIZIALI (storico, si congelano alla prima stesura) e valori AGGIORNATI con la data
@@ -121,14 +130,18 @@
     };
   }
   function nuovoMovimento() {
-    return { id: genId('m'), commessaId: '', data: '', tipo: '', numeroDocumento: '', descrizione: '', sal: null, fatturatoLordo: null, ritenuta: null, svincolo: null, ore: null, perditaSal: null, note: '', annullato: false };
+    return { id: genId('m'), commessaId: '', data: '', tipo: '', numeroDocumento: '', descrizione: '', sal: null, fatturatoLordo: null, ritenuta: null, svincolo: null, ore: null, faseId: '', perditaSal: null, note: '', annullato: false };
   }
   function nuovoCosto() {
     return { id: genId('k'), commessaId: '', data: '', macroCategoria: '', descrizione: '', importo: null, fornitore: '', note: '', annullato: false };
   }
-  // Fase di lavoro del cronoprogramma: date previste obbligatorie, effettive a mano quando la fase parte e finisce
+  // Fase di lavoro del cronoprogramma: date previste obbligatorie, effettive a mano quando la fase parte e finisce.
+  // Ore previste e uomini sono il budget di manodopera della fase: le ore effettive arrivano dai movimenti
+  // di ore attribuiti alla fase (movimento.faseId).
+  // esecutore: 'azienda' oppure 'subappalto'. Di una fase data in subappalto le ore non interessano: non ha
+  // ore previste né uomini e resta fuori dal controllo delle ore. Contano solo le date.
   function nuovaFase() {
-    return { id: genId('f'), commessaId: '', fase: '', inizioPrevisto: '', inizioEffettivo: '', finePrevista: '', fineEffettiva: '', quantita: null, um: '', prezzoVendita: null };
+    return { id: genId('f'), commessaId: '', fase: '', inizioPrevisto: '', inizioEffettivo: '', finePrevista: '', fineEffettiva: '', esecutore: 'azienda', subappaltatore: '', orePreviste: null, uomini: null, quantita: null, um: '', prezzoVendita: null };
   }
   // Riga di costo specifico della verifica di sostenibilità (righe gialle del modello)
   function nuovaVoceSostenibilita(sogliaRicarico) {
@@ -158,7 +171,7 @@
     ramo: 'Ramo di attività', tecnico: 'Tecnico', preposto: 'Preposto',
     dataInizioPrevista: 'Data inizio prevista', dataInizioEffettiva: 'Data inizio effettiva', dataFinePrevista: 'Data fine prevista', dataFineEffettiva: 'Data fine effettiva',
     dataFinePrevistaOriginale: 'Data fine prevista originaria', stato: 'Stato cantiere', ritenutePreviste: 'Ritenute previste',
-    contrattoIniziale: 'Contratto iniziale', integrazioni: 'Integrazioni', causaAggiornamentoDataFine: 'Causa aggiornamento data fine', note: 'Note',
+    contrattoIniziale: 'Contratto iniziale', integrazioni: 'Integrazioni', integrazioniRiferimento: 'Riferimento documentale integrazioni', causaAggiornamentoDataFine: 'Causa aggiornamento data fine', note: 'Note',
     aggiornatoAl: 'Aggiornato al', noteAzione: 'Note / Azione',
     orePreviste: 'Ore previste iniziali', costoOrario: 'Costo orario', costiDirettiPrevisti: 'Costi diretti previsti iniziali',
     orePrevisteAgg: 'Ore previste aggiornate', costiDirettiPrevistiAgg: 'Costi diretti previsti aggiornati', dataAggiornamento: 'Data aggiornamento budget',
@@ -178,7 +191,10 @@
     numero: 'Numero preventivo', oggetto: 'Oggetto / Cantiere', prezzoProposto: 'Prezzo proposto',
     voce: 'Voce di costo specifico', quantita: 'Quantità', um: 'Unità di misura', costoUnitario: 'Costo unitario', ricarico: 'Ricarico',
     fase: 'Fase di lavoro', inizioPrevisto: 'Inizio previsto', inizioEffettivo: 'Inizio effettivo', finePrevista: 'Fine prevista', fineEffettiva: 'Fine effettiva',
-    prezzoVendita: 'Prezzo di vendita materiale'
+    prezzoVendita: 'Prezzo di vendita materiale', uomini: 'Uomini previsti', faseId: 'Fase di lavoro', esecutore: 'Chi esegue la fase', subappaltatore: 'Subappaltatore',
+    sogliaErroreAcquisizione: 'Errore di acquisizione – soglia critica', sogliaOreOltrePreviste: 'Ore oltre le previste – soglia critica',
+    sogliaCostiOltrePrevisti: 'Costi diretti oltre i previsti – soglia critica', sogliaPerditeAccettate: 'Perdite accettate – soglia critica',
+    obiettivoRientroAnnuo: 'Rientro bancario desiderato nell\'anno', macroCategorie: 'Voci di costo diretto'
   };
 
   return { VERSIONE, genId, nuovoDb, migra, nuovaCommessa, nuovoMovimento, nuovoCosto, nuovoSaldo, nuovaFase, nuovoPreventivo, nuovaVoceSostenibilita, ETICHETTE };

@@ -57,7 +57,7 @@
       id: 'c_A26', dataInserimento: '2026-02-01', codice: 'A-2026-01', cliente: 'IMMOBILIARE VERDE SRL', cantiere: 'NUOVA PALAZZINA RESIDENZIALE - VERONA',
       indirizzo: 'Via Roma 10, Verona', ramo: 'MURATURA', tecnico: 'DAVIDE', preposto: 'AHMET MOUSTAFA',
       dataInizioPrevista: '2026-03-01', dataInizioEffettiva: '2026-03-02', dataFinePrevista: '2026-12-15', dataFinePrevistaOriginale: '2026-12-15',
-      stato: 'In corso', ritenutePreviste: 'SI', contrattoIniziale: 200000, integrazioni: 20000, causaAggiornamentoDataFine: 'Nessuna variazione',
+      stato: 'In corso', ritenutePreviste: 'SI', contrattoIniziale: 200000, integrazioni: 20000, integrazioniRiferimento: 'Integrazione contrattuale n. 1 del 15/04/2026', causaAggiornamentoDataFine: 'Nessuna variazione',
       aggiornatoAl: '2026-06-30', budget: { orePreviste: 3000, costiDirettiPrevisti: 50000, note: '' },
       sostenibilita: { ricarico: 0.15, datiVerificati: false, data: '2026-02-02', note: 'VERIFICA DIMOSTRATIVA: computo ancora da confermare.' }
     });

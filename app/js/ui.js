@@ -116,7 +116,7 @@
     },
     legenda() {
       return '<div class="legenda"><span><i class="in"></i>dato inserito dall\'utente</span><span><i class="calc"></i>dato calcolato dal sistema</span>' +
-        '<span><span class="semaforo REGOLARE"></span>regolare</span><span><span class="semaforo ATTENZIONE"></span>attenzione</span><span><span class="semaforo CRITICO"></span>critico</span></div>';
+        '<span><span class="semaforo REGOLARE"></span>regolare</span><span><span class="semaforo INCOMPLETO"></span>incompleto (dati mancanti)</span><span><span class="semaforo ATTENZIONE"></span>attenzione</span><span><span class="semaforo CRITICO"></span>critico</span></div>';
     },
 
     // ------------------------------------------------------------ messaggi
@@ -431,14 +431,19 @@
     motiviHtml(r) {
       if (!r.motivi || !r.motivi.length) return '<span class="muto">—</span>';
       const det = r.motiviDettaglio || r.motivi.map(m => ({ motivo: m, testo: m, campi: [], form: null }));
-      return '<div class="motivi ' + esc(r.alert) + '">' + det.map(d => d.form && d.campi.length ?
-        '<a href="#" class="apri-campo" data-id="' + esc(r.id) + '" data-form="' + esc(d.form) + '" data-campo="' + esc(d.campi[0]) + '" title="Clicca per andare al campo da correggere">' + esc(d.testo) + ' ✎</a>' :
-        '<span>' + esc(d.testo) + '</span>').join('') + '</div>';
+      // ogni motivo porta il colore del PROPRIO livello: un'attenzione resta ambra anche su una commessa critica
+      return '<div class="motivi">' + det.map(d => {
+        const liv = esc(d.livello || r.alert || '');
+        return d.form && d.campi.length ?
+          '<a href="#" class="apri-campo ' + liv + '" data-id="' + esc(r.id) + '" data-form="' + esc(d.form) + '" data-campo="' + esc(d.campi[0]) + '" title="' + liv + ' · clicca per andare al campo da correggere">' + esc(d.testo) + ' ✎</a>' :
+          '<span class="' + liv + '" title="' + liv + '">' + esc(d.testo) + '</span>';
+      }).join('') + '</div>';
     },
     // Apre la maschera giusta per una commessa e porta il cursore sul campo indicato (usato dai motivi di allerta cliccabili).
     apriCampo(commessaId, form, campo) {
       const dopo = () => UI.render();
       if (form === 'note') Cantieri.apriNote(commessaId, dopo);
+      else if (form === 'budget') Budget.apriForm(commessaId, dopo);
       else Commesse.apriForm(commessaId, dopo);
       setTimeout(() => {
         const el = document.getElementById('f-' + campo);
@@ -554,7 +559,7 @@
     { titolo: 'Ramo', campo: 'ramo' }, { titolo: 'Tecnico', campo: 'tecnico' }, { titolo: 'Preposto', campo: 'preposto' }, { titolo: 'Stato', campo: 'stato' },
     { titolo: 'Inizio previsto', valore: r => Fmt.data(r.dataInizioPrevista) }, { titolo: 'Inizio effettivo', valore: r => Fmt.data(r.dataInizioEffettiva) },
     { titolo: 'Fine prevista', valore: r => Fmt.data(r.dataFinePrevista) }, { titolo: 'Fine effettiva', valore: r => Fmt.data(r.dataFineEffettiva) },
-    { titolo: 'Contratto iniziale', campo: 'contrattoIniziale' }, { titolo: 'Integrazioni', campo: 'integrazioni' }, { titolo: 'Contratto aggiornato', campo: 'contrattoAggiornato' },
+    { titolo: 'Contratto iniziale', campo: 'contrattoIniziale' }, { titolo: 'Integrazioni', campo: 'integrazioni' }, { titolo: 'Riferimento documentale integrazioni', campo: 'integrazioniRiferimento' }, { titolo: 'Contratto aggiornato', campo: 'contrattoAggiornato' },
     { titolo: 'SAL maturato', campo: 'salCum' }, { titolo: 'Fatturato lordo', campo: 'fattCum' }, { titolo: 'SAL non fatturato', campo: 'salNonFatturato' },
     { titolo: 'Residuo lavori', campo: 'residuoLavori' }, { titolo: 'Residuo da fatturare', campo: 'residuoDaFatturare' },
     { titolo: 'Ritenute maturate', campo: 'ritenuteCum' }, { titolo: 'Ritenute svincolate', campo: 'svincoliCum' }, { titolo: 'Ritenute da sbloccare', campo: 'ritenuteDaSbloccare' },
@@ -571,7 +576,7 @@
     { titolo: 'Costi residuo su iniziale', campo: 'costiResiduoIni' }, { titolo: 'Costi residuo su aggiornato', campo: 'costiResiduo' },
     { titolo: 'Costi sforamento su iniziale', campo: 'costiSforamentoIni' }, { titolo: 'Costi sforamento su aggiornato', campo: 'costiSforamento' },
     { titolo: 'Data aggiornamento budget', valore: r => Fmt.data(r.budgetAggiornatoAl) },
-    { titolo: 'Costo effettivo cumulato', campo: 'costoEffettivo' }, { titolo: 'Aggiornato al', valore: r => Fmt.data(r.aggiornatoAl) }, { titolo: 'Note / Azione', campo: 'noteAzione' },
+    { titolo: 'Costo effettivo cumulato', campo: 'costoEffettivo' }, { titolo: 'Utile maturato', campo: 'utileMaturato' }, { titolo: 'Utile a finire', campo: 'utileAFinire' }, { titolo: 'Aggiornato al', valore: r => Fmt.data(r.aggiornatoAl) }, { titolo: 'Note / Azione', campo: 'noteAzione' },
     { titolo: 'Verifica di sostenibilità: esito', valore: r => r.sostenibilita.esito },
     { titolo: 'Verifica di sostenibilità: motivo', valore: r => r.sostenibilita.motivi.join('; ') },
     { titolo: 'Prezzo del computo', valore: r => r.sostenibilita.prezzoComputo },

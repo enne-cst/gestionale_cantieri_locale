@@ -2,7 +2,8 @@
 (function () {
   'use strict';
   const esc = UI.esc;
-  const CAMPI = ['commessaId', 'fase', 'inizioPrevisto', 'inizioEffettivo', 'finePrevista', 'fineEffettiva', 'quantita', 'um', 'prezzoVendita'];
+  const CAMPI = ['commessaId', 'fase', 'inizioPrevisto', 'inizioEffettivo', 'finePrevista', 'fineEffettiva', 'esecutore', 'subappaltatore', 'orePreviste', 'uomini', 'quantita', 'um', 'prezzoVendita'];
+  const ORE_GIORNO = 8;
   const MESI = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
   const UM = ['a corpo', 'mq', 'mc', 'ml', 'kg', 't', 'n.', 'lt', 'h'];
   const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -12,6 +13,19 @@
   const daGiorno = n => new Date(n * 864e5);
   // durata in giorni di calendario, estremi compresi
   const durata = (a, b) => { const x = giorno(a), y = giorno(b); return x !== null && y !== null ? y - x + 1 : null; };
+  // giorni lavorativi (lunedì–venerdì) fra due date, estremi compresi
+  function lavorativi(a, b) {
+    const x = giorno(a), y = giorno(b);
+    if (x === null || y === null || y < x) return null;
+    let n = 0;
+    for (let g = x; g <= y; g++) { const d = daGiorno(g).getUTCDay(); if (d !== 0 && d !== 6) n++; }
+    return n;
+  }
+  // stima delle ore di una fase: uomini × giorni lavorativi previsti × 8 ore
+  function oreStimate(f) {
+    const n = lavorativi(f.inizioPrevisto, f.finePrevista);
+    return (n === null || !Fmt.isNum(f.uomini) || f.uomini <= 0) ? null : f.uomini * n * ORE_GIORNO;
+  }
   const gg = v => v === null ? '—' : (v > 0 ? '+' : '') + v + ' gg';
   // valore di vendita del materiale della fase: quantità × prezzo unitario (null se manca uno dei due)
   const importo = f => Fmt.isNum(f.quantita) && Fmt.isNum(f.prezzoVendita) ? Math.round(f.quantita * f.prezzoVendita * 100) / 100 : null;
@@ -41,10 +55,14 @@
     if (f.inizioEffettivo && f.fineEffettiva && f.fineEffettiva < f.inizioEffettivo) errori.push('La fine effettiva è precedente all\'inizio effettivo.');
     if (f.prezzoVendita !== null && f.prezzoVendita < 0) errori.push('Il prezzo di vendita non può essere negativo.');
     if (f.quantita !== null && f.quantita < 0) errori.push('La quantità non può essere negativa.');
+    if (f.orePreviste !== null && f.orePreviste < 0) errori.push('Le ore previste non possono essere negative.');
+    if (f.uomini !== null && f.uomini < 0) errori.push('Il numero di uomini non può essere negativo.');
     const oggi = Fmt.oggi();
     if (f.inizioEffettivo > oggi) avvisi.push('L\'inizio effettivo è una data futura.');
     if (f.fineEffettiva > oggi) avvisi.push('La fine effettiva è una data futura.');
     if ((f.prezzoVendita !== null || f.quantita !== null) && !f.um) avvisi.push('Sono indicati quantità o prezzo ma non l\'unità di misura.');
+    if (f.esecutore === 'subappalto') { if (!f.subappaltatore) avvisi.push('Subappaltatore non indicato.'); }
+    else if (f.orePreviste === null) avvisi.push('Ore previste non indicate: la fase non entra nel controllo delle ore.');
     if ((f.prezzoVendita === null) !== (f.quantita === null)) avvisi.push('Senza ' + (f.quantita === null ? 'la quantità' : 'il prezzo di vendita') + ' l\'importo del materiale non è calcolabile.');
     const c = Store.commessa(f.commessaId);
     if (c && c.dataInizioPrevista && f.inizioPrevisto && f.inizioPrevisto < c.dataInizioPrevista) avvisi.push('L\'inizio previsto della fase precede l\'inizio previsto della commessa (' + Fmt.data(c.dataInizioPrevista) + ').');
@@ -113,14 +131,18 @@
       const titoloPrev = f.fase + '\nPrevisto: ' + Fmt.data(f.inizioPrevisto) + ' → ' + Fmt.data(f.finePrevista) + ' (' + (f.durataPrev || '—') + ' gg)';
       const titoloEff = f.fase + '\nEffettivo: ' + Fmt.data(f.inizioEffettivo) + ' → ' + (f.fineEffettiva ? Fmt.data(f.fineEffettiva) : 'in corso') + '\n' + s.testo;
       return '<div class="g-lab g-riga' + cliccabile + '" data-fase="' + esc(f.id) + '"><b title="' + esc(f.fase) + '"><span class="semaforo g-' + s.cod + '"></span>' + esc(f.fase) + '</b>' +
-        '<div class="sotto">' + Fmt.data(f.inizioPrevisto) + ' → ' + Fmt.data(f.finePrevista) + (f.durataPrev ? ' · ' + f.durataPrev + ' gg' : '') + '</div></div>' +
+        // due righe, ciascuna con il suo nome: i giorni pianificati e quelli effettivi (a oggi, se la fase è in corso)
+        '<div class="sotto"><span class="g-et">Pianificato</span>' + Fmt.data(f.inizioPrevisto) + ' → ' + Fmt.data(f.finePrevista) + (f.durataPrev ? ' · <b>' + f.durataPrev + ' gg</b>' : '') + '</div>' +
+        '<div class="sotto"><span class="g-et">Effettivo</span>' + (!f.inizioEffettivo ? '<span class="muto">non avviata</span>'
+          : Fmt.data(f.inizioEffettivo) + ' → ' + (f.fineEffettiva ? Fmt.data(f.fineEffettiva) + ' · <b>' + f.durataEff + ' gg</b>' : 'in corso · <b>' + Math.max(1, oggi - ie + 1) + ' gg</b> a oggi')) + '</div>' +
+        (f.esecutore === 'subappalto' ? '<div class="sotto g-sub">subappalto' + (f.subappaltatore ? ': ' + esc(f.subappaltatore) : '') + '</div>' : '') + '</div>' +
         '<div class="g-area g-riga' + cliccabile + '" data-fase="' + esc(f.id) + '">' + sfondo +
         barra(giorno(f.inizioPrevisto), giorno(f.finePrevista), 'prev', titoloPrev) +
         barra(ie, fe, 'eff g-' + s.cod + (f.fineEffettiva ? '' : ' aperta'), titoloEff) + '</div>';
     }).join('');
 
     const altezzaTesta = scala === 'mesi' ? 22 : 42;
-    return '<div class="gantt-wrap"><div class="gantt" style="grid-template-columns:260px minmax(' + larghezzaMin + 'px,1fr)">' +
+    return '<div class="gantt-wrap"><div class="gantt" style="grid-template-columns:330px minmax(' + larghezzaMin + 'px,1fr)">' +
       '<div class="g-lab g-testa" style="height:' + altezzaTesta + 'px">Fase di lavoro</div>' +
       '<div class="g-area g-testa" style="height:' + altezzaTesta + 'px">' + mesi + tacche + (oggi >= da && oggi <= a ? '<div class="g-oggi" style="left:' + pos(oggi + 0.5) + '"></div>' : '') + '</div>' +
       righeHtml + '</div></div>' +
@@ -132,6 +154,8 @@
   const Gantt = {
     righe(commessaId) {
       const oggi = giorno(Fmt.oggi());
+      const ore = {};
+      Engine.oreFasi(Store.db, commessaId).righe.forEach(x => { ore[x.id] = x; });
       return Store.db.fasi.filter(f => f.commessaId === commessaId)
         .sort((x, y) => String(x.inizioPrevisto).localeCompare(String(y.inizioPrevisto)) || String(x.finePrevista).localeCompare(String(y.finePrevista)) || String(x.fase).localeCompare(String(y.fase), 'it'))
         .map((f, i) => {
@@ -143,6 +167,12 @@
             scostInizio: f.inizioEffettivo && f.inizioPrevisto ? giorno(f.inizioEffettivo) - giorno(f.inizioPrevisto) : null,
             scostFine: fe !== null && fp !== null ? fe - fp : null,
             importo: importo(f),
+            subappalto: f.esecutore === 'subappalto',
+            orePreviste: f.esecutore !== 'subappalto' && Fmt.isNum(f.orePreviste) ? f.orePreviste : null, uomini: f.esecutore !== 'subappalto' && Fmt.isNum(f.uomini) ? f.uomini : null,
+            oreEffettive: ore[f.id] ? ore[f.id].effettive : 0,
+            oreScost: ore[f.id] ? ore[f.id].scostamento : null,
+            orePct: ore[f.id] ? ore[f.id].pct : null,
+            oreOltre: !!(ore[f.id] && ore[f.id].oltre),
             st: stato(f, oggi)
           });
         });
@@ -159,6 +189,35 @@
       const tuttoConcluso = righe.length && concluse === righe.length;
       const totImporto = righe.reduce((t, r) => t + (r.importo || 0), 0);
       const senzaImporto = righe.filter(r => r.importo === null).length;
+      // ---- ore di manodopera: quelle previste fase per fase, confrontate con le ore segnate nei movimenti
+      const O = Engine.oreFasi(Store.db, c.id);
+      const r = Engine.calcolaCommessa(c, Store.db);
+      const senzaFase = Math.max(0, r.oreUsate - O.attribuite);
+      const diverso = O.previste !== null && Math.abs(O.previste - r.oreBudget) > 0.005;
+      const puoBudget = Store.puo('budget.modifica');
+      const pannelloOre = !righe.length ? '' : '<div class="pannello"><h2>Ore per fase di lavoro</h2>' +
+        '<p class="spiegazione">Le <b>ore previste</b> si indicano fase per fase (con il numero di uomini); le <b>ore effettive</b> sono quelle dei movimenti di ore attribuiti alla fase. Si vede così in quale fase il cantiere ha consumato più del previsto. Le fasi date in <b>subappalto</b> restano fuori dal conto: le ore sono del subappaltatore.</p>' +
+        '<div class="kpi-griglia kpi-gantt">' +
+        UI.kpi('Ore previste dal Gantt', O.previste === null ? Fmt.VUOTO : Fmt.ore(O.previste), { sub: O.nConOre + ' fasi su ' + O.nFasi + ' con le ore indicate' + (O.nSubappalto ? ' · ' + O.nSubappalto + ' in subappalto' : '') }) +
+        UI.kpi('Ore previste a budget', r.hasOreBudget ? Fmt.ore(r.oreBudget) : Fmt.VUOTO, { colore: diverso ? 'giallo' : '', sub: !r.hasOreBudget ? 'budget ore non definito' : (diverso ? 'diverse da quelle del Gantt' : 'allineate al Gantt') }) +
+        UI.kpi('Ore effettive attribuite alle fasi', Fmt.ore(O.attribuite), { colore: O.previste !== null && O.attribuite > O.previste ? 'rosso' : '' }) +
+        UI.kpi('Ore effettive senza fase', Fmt.ore(senzaFase), { colore: senzaFase > 0 ? 'giallo' : '', sub: senzaFase > 0 ? 'movimenti di ore senza fase, o saldo iniziale' : 'tutte le ore hanno una fase' }) +
+        UI.kpi('Fasi oltre le ore previste', String(O.oltre.length), { colore: O.oltre.length ? 'rosso' : 'verde', calc: false }) +
+        '</div>' +
+        (diverso || (O.previste !== null && !r.hasOreBudget) ? '<div class="msg avviso">Le ore previste del Gantt (<b>' + Fmt.ore(O.previste) + '</b>) non coincidono con le ore previste a budget (<b>' + (r.hasOreBudget ? Fmt.ore(r.oreBudget) : 'non definite') + '</b>): alert, margini e verifica di sostenibilità usano quelle del budget. ' +
+          (puoBudget ? '<button type="button" class="piccolo" id="b-ore-budget">Porta nel budget le ore del Gantt</button>' : '') + '</div>' : '') +
+        '<div class="ore-fasi">' + righe.map(f => {
+          // fase in subappalto: niente barre, solo chi la esegue
+          if (f.subappalto) return '<div class="riga subappalto"><div class="nome" title="' + esc(f.fase) + '"><b>' + esc(f.fase) + '</b><span>subappalto' + (f.subappaltatore ? ': ' + esc(f.subappaltatore) : '') + '</span></div>' +
+            '<div class="barre"></div><div class="num"><span class="muto">ore non rilevate</span></div></div>';
+          const max = Math.max(Engine.num(f.orePreviste), f.oreEffettive, 1);
+          return '<div class="riga' + (f.oreOltre ? ' oltre' : '') + '"><div class="nome" title="' + esc(f.fase) + '"><b>' + esc(f.fase) + '</b><span>' + (f.uomini !== null ? Fmt.numero(f.uomini) + (f.uomini === 1 ? ' uomo' : ' uomini') : 'uomini non indicati') + '</span></div>' +
+            '<div class="barre"><div class="b prev" style="width:' + (Engine.num(f.orePreviste) / max * 100).toFixed(1) + '%" title="Ore previste"></div>' +
+            '<div class="b eff" style="width:' + (f.oreEffettive / max * 100).toFixed(1) + '%" title="Ore effettive"></div></div>' +
+            '<div class="num">' + Fmt.ore(f.oreEffettive) + ' <span class="muto">su ' + (f.orePreviste === null ? 'non indicate' : Fmt.ore(f.orePreviste)) + '</span>' +
+            (f.oreScost === null ? '' : '<div class="scost">' + (f.oreScost > 0 ? '+' : '') + Fmt.ore(f.oreScost) + (f.orePct !== null ? ' · ' + Fmt.pct(f.orePct, 0) : '') + '</div>') + '</div></div>';
+        }).join('') + '</div>' +
+        '<div class="legenda" style="margin:10px 0 0"><span><i class="ore-prev"></i>ore previste</span><span><i class="ore-eff"></i>ore effettive</span><span><i class="ore-oltre"></i>ore effettive oltre le previste</span></div></div>';
       const kpi = '<div class="kpi-griglia kpi-gantt">' +
         UI.kpi('Fasi', String(righe.length), { sub: concluse + ' concluse · ' + inCorso + ' in corso · ' + (righe.length - concluse - inCorso) + ' da avviare' }) +
         UI.kpi('In ritardo', String(conta('rosso')), { colore: conta('rosso') ? 'rosso' : 'verde', sub: conta('giallo') ? conta('giallo') + ' con avvio in ritardo' : '' }) +
@@ -178,6 +237,10 @@
         { campo: 'durataPrev', titolo: 'Durata prevista', tipo: 'n', classe: 'calc', fmt: v => v === null ? '—' : v + ' gg' },
         { campo: 'durataEff', titolo: 'Durata effettiva', tipo: 'n', classe: 'calc', fmt: v => v === null ? '—' : v + ' gg' },
         { campo: 'scostFine', titolo: 'Scostamento fine', tipo: 'n', classe: 'calc', fmt: v => v > 0 ? '<span style="color:var(--rosso)">' + gg(v) + '</span>' : gg(v) },
+        { campo: 'esecutore', titolo: 'Chi esegue', classe: 'in', valOrd: r => r.subappalto ? 'subappalto ' + r.subappaltatore : 'azienda', fmt: (v, r) => r.subappalto ? '<span class="badge neutro">subappalto</span>' + (r.subappaltatore ? ' ' + esc(r.subappaltatore) : '') : 'Azienda' },
+        { campo: 'uomini', titolo: 'Uomini', tipo: 'n', classe: 'in', fmt: (v, r) => r.subappalto ? '<span class="muto">—</span>' : Fmt.numero(v) },
+        { campo: 'orePreviste', titolo: 'Ore previste', tipo: 'n', classe: 'in', fmt: (v, r) => r.subappalto ? '<span class="muto">—</span>' : Fmt.ore(v) },
+        { campo: 'oreEffettive', titolo: 'Ore effettive', tipo: 'n', classe: 'calc', fmt: (v, r) => r.subappalto ? '<span class="muto">—</span>' : (r.oreOltre ? '<span style="color:var(--rosso)"><b>' + Fmt.ore(v) + '</b></span>' : Fmt.ore(v)) },
         { campo: 'quantita', titolo: 'Quantità', tipo: 'n', classe: 'in', fmt: v => Fmt.numero(v) },
         { campo: 'um', titolo: 'U.M.', classe: 'in', fmt: v => v ? esc(v) : '<span class="muto">—</span>' },
         { campo: 'prezzoVendita', titolo: 'Prezzo vendita unitario', tipo: 'n', classe: 'in', fmt: (v, r) => Fmt.euro(v) + (Fmt.isNum(v) && r.um ? ' <span class="muto">/ ' + esc(r.um) + '</span>' : '') },
@@ -187,13 +250,16 @@
       ];
       corpo.innerHTML = (testaHtml || '') + kpi +
         '<div class="pannello"><h2>Diagramma di Gantt</h2>' + (righe.length ? grafico(righe, oggi) : '<div class="vuoto">Nessuna fase di lavoro inserita' + (Store.puo('fase.crea') ? ': usare «+ Nuova fase».' : '.') + '</div>') + '</div>' +
+        pannelloOre +
         '<h2>Fasi di lavoro</h2>' + UI.legenda() +
-        UI.tabella('cfasi', { colonne, righe, chiave: 'id', vuoto: 'Nessuna fase di lavoro per questa commessa.', totali: { fase: 'Totale', importo: '<b>' + Fmt.euro(totImporto) + '</b>' }, onAzione: (az, id) => az === 'modifica' ? Gantt.apriForm(c.id, id, ricarica) : Gantt.elimina(id, ricarica) });
+        UI.tabella('cfasi', { colonne, righe, chiave: 'id', vuoto: 'Nessuna fase di lavoro per questa commessa.', totali: { fase: 'Totale', orePreviste: O.previste === null ? '' : '<b>' + Fmt.ore(O.previste) + '</b>', oreEffettive: '<b>' + Fmt.ore(O.attribuite) + '</b>', importo: '<b>' + Fmt.euro(totImporto) + '</b>' }, onAzione: (az, id) => az === 'modifica' ? Gantt.apriForm(c.id, id, ricarica) : Gantt.elimina(id, ricarica) });
       UI.legaTabelle(corpo);
+      const bo = corpo.querySelector('#b-ore-budget');
+      if (bo) bo.onclick = () => Gantt.oreNelBudget(c.id, O.previste, ricarica);
       if (puoMod) corpo.querySelectorAll('.g-riga[data-fase]').forEach(el => el.onclick = () => Gantt.apriForm(c.id, el.dataset.fase, ricarica));
       // con un diagramma più largo dello schermo si parte mostrando la data di oggi
       const wrap = corpo.querySelector('.gantt-wrap'), linea = corpo.querySelector('.g-area.g-testa .g-oggi');
-      if (wrap && linea && wrap.scrollWidth > wrap.clientWidth) wrap.scrollLeft = Math.max(0, linea.offsetLeft + 260 - wrap.clientWidth / 3);
+      if (wrap && linea && wrap.scrollWidth > wrap.clientWidth) wrap.scrollLeft = Math.max(0, linea.offsetLeft + 330 - wrap.clientWidth / 3);
     },
 
     apriForm(commessaId, id, onSalvato) {
@@ -211,18 +277,32 @@
         UI.campo({ nome: 'inizioEffettivo', etichetta: 'Inizio effettivo', tipo: 'date', pulisci: true, aiuto: 'Vuoto se la fase non è ancora partita (✕ per cancellare).' }, f.inizioEffettivo) +
         UI.campo({ nome: 'fineEffettiva', etichetta: 'Fine effettiva', tipo: 'date', pulisci: true, aiuto: 'Vuota se la fase è ancora in corso (✕ per cancellare).' }, f.fineEffettiva) +
         '</div></fieldset>' +
+        '<fieldset><legend>Chi esegue</legend><div class="form-griglia">' +
+        UI.campo({ nome: 'esecutore', etichetta: 'La fase è eseguita da', tipo: 'select', vuoto: false, opzioni: [{ v: 'azienda', t: 'Azienda (personale proprio)' }, { v: 'subappalto', t: 'Subappaltatore' }], aiuto: 'Con personale proprio le ore si contano e si confrontano con le previste. In subappalto le ore non interessano: contano solo le date.' }, f.esecutore || 'azienda') +
+        UI.campo({ nome: 'subappaltatore', etichetta: 'Subappaltatore', classe: 'doppio', lista: 'dl-subappaltatori', placeholder: 'Ragione sociale di chi esegue la fase' }, f.subappaltatore) +
+        '</div></fieldset>' +
+        '<fieldset id="fs-manodopera"><legend>Manodopera prevista</legend><div class="form-griglia">' +
+        UI.campo({ nome: 'uomini', etichetta: 'Uomini previsti', tipo: 'number', step: '1', aiuto: 'Quante persone lavorano alla fase.' }, f.uomini) +
+        UI.campo({ nome: 'orePreviste', etichetta: 'Ore previste della fase', tipo: 'ore', step: '0.5', aiuto: 'Totale delle ore di manodopera: si confronta con le ore dei movimenti attribuiti alla fase.' }, f.orePreviste) +
+        '<div class="campo"><label>Stima dalle date</label><span class="valore-calc" id="f-oreStima">—</span>' +
+        '<div class="aiuto">uomini × giorni lavorativi previsti × ' + ORE_GIORNO + ' h. <a href="#" id="b-usa-stima">Usa questo valore</a></div></div>' +
+        '</div></fieldset>' +
         '<fieldset><legend>Materiale usato nella fase</legend><div class="form-griglia">' +
         UI.campo({ nome: 'quantita', etichetta: 'Quantità', tipo: 'number', step: 'any' }, f.quantita) +
         UI.campo({ nome: 'um', etichetta: 'Unità di misura', lista: 'dl-um', placeholder: 'mq, mc, ml, kg, a corpo…' }, f.um) +
         UI.campo({ nome: 'prezzoVendita', etichetta: 'Prezzo di vendita (€ per unità di misura)', tipo: 'euro' }, f.prezzoVendita) +
         UI.campo({ nome: 'importoCalc', etichetta: 'Importo materiale (quantità × prezzo)', tipo: 'sola', html: Fmt.euro(importo(f)) }) +
         '</div></fieldset>' +
-        UI.datalist('dl-fasi', Store.db.fasi.map(x => x.fase)) + UI.datalist('dl-um', UM.concat(Store.db.fasi.map(x => x.um))) + '</form>';
+        UI.datalist('dl-fasi', Store.db.fasi.map(x => x.fase)) + UI.datalist('dl-subappaltatori', Store.db.fasi.map(x => x.subappaltatore)) + UI.datalist('dl-um', UM.concat(Store.db.fasi.map(x => x.um))) + '</form>';
       UI.modale({
         titolo: (esistente ? 'Modifica fase' : 'Nuova fase') + (c ? ' · ' + c.codice : ''), corpo,
         pulsanti: [{
           testo: 'Salva', classe: 'primario', async azione(mm) {
             const nuovo = Object.assign({}, f, UI.leggiForm(mm.el.querySelector('#form-fase')), { commessaId });
+            delete nuovo.importoCalc;
+            // una fase in subappalto non ha manodopera propria; una dell'azienda non ha subappaltatore
+            if (nuovo.esecutore === 'subappalto') { nuovo.orePreviste = null; nuovo.uomini = null; }
+            else { nuovo.esecutore = 'azienda'; nuovo.subappaltatore = ''; }
             await UI.salvaConControlli(mm, {
               valida: () => valida(nuovo),
               salva: async () => {
@@ -250,9 +330,54 @@
         onMount(mm) {
           // importo ricalcolato mentre si digitano quantità e prezzo
           const form = mm.el.querySelector('#form-fase'), out = mm.el.querySelector('#f-importoCalc');
-          form.addEventListener('input', () => { out.innerHTML = Fmt.euro(importo(UI.leggiForm(form))); });
+          const stima = mm.el.querySelector('#f-oreStima');
+          // scegliendo il subappaltatore sparisce la manodopera prevista e compare il nome di chi esegue
+          const selEsec = form.querySelector('#f-esecutore');
+          const mostraEsecutore = () => {
+            const sub = selEsec.value === 'subappalto';
+            form.querySelector('#fs-manodopera').hidden = sub;
+            form.querySelector('#f-subappaltatore').closest('.campo').hidden = !sub;
+          };
+          selEsec.addEventListener('change', mostraEsecutore);
+          mostraEsecutore();
+          const agg = () => {
+            const v = UI.leggiForm(form);
+            out.innerHTML = Fmt.euro(importo(v));
+            const o = oreStimate(v), n = lavorativi(v.inizioPrevisto, v.finePrevista);
+            stima.textContent = o === null ? (n === null ? 'indicare le date previste' : n + ' gg lavorativi: indicare gli uomini') : Fmt.ore(o) + ' (' + Fmt.numero(v.uomini) + ' × ' + n + ' gg × ' + ORE_GIORNO + ' h)';
+          };
+          form.addEventListener('input', agg); form.addEventListener('change', agg);
+          mm.el.querySelector('#b-usa-stima').onclick = e => {
+            e.preventDefault();
+            const o = oreStimate(UI.leggiForm(form));
+            if (o === null) return UI.toast('Per la stima servono le date previste e il numero di uomini.', 'errore');
+            form.querySelector('#f-orePreviste').value = o;
+          };
+          agg();
         }
       });
+    },
+
+    // Porta nel budget della commessa le ore previste del Gantt. La prima stesura va nel budget iniziale;
+    // se un budget iniziale c'è già, le ore del Gantt diventano la revisione aggiornata a oggi.
+    async oreNelBudget(commessaId, ore, onSalvato) {
+      if (!Store.puo('budget.modifica')) return UI.permessoNegato();
+      const c = Store.commessa(commessaId); if (!c || !Fmt.isNum(ore)) return;
+      const iniziale = !Fmt.isNum((c.budget || {}).orePreviste);
+      const ok = await UI.conferma({ titolo: 'Ore del Gantt nel budget', testoConferma: 'Porta nel budget',
+        html: 'Le <b>' + Fmt.ore(ore) + '</b> previste dal Gantt diventano le ore previste ' + (iniziale ? '<b>iniziali</b> del budget.' : '<b>aggiornate</b> del budget, con data di aggiornamento a oggi. Le ore iniziali restano come storico.') });
+      if (!ok) return;
+      await Store.salva(db => {
+        const cur = db.commesse.find(x => x.id === commessaId);
+        if (!cur) throw new Error('Commessa non più presente.');
+        const prima = Object.assign({}, cur.budget || {});
+        const nuovo = Object.assign({}, prima, iniziale ? { orePreviste: ore } : { orePrevisteAgg: ore, dataAggiornamento: Fmt.oggi() });
+        cur.budget = nuovo;
+        const mod = Store.diff(prima, nuovo, ['orePreviste', 'orePrevisteAgg', 'dataAggiornamento']);
+        if (mod.length) Store.log(db, 'budget', cur.id, cur.codice, 'ORE DEL GANTT NEL BUDGET', mod);
+      });
+      UI.toast('Ore del Gantt portate nel budget.');
+      if (onSalvato) onSalvato();
     },
 
     async elimina(id, onSalvato) {
@@ -263,6 +388,7 @@
       if (!ok) return;
       await Store.salva(db => {
         db.fasi = db.fasi.filter(x => x.id !== id);
+        db.movimenti.forEach(m => { if (m.faseId === id) m.faseId = ''; });   // le ore restano, senza più una fase
         Store.log(db, 'fase', id, (c ? c.codice : '?') + ' | ' + f.fase, 'ELIMINAZIONE FASE', Store.diff(f, {}, CAMPI));
       });
       UI.toast('Fase eliminata.');

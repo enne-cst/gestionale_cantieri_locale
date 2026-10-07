@@ -86,7 +86,26 @@ reference/                  file Excel e indicazioni originali
   considera solo i movimenti dell'anno (per data movimento, obbligatoria).
 - **Commessa pregressa** = data di inizio effettiva precedente al 1° gennaio dell'anno di gestione (come nel file Rev.14).
 - **Costo effettivo cumulato** = ore effettive × costo strutturale corrente (Parametri) + costi diretti.
-- **Alert** REGOLARE / ATTENZIONE / CRITICO con motivi, secondo le stesse regole del foglio CANTIERI.
+- **Alert a tre livelli**, ogni motivo con il colore del proprio livello; la commessa prende il più grave.
+  - **CRITICO** (rosso), solo questi casi: commessa finita in perdita; commessa in perdita a finire; errore di
+    acquisizione (prezzo venduto sotto il prezzo minimo sostenibile oltre soglia); SAL da emettere (ore segnate
+    avanti rispetto al SAL oltre soglia); integrazioni senza riferimento documentale; ore oltre le previste oltre
+    soglia; costi diretti oltre i previsti oltre soglia; perdite accettate oltre soglia sul prezzo di vendita.
+    Le soglie sono in *Parametri → Soglie degli alert critici*.
+  - **ATTENZIONE** (ambra): tutti gli altri problemi di andamento (fatturato oltre il recuperabile, perdita SAL
+    accettata sotto soglia, ritenute da sbloccare, avanzamento più lento del tempo, residuo lavori a cantiere
+    finito, commessa finita senza data di fine effettiva, ore di una fase oltre le previste…).
+  - **INCOMPLETO** (bluette): dati mancanti (date, contratto, budget, «aggiornato al», codice temporaneo).
+  - Una commessa appena inserita, con la sola anagrafica, non è mai critica: senza movimenti, costi o saldi
+    l'avanzamento non viene giudicato.
+- **Utile a finire** = valore recuperabile − costi diretti a finire − ore a finire × costo orario, dove «a finire»
+  è il budget vigente oppure, se già superato, il consumato. A commessa finita vale l'utile maturato e il grafico
+  del Riepilogo si ferma all'effettivo, senza previsione.
+- **Ore per fase (Gantt)**: ogni fase ha ore previste e uomini; un movimento di ore si può attribuire a una fase.
+  La scheda Gantt confronta previste ed effettive fase per fase e permette di portare nel budget il totale del Gantt.
+- **Dashboard direzionale**: semaforo del portafoglio dagli alert, redditività richiesta ed effettiva, rientro
+  bancario desiderato / effettivo / dovuto sulle commesse finite, utile o perdita delle commesse finite e di quelle
+  in corso, con elenco filtrabile.
 - **Verifica di sostenibilità economica**: il *prezzo del computo* viene confrontato con il *prezzo minimo
   sostenibile*, formato dalla **parte strutturale** (ore previste × costo strutturale, maggiorate del rischio,
   portate a redditività e aumentate della quota di rientro bancario) e dal **prezzo di vendita dei costi specifici**
@@ -95,7 +114,8 @@ reference/                  file Excel e indicazioni originali
   Per una **commessa** la verifica è automatica e non duplica nulla: il prezzo del computo è il contratto aggiornato
   dell'Anagrafica, le ore e i costi specifici sono le ore previste e i costi diretti previsti vigenti del Budget.
   L'unico dato inserito a mano è il **ricarico** sui costi specifici (vuoto = soglia minima della Direzione).
-  L'esito **non** modifica il semaforo REGOLARE / ATTENZIONE / CRITICO: compare fra le note informative della commessa.
+  L'esito della verifica aggiornata compare fra le note informative della commessa; fa alert solo l'**errore di
+  acquisizione**, cioè la verifica iniziale sotto il minimo oltre la soglia di Parametri.
 - **Preventivi** (ipotesi di commessa): un'offerta che ancora non è commessa vive in un archivio separato, non entra
   in Anagrafica né nei cumulativi e ha **soltanto** la verifica di sostenibilità, con tutti i dati inseriti a mano
   (prezzo proposto, ore previste, voci di costo specifico con i rispettivi ricarichi). Il numero è proposto

@@ -12,8 +12,11 @@
       const b = Engine.budgetDi(c, Store.db.parametri);
       const row = Engine.calcolaCommessa(c, Store.db);
       const P = Store.db.parametri;
+      const oreGantt = row.fasiOre.previste;
       const corpo = '<form id="form-budget" onsubmit="return false">' +
         '<div class="msg info">Commessa <b>' + esc(Engine.etichetta(c)) + '</b> · contratto aggiornato ' + Fmt.euro(row.contrattoAggiornato) + ' (dall\'Anagrafica)</div>' +
+        (oreGantt !== null ? '<div class="msg ' + (Math.abs(oreGantt - row.oreBudget) > 0.005 ? 'avviso' : 'ok') + '">Ore previste dal <b>Gantt</b> della commessa (somma delle fasi): <b>' + Fmt.ore(oreGantt) + '</b>. ' +
+          '<button type="button" class="piccolo" id="btn-ore-gantt">Usa le ore del Gantt</button></div>' : '') +
         '<fieldset><legend>Budget iniziale (storico)</legend><div class="form-griglia">' +
         UI.campo({ nome: 'orePreviste', etichetta: 'Ore previste iniziali', tipo: 'ore', step: '0.5', aiuto: 'Prima stesura del budget: resta come storico e non va più modificata.' }, b.orePrevisteIniziali) +
         UI.campo({ nome: 'costiDirettiPrevisti', etichetta: 'Costi diretti previsti iniziali (€)', tipo: 'euro', aiuto: 'Prima stesura del budget: resta come storico.' }, b.costiDirettiPrevistiIniziali) +
@@ -78,6 +81,14 @@
             if (e.target && /^f-(orePrevisteAgg|costiDirettiPrevistiAgg)$/.test(e.target.id) && !campoData.value && e.target.value !== '') campoData.value = Fmt.oggi();
             agg();
           });
+          // ore dal Gantt: nella prima stesura vanno nel budget iniziale, poi nella revisione aggiornata
+          const bg = form.querySelector('#btn-ore-gantt');
+          if (bg) bg.onclick = () => {
+            const ini = form.querySelector('#f-orePreviste'), ag = form.querySelector('#f-orePrevisteAgg');
+            if (ini.value === '') ini.value = oreGantt;
+            else { ag.value = oreGantt; if (!campoData.value) campoData.value = Fmt.oggi(); }
+            agg();
+          };
           // conferma del budget senza toccare i valori: aggiorna solo la data
           form.querySelector('#btn-oggi').onclick = () => {
             campoData.value = Fmt.oggi();

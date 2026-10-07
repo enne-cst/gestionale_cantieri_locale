@@ -74,6 +74,7 @@
     // --- valori contrattuali
     { campo: 'contrattoIniziale', titolo: 'Contratto iniziale (€)', tipo: 'euro', larghezza: 16, aiuto: 'Importo di contratto. Senza questo valore la commessa risulta con dati previsionali incompleti.' },
     { campo: 'integrazioni', titolo: 'Integrazioni / varianti (€)', tipo: 'euro', larghezza: 16, aiuto: 'Il contratto aggiornato è calcolato dal programma: contratto iniziale + integrazioni.' },
+    { campo: 'integrazioniRiferimento', titolo: 'Riferimento documentale integrazioni', tipo: 'testo', larghezza: 34, aiuto: 'Documento che giustifica le integrazioni, es. "integrazione contrattuale n. 2 del 15/04/2026". Senza, una commessa con integrazioni va in alert CRITICO.' },
     { campo: 'note', titolo: 'Note anagrafiche', tipo: 'testoLungo', larghezza: 40, aiuto: 'Testo libero sull\'anagrafica della commessa.' },
 
     // --- budget

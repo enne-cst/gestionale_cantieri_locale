@@ -1,171 +1,306 @@
-/* FIDA EDILE – Dashboard della Direzione
- * Copia ridotta della Dashboard di analisi (page-analisi.js), che resta riservata all'amministratore. */
+/* FIDA EDILE – Dashboard direzionale
+ * Da un lato gli obiettivi dell'anno, dall'altro a che punto si è: stato del portafoglio (torta dagli
+ * alert), redditività richiesta ed effettiva, rientro bancario desiderato ed effettivo, risultato delle
+ * commesse finite e previsione di quelle in corso. I numeri vengono da Engine.direzionale.
+ * La Dashboard di analisi (page-analisi.js), con tutti gli indicatori di dettaglio, resta una pagina a sé. */
 (function () {
   'use strict';
   const esc = UI.esc;
-  const F = { tecnico: '', preposto: '', cliente: '', stato: '', ramo: '', inizioDa: '', inizioA: '', fineDa: '', fineA: '', iniziaEntro: '', terminaEntro: '', alert: '', nonAggiornate: false, testo: '' };
-  let codiceEsatto = false; // true quando il codice è stato scelto dalla tendina
+  // Vista dell'elenco in fondo alla pagina: la scelgono la torta, i riquadri cliccabili e i pulsanti sopra la tabella.
+  const VISTE = [
+    ['tutte', 'Tutte', () => true],
+    ['finite', 'Finite', r => r.finito],
+    ['inCorso', 'In corso', r => !r.finito],
+    ['CRITICO', 'Critiche', r => r.alert === 'CRITICO'],
+    ['ATTENZIONE', 'In attenzione', r => r.alert === 'ATTENZIONE'],
+    ['INCOMPLETO', 'Incomplete', r => r.alert === 'INCOMPLETO'],
+    ['REGOLARE', 'In linea', r => r.alert === 'REGOLARE']
+  ];
+  let vista = 'tutte';
+  // La ciambella si disegna con un'animazione quando si arriva sulla pagina, non quando la pagina si
+  // ridisegna per un filtro: chi clicca una fetta non deve rivedere il giro ogni volta.
+  let senzaAnimazione = false;
+  // Il rientro bancario si legge sul solo esercizio oppure sull'intera vita delle commesse: lo sceglie
+  // l'interruttore del riquadro. Cambiandolo si rianimano solo i numeri di quel riquadro.
+  let periodoRientro = 'anno', animaRientro = false;
 
-  function filtra(rows) {
-    const P = Store.db.parametri;
-    const oggi = Engine.dayNum(Fmt.oggi());
-    const limite = oggi - Engine.num(P.giorniAggiornamentoRecente);
-    let r = rows.filter(x => {
-      if (F.tecnico && x.tecnico !== F.tecnico) return false;
-      if (F.preposto && x.preposto !== F.preposto) return false;
-      if (F.cliente && x.cliente !== F.cliente) return false;
-      if (F.ramo && x.ramo !== F.ramo) return false;
-      if (F.stato === 'finite' ? !x.finito : (F.stato && x.stato !== F.stato)) return false;
-      const inizio = x.dataInizioEffettiva || x.dataInizioPrevista;
-      if (F.inizioDa && (!inizio || inizio < F.inizioDa)) return false;
-      if (F.inizioA && (!inizio || inizio > F.inizioA)) return false;
-      if (F.fineDa && (!x.dataFinePrevista || x.dataFinePrevista < F.fineDa)) return false;
-      if (F.fineA && (!x.dataFinePrevista || x.dataFinePrevista > F.fineA)) return false;
-      if (F.iniziaEntro && !(x.stato === 'Da iniziare' && x.dataInizioPrevista && x.dataInizioPrevista <= F.iniziaEntro)) return false;
-      if (F.terminaEntro && !(!x.finito && x.dataFinePrevista && x.dataFinePrevista <= F.terminaEntro)) return false;
-      if (F.alert === 'con' && x.alert === 'REGOLARE') return false;
-      if (F.alert && F.alert !== 'con' && x.alert !== F.alert) return false;
-      if (F.nonAggiornate && !(!x.aggiornatoAl || Engine.dayNum(x.aggiornatoAl) < limite)) return false;
-      return true;
+  const euro = v => Fmt.euro(v), pct = v => Fmt.pct(v);
+  // cifre grandi senza centesimi: a colpo d'occhio contano le migliaia
+  const euro0 = v => Fmt.isNum(v) ? Fmt.numero(Math.round(v), 0) + ' €' : Fmt.VUOTO;
+  const segno = v => (Fmt.isNum(v) && v < 0) ? 'rosso-t' : 'verde-t';
+  // Un numero che all'arrivo sulla pagina sale da zero al suo valore. Il testo scritto qui è già quello
+  // finale: se l'animazione non parte (filtro, movimento ridotto) la pagina è comunque corretta.
+  const FORMATI = { intero: v => Fmt.numero(Math.round(v), 0), euro0, pct: v => Fmt.pct(v) };
+  const conta = (v, tipo) => Fmt.isNum(v) ? '<span data-conta="' + v + '" data-tipo="' + tipo + '">' + FORMATI[tipo](v) + '</span>' : Fmt.VUOTO;
+  function animaContatori(radice) {
+    const els = Array.from(radice.querySelectorAll('[data-conta]'));
+    if (!els.length || !window.requestAnimationFrame) return;
+    const DURATA = 1100, inizio = performance.now();
+    let finito = false;
+    const chiudi = () => { finito = true; els.forEach(el => { el.textContent = FORMATI[el.dataset.tipo](+el.dataset.conta); }); };
+    const passo = ora => {
+      if (finito) return;
+      const t = Math.min(1, (ora - inizio) / DURATA), k = 1 - Math.pow(1 - t, 3);   // parte veloce e rallenta arrivando
+      if (t >= 1) return chiudi();
+      els.forEach(el => { el.textContent = FORMATI[el.dataset.tipo](+el.dataset.conta * k); });
+      requestAnimationFrame(passo);
+    };
+    requestAnimationFrame(passo);
+    // il browser rallenta o sospende i fotogrammi quando la scheda non è in vista: allo scadere del tempo
+    // i numeri vanno comunque al valore vero, non devono restare a metà
+    setTimeout(chiudi, DURATA + 150);
+  }
+  const quota = (v, max) => (max > 0 ? Math.max(0, Math.min(1, v / max)) * 100 : 0).toFixed(1) + '%';
+
+  // ------------------------------------------------------------ stato delle commesse: la ciambella
+  // Nessun giudizio complessivo sul portafoglio: si vede solo quante commesse stanno in ciascun livello.
+  const LIVELLI = [['CRITICO', 'Critiche'], ['ATTENZIONE', 'In attenzione'], ['INCOMPLETO', 'Incomplete'], ['REGOLARE', 'In linea']];
+
+  // Ciambella in SVG, in tre dimensioni: un settore per livello, a partire dall'alto in senso orario; nel
+  // buco il totale delle commesse. La ciambella è disegnata piatta e poi schiacciata in verticale (K), come
+  // vista dall'alto in prospettiva; lo spessore sono copie dello stesso settore, più scure, impilate verso
+  // il basso. Prima si disegnano tutti i fianchi e poi tutte le facce superiori, così ciò che sta davanti
+  // copre ciò che sta dietro. Il settore della vista scelta si stacca dal centro. I numeri non vengono
+  // schiacciati: stanno in uno strato a parte. Al primo disegno una maschera ad anello scopre la ciambella
+  // girando in senso orario.
+  function torta(d, conteggi, anima) {
+    const C = 110, R = 100, r = 54, M = (R + r) / 2, tot = d.n;
+    const K = 0.58, SPESSORE = 20, CY = 72, ALTEZZA = 164;        // schiacciamento, spessore e centro a schermo
+    const schiaccia = 'translate(0 ' + (CY - C * K).toFixed(2) + ') scale(1 ' + K + ')';
+    const centro = '<text class="tot" x="' + C + '" y="' + (CY + 9) + '" text-anchor="middle">' + conta(tot, 'intero').replace(/span/g, 'tspan') + '</text>' +
+      '<text class="tot-et" x="' + C + '" y="' + (CY + 23) + '" text-anchor="middle">' + (tot === 1 ? 'commessa' : 'commesse') + '</text>';
+    const apri = (extra, etichetta) => '<svg class="dir-torta' + extra + '" viewBox="0 0 220 ' + ALTEZZA + '" role="img" aria-label="' + etichetta + '">';
+    if (!tot) return apri('', 'Nessuna commessa') + '<g transform="' + schiaccia + '"><circle cx="' + C + '" cy="' + C + '" r="' + M + '" class="vuota" stroke-width="' + (R - r) + '"/></g>' + centro + '</svg>';
+    const punto = (ang, raggio) => (C + raggio * Math.sin(ang)).toFixed(2) + ' ' + (C - raggio * Math.cos(ang)).toFixed(2);
+    // settore di corona fra due angoli: arco esterno in senso orario, arco interno al ritorno
+    const settore = (a1, a2) => {
+      const lungo = (a2 - a1) > Math.PI ? 1 : 0;
+      return 'M' + punto(a1, R) + ' A' + R + ' ' + R + ' 0 ' + lungo + ' 1 ' + punto(a2, R) + ' L' + punto(a2, r) + ' A' + r + ' ' + r + ' 0 ' + lungo + ' 0 ' + punto(a1, r) + ' Z';
+    };
+    let da = 0;
+    const fianchi = [], facce = [], numeri = [];
+    LIVELLI.filter(l => conteggi[l[0]] > 0).forEach(l => {
+      const n = conteggi[l[0]], fraz = n / tot, a = da + fraz * 2 * Math.PI, intera = fraz > 0.9999, meta = intera ? Math.PI : (da + a) / 2;
+      const scelta = vista === l[0];
+      const dx = scelta ? 8 * Math.sin(meta) : 0, dy = scelta ? -8 * Math.cos(meta) : 0;
+      const sposta = scelta ? ' transform="translate(' + dx.toFixed(2) + ' ' + dy.toFixed(2) + ')"' : '';
+      // un settore che è tutta la ciambella non si chiude con un arco solo: si disegna in due metà
+      const forma = intera ? settore(0, Math.PI) + ' ' + settore(Math.PI, 2 * Math.PI) : settore(da, a);
+      const classi = l[0] + (scelta ? ' scelta' : '') + (intera ? ' intera' : '');
+      // spessore: lo stesso settore ripetuto verso il basso, un'unità di schermo per volta
+      let strati = '';
+      for (let k = SPESSORE; k >= 1; k--) strati += '<path d="' + forma + '" transform="translate(0 ' + (k / K).toFixed(2) + ')"/>';
+      fianchi.push('<g class="fianco ' + classi + '" data-vista="' + l[0] + '"' + sposta + ' aria-hidden="true">' + strati + '</g>');
+      facce.push('<g class="fetta ' + classi + '" data-vista="' + l[0] + '"' + sposta + ' tabindex="0" role="button" aria-label="' + esc(l[1] + ': ' + n + ' commesse') + '">' +
+        '<title>' + esc(l[1] + ': ' + n + ' su ' + tot + ' (' + Fmt.pct(fraz, 0) + ')\nClic per vedere solo queste commesse') + '</title><path d="' + forma + '"/></g>');
+      // il numero sta sulla faccia superiore, alle coordinate di schermo del centro del settore
+      if (fraz >= 0.08) numeri.push('<text class="num ' + l[0] + '" x="' + (C + (M * Math.sin(meta) + dx)).toFixed(1) + '" y="' + (CY + K * (-M * Math.cos(meta) + dy) + 6).toFixed(1) + '" text-anchor="middle">' + conta(n, 'intero').replace(/span/g, 'tspan') + '</text>');
+      da = a;
     });
-    // ricerca solo per codice commessa: "contiene" mentre si digita, codice esatto se scelto dalla tendina
-    const q = String(F.testo || '').trim().toLowerCase();
-    if (!q) return r;
-    return r.filter(x => codiceEsatto ? String(x.codice).toLowerCase() === q : String(x.codice).toLowerCase().includes(q));
+    // la maschera è un anello più largo della ciambella (copre lo spessore e il settore staccato): il suo
+    // tratto parte dall'alto e si allunga fino a chiudere il giro
+    return apri(anima ? ' anima' : '', 'Commesse per livello di alert') +
+      '<defs><mask id="dir-giro" maskUnits="userSpaceOnUse" x="-20" y="-20" width="260" height="300"><circle class="giro" cx="' + C + '" cy="' + C + '" r="' + M + '" fill="none" stroke="#fff" stroke-width="' + (R - r + 2 * (SPESSORE / K + 12)).toFixed(0) + '" pathLength="100" transform="rotate(-90 ' + C + ' ' + C + ')"/></mask></defs>' +
+      '<g transform="' + schiaccia + '"><g mask="url(#dir-giro)">' + fianchi.join('') + facce.join('') + '</g></g>' + numeri.join('') + centro + '</svg>';
   }
 
-  // ------------------------------------------------------------ schede indicatore
-  // Le voci con più versioni (iniziale / aggiornato / effettivo) stanno incolonnate: stessa riga, colonne affiancate.
-  const euro = v => Fmt.euro(v), ore = v => Fmt.ore(v), pct = v => Fmt.pct(v);
-  const rosso = v => (Fmt.isNum(v) && v < 0) ? 'rosso' : '';
-
-  function confronto(titolo, colonne, righe, nota) {
-    const testa = '<div class="riga-et"></div>' + colonne.map(c => '<div class="col-tit">' + esc(c) + '</div>').join('');
-    const corpo = righe.map(r => '<div class="riga-et"><b>' + esc(r.voce) + '</b>' + (r.nota ? '<div class="sotto piccolo">' + esc(r.nota) + '</div>' : '') + '</div>' +
-      r.celle.map(c => c ? UI.kpi(c.et || r.voce, c.v, { colore: c.colore || '', calc: c.calc }) : '<div class="kpi vuota"><div class="et">—</div><div class="val muto">n.d.</div></div>').join('')).join('');
-    return '<div class="pannello"><h2>' + esc(titolo) + '</h2>' + (nota ? '<p class="spiegazione">' + nota + '</p>' : '') +
-      '<div class="kpi-confronto col-' + colonne.length + '">' + testa + corpo + '</div></div>';
+  function fascia(d, P, anima) {
+    const conteggi = { CRITICO: d.critiche, ATTENZIONE: d.attenzione, INCOMPLETO: d.incomplete, REGOLARE: d.regolari };
+    return '<section class="dir-fascia">' +
+      '<div class="dir-fascia-testo"><h1>Stato delle commesse</h1>' +
+      '<p class="perche">' + (d.n ? d.n + (d.n === 1 ? ' commessa operativa' : ' commesse operative') + ' nell\'esercizio ' + esc(P.annoGestione) + ', per livello di alert.' : 'Nessuna commessa operativa.') + '</p></div>' +
+      '<div class="dir-fascia-torta">' + torta(d, conteggi, anima) + '</div>' +
+      '<div class="dir-legenda">' + LIVELLI.map(l => {
+        const n = conteggi[l[0]];
+        return '<button type="button" class="' + (vista === l[0] ? 'attivo' : '') + '" data-vista="' + l[0] + '" title="Mostra solo le commesse ' + esc(l[1].toLowerCase()) + '">' +
+          '<span class="p ' + l[0] + '"></span><span class="nome">' + esc(l[1]) + '</span><b>' + conta(n, 'intero') + '</b><span class="q">' + (d.n ? Fmt.pct(n / d.n, 0) : Fmt.VUOTO) + '</span></button>';
+      }).join('') + '</div>' +
+      '<p class="regola">Clicca un settore o una voce per vedere solo quelle commesse nell\'elenco in fondo.</p></section>';
   }
 
-  function kpiHtml(k) {
-    const kp = UI.kpi;
-    const P = Store.db.parametri;
-    const revisione = k.nBudgetAggiornati
-      ? 'Budget rivisto o confermato su <b>' + k.nBudgetAggiornati + '</b> commesse' + (k.budgetAggiornatoAlMax ? ', ultimo aggiornamento al <b>' + Fmt.data(k.budgetAggiornatoAlMax) + '</b>' : '') + '.'
-      : 'Nessun aggiornamento di budget: la colonna <b>previsto aggiornato</b> coincide con quella <b>previsto iniziale</b>.';
+  // ------------------------------------------------------------ redditività: obiettivo ↔ effettiva
+  function cardRedditivita(d) {
+    const r = d.redditivita;
+    const haEff = r.effettivaPct !== null;
+    const ok = haEff && r.effettivaPct >= r.richiestaPct;
+    // scala del metro: l'obiettivo sta a due terzi, così c'è posto anche per chi lo supera
+    const scala = Math.max(r.richiestaPct * 1.5, haEff ? r.effettivaPct * 1.1 : 0, 0.01);
+    return '<section class="dir-card"><h2>Redditività</h2>' +
+      '<div class="dir-due">' +
+      '<div class="lato"><div class="et">Richiesta</div><div class="grande">' + conta(r.richiestaPct, 'pct') + '</div>' +
+      '<div class="sub">obiettivo impostato nei Parametri</div></div>' +
+      '<div class="lato"><div class="et">Effettiva</div><div class="grande ' + (haEff ? (ok ? 'verde-t' : 'rosso-t') : 'grigio-t') + '">' + (haEff ? conta(r.effettivaPct, 'pct') : Fmt.VUOTO) + '</div>' +
+      '<div class="sub">' + (haEff ? 'su ' + r.nEseguite + (r.nEseguite === 1 ? ' commessa eseguita' : ' commesse eseguite') : 'nessuna ora ancora consumata') + '</div></div>' +
+      '</div>' +
+      '<div class="dir-metro" title="Redditività effettiva ' + (haEff ? pct(r.effettivaPct) : 'n.d.') + ', richiesta ' + pct(r.richiestaPct) + '">' +
+      '<div class="pista">' + (haEff ? '<i class="' + (ok ? 'verde' : 'rosso') + '" style="width:' + quota(r.effettivaPct, scala) + '"></i>' : '') + '</div>' +
+      '<div class="tacca" style="left:' + quota(r.richiestaPct, scala) + '"><span>obiettivo ' + pct(r.richiestaPct) + '</span></div></div>' +
+      '<p class="dir-nota">La percentuale effettiva è l\'utile maturato diviso il prezzo sostenibile della parte strutturale delle ore consumate, come nel conto della commessa.</p></section>';
+  }
 
-    const portafoglio = '<div class="pannello"><h2>Portafoglio commesse</h2><div class="kpi-griglia">' +
-      kp('Commesse totali', k.n, { calc: false }) +
-      kp('Da iniziare', k.daIniziare, { calc: false }) +
-      kp('In corso', k.inCorso, { calc: false }) +
-      kp('Quasi finite', k.quasiFinite, { calc: false }) +
-      kp('Finite', k.finite, { calc: false }) +
-      kp('Con criticità', k.critiche, { colore: k.critiche ? 'rosso' : 'verde', calc: false }) +
-      kp('Con alert (attenzione + critico)', k.conAlert, { colore: k.conAlert ? 'giallo' : 'verde', calc: false }) +
-      '</div></div>';
+  // ------------------------------------------------------------ fatturato dell'esercizio: tre cifre e il mese per mese
+  // Quanto si è fatturato nell'anno contro quanto si poteva fatturare nell'anno. Di ogni commessa conta il
+  // solo contributo dell'esercizio: quello che era già fatturato negli anni precedenti resta fuori.
+  // Sotto le cifre, una colonna per mese dell'esercizio con il suo importo sopra.
+  const MESI_BREVI = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+  // importo compatto per l'etichetta sopra la colonna: 412.300 → "412k €", 1.250.000 → "1,25M €".
+  // Sotto le diecimila euro si tiene un decimale, così un mese piccolo non diventa "0k €".
+  const compatto = v => (Math.abs(v) >= 1e6 ? Fmt.numero(Math.round(v / 1e4) / 100) + 'M' : (Math.abs(v) >= 10000 ? Fmt.numero(Math.round(v / 1000), 0) : Fmt.numero(Math.round(v / 100) / 10)) + 'k') + ' €';
+  function colonneMesi(mesi, anno) {
+    const max = mesi.reduce((m, x) => Math.max(m, x.fatturato), 0);
+    if (!(max > 0)) return '<p class="dir-nessuna">Nessuna fattura registrata nel ' + esc(anno) + '.</p>';
+    return '<div class="dir-mesi" role="img" aria-label="Fatturato del ' + anno + ' mese per mese">' + mesi.map((x, i) =>
+      '<div class="mese' + (x.fatturato > 0 ? '' : ' senza') + '" title="' + esc(x.nome + ' ' + anno + ': ' + euro(x.fatturato)) + '">' +
+      '<div class="colonna"><i style="height:' + (x.fatturato / max * 100).toFixed(1) + '%">' + (x.fatturato > 0 ? '<span>' + esc(compatto(x.fatturato)) + '</span>' : '') + '</i></div>' +
+      '<div class="nome">' + MESI_BREVI[i] + '</div></div>').join('') + '</div>';
+  }
+  function cardFatturazione(d, P, mesi) {
+    const f = d.fatturazione, anno = P.annoGestione;
+    const voce = (etichetta, valore, sub) => '<div class="voce"><div class="et">' + etichetta + '</div><div class="val">' + conta(valore, 'euro0') + '</div><div class="sub">' + sub + '</div></div>';
+    return '<section class="dir-card dir-fatturato"><h2>Fatturato del ' + esc(anno) + '</h2><div class="dir-tre senza-barre">' +
+      voce('Fatturato nel ' + anno, f.fatturato, f.quota === null ? 'nessun importo fatturabile' : '<span class="richiesto">' + pct(f.quota) + ' del fatturabile</span>fatturato lordo dei movimenti dell\'anno') +
+      voce('Fatturabile nel ' + anno, f.fatturabile, 'contratto aggiornato meno perdite SAL accettate, meno quanto già fatturato negli anni precedenti') +
+      voce('Ancora da fatturare', f.daFatturare, '<span class="richiesto">' + euro0(f.salDaFatturare) + ' fatturabili subito</span>SAL già maturato e non ancora fatturato') +
+      '</div>' + colonneMesi(mesi, anno) +
+      (f.nSenzaContratto ? '<p class="dir-nota">' + f.nSenzaContratto + (f.nSenzaContratto === 1 ? ' commessa è senza contratto e non entra' : ' commesse sono senza contratto e non entrano') + ' nel fatturabile.</p>' : '') + '</section>';
+  }
 
-    const economia = '<div class="pannello"><h2>Valori economici cumulati</h2><div class="kpi-griglia">' +
-      kp('Valore contrattuale aggiornato', euro(k.contrattoAggiornato)) +
-      kp('Valore recuperabile', euro(k.valoreRecuperabile)) +
-      kp('SAL cumulato', euro(k.salCum)) +
-      kp('Fatturato lordo cumulato', euro(k.fattCum)) +
-      kp('SAL non ancora fatturato', euro(k.salNonFatturato), { colore: k.salNonFatturato > 0 ? 'giallo' : '' }) +
-      kp('Residuo lavori', euro(k.residuoLavori)) +
-      kp('Ritenute maturate', euro(k.ritenuteCum)) +
-      kp('Ritenute da sbloccare', euro(k.ritenuteDaSbloccare), { colore: k.ritenuteDaSbloccare > 0 ? 'giallo' : '' }) +
-      kp('Perdite SAL accettate', euro(k.perditeCum), { colore: k.perditeCum > 0 ? 'rosso' : '' }) +
-      '</div></div>';
+  // ------------------------------------------------------------ rientro bancario: desiderato, effettivo, realizzato dalle finite
+  // r = i tre valori del periodo scelto: il solo esercizio (movimenti e costi dell'anno, senza i saldi
+  // iniziali) oppure l'intera vita delle commesse (saldi iniziali compresi).
+  function cardRientro(r, P) {
+    const anno = periodoRientro === 'anno';
+    const max = Math.max(r.desiderato, Math.abs(r.effettivo), Math.abs(r.effettivoFinite), 1);
+    // I colori sono quelli chiesti dalla Direzione, fissi per voce: desiderato rosso, effettivo verde,
+    // realizzato dalle finite grigio. Non dipendono dal segno né dal risultato: quello lo dice il testo sotto.
+    const inLinea = r.effettivo >= 0 && r.effettivo >= r.dovutoEseguito;
+    const quando = anno ? 'nel ' + P.annoGestione : 'in tutta la vita delle commesse';
+    const voce = (classe, etichetta, valore, sub) => '<div class="voce ' + classe + '" title="' + esc(etichetta + ': ' + euro(valore)) + '"><div class="et">' + etichetta + '</div><div class="val">' + conta(valore, 'euro0') + '</div>' +
+      '<div class="pista"><i style="width:' + quota(Math.max(0, valore), max) + '"></i></div><div class="sub">' + sub + '</div></div>';
+    const scelta = (id, testo, titolo) => '<button type="button" class="' + (periodoRientro === id ? 'attivo' : '') + '" data-periodo="' + id + '" aria-pressed="' + (periodoRientro === id) + '" title="' + esc(titolo) + '">' + esc(testo) + '</button>';
+    return '<section class="dir-card' + (animaRientro ? ' anima' : '') + '" id="dir-rientro"><div class="dir-card-testa"><h2>Rientro bancario</h2>' +
+      '<div class="dir-periodo" role="group" aria-label="Periodo del rientro bancario">' +
+      scelta('anno', 'Esercizio ' + P.annoGestione, 'Solo movimenti e costi del ' + P.annoGestione + ', senza i saldi iniziali') +
+      scelta('vita', 'Intera vita', 'Dall\'inizio di ogni commessa, saldi iniziali compresi') + '</div></div>' +
+      '<div class="dir-tre">' +
+      voce('rosso', 'Desiderato', r.desiderato, r.desideratoImpostato ? 'obiettivo dell\'anno, dai Parametri'
+        : (anno ? 'ore ancora da fare a inizio ' + P.annoGestione : 'ore previste dell\'intero budget') + ' per ' + euro(r.orario) + '/h') +
+      voce('verde', 'Effettivo', r.effettivo, r.effettivo < 0 ? 'negativo: l\'utile maturato ' + quando + ' non copre nemmeno la redditività richiesta'
+        : (inLinea ? 'copre i ' : 'sotto i ') + euro0(r.dovutoEseguito) + ' dovuti sul lavoro eseguito ' + quando) +
+      // sulle finite si mostra prima ciò che è rientrato davvero, sotto ciò che era richiesto
+      (r.nFinite
+        ? voce('grigio', 'Realizzato dalle finite', r.effettivoFinite, '<span class="richiesto">Richiesti ' + euro0(r.dovutoFinite) + '</span>ore consumate ' + (anno ? 'nel ' + P.annoGestione + ' ' : '') + 'dalle ' + r.nFinite + ' commesse finite per ' + euro(r.orario) + '/h')
+        : voce('grigio', 'Realizzato dalle finite', 0, 'nessuna commessa finita con ore consumate' + (anno ? ' nel ' + P.annoGestione : ''))) +
+      '</div><p class="dir-nota">' + (anno
+        ? 'Solo l\'esercizio ' + P.annoGestione + ': movimenti e costi dell\'anno, senza i saldi iniziali delle commesse cominciate prima.'
+        : 'Intera vita delle commesse operative: dall\'inizio di ciascuna, saldi iniziali compresi.') +
+      ' Il rientro è l\'utile maturato meno la redditività richiesta; quello richiesto è ore consumate per ' + euro(r.orario) + '/h.' +
+      (Store.vedePagina('parametri') ? ' Il rientro per ora si imposta nei <a href="#/parametri">Parametri</a>.' : '') + '</p></section>';
+  }
 
-    const oreCosti = confronto('Ore e costi', ['Previsto iniziale', 'Previsto aggiornato', 'Effettivo'], [
-      { voce: 'Ore', celle: [{ et: 'Ore previste iniziali', v: ore(k.oreBudgetIni) }, { et: 'Ore previste aggiornate', v: ore(k.oreBudget) }, { et: 'Ore consumate', v: ore(k.oreUsate) }] },
-      { voce: 'Ore residue', celle: [{ et: 'Ore residue su iniziale', v: ore(k.oreResidueIni) }, { et: 'Ore residue su aggiornato', v: ore(k.oreResidue) }, null] },
-      { voce: 'Costo delle ore', nota: 'ore × costo orario (strutturale corrente ' + euro(P.costoOrario) + '/h)', celle: [{ et: 'Costo ore previste iniziali', v: euro(k.costoOrePrevisteIni) }, { et: 'Costo ore previste aggiornate', v: euro(k.costoOrePreviste) }, { et: 'Costo ore effettive', v: euro(k.costoOreEffettive) }] },
-      { voce: 'Costi diretti', celle: [{ et: 'Costi diretti previsti iniziali', v: euro(k.costiBudgetIni) }, { et: 'Costi diretti previsti aggiornati', v: euro(k.costiBudget) }, { et: 'Costi diretti sostenuti', v: euro(k.costiSostenuti), colore: k.costiBudget > 0 && k.costiSostenuti > k.costiBudget ? 'rosso' : '' }] },
-      { voce: 'Costo totale', nota: 'costo ore + costi diretti', celle: [{ et: 'Costo totale previsto iniziale', v: euro(k.costoOrePrevisteIni + k.costiBudgetIni) }, { et: 'Costo totale previsto aggiornato', v: euro(k.costoOrePreviste + k.costiBudget) }, { et: 'Costo effettivo cumulato', v: euro(k.costoEffettivo) }] }
-    ], revisione);
-
-    const margini = confronto('Margini', ['Previsto iniziale', 'Previsto aggiornato', 'Effettivo a consuntivo'], [
-      { voce: 'Ricavo di riferimento', nota: 'previsto: contratto iniziale · effettivo: fatturato lordo cumulato', celle: [{ et: 'Contratto iniziale', v: euro(k.contrattoIniziale) }, { et: 'Contratto iniziale', v: euro(k.contrattoIniziale) }, { et: 'Fatturato lordo cumulato', v: euro(k.fattCum) }] },
-      { voce: 'Margine operativo (€)', nota: 'ricavo − costi diretti', celle: [{ et: 'Margine operativo previsto iniziale', v: euro(k.margineOperativoPrevistoIni), colore: rosso(k.margineOperativoPrevistoIni) }, { et: 'Margine operativo previsto aggiornato', v: euro(k.margineOperativoPrevisto), colore: rosso(k.margineOperativoPrevisto) }, { et: 'Margine operativo effettivo', v: euro(k.margineOperativoEffettivo), colore: rosso(k.margineOperativoEffettivo) }] },
-      { voce: 'Margine operativo (%)', nota: '1 − (costi diretti ÷ ricavo)', celle: [{ et: 'Margine operativo previsto iniziale %', v: pct(k.margineOperativoPrevistoIniPct), colore: rosso(k.margineOperativoPrevistoIniPct) }, { et: 'Margine operativo previsto aggiornato %', v: pct(k.margineOperativoPrevistoPct), colore: rosso(k.margineOperativoPrevistoPct) }, { et: 'Margine operativo effettivo %', v: pct(k.margineOperativoEffettivoPct), colore: rosso(k.margineOperativoEffettivoPct) }] },
-      { voce: 'Margine finale (€)', nota: 'margine operativo − costo delle ore', celle: [{ et: 'Margine finale previsto iniziale', v: euro(k.margineFinalePrevistoIni), colore: rosso(k.margineFinalePrevistoIni) }, { et: 'Margine finale previsto aggiornato', v: euro(k.margineFinalePrevisto), colore: rosso(k.margineFinalePrevisto) }, { et: 'Margine finale effettivo', v: euro(k.margineFinaleEffettivo), colore: rosso(k.margineFinaleEffettivo) }] }
-    ], revisione);
-
-    return portafoglio + economia + oreCosti + margini;
+  // ------------------------------------------------------------ risultato delle commesse finite / in corso
+  function cardUtile(titolo, u, righe, campo, vistaId, etUtile, etPerdita, senzaDati) {
+    const dati = righe.filter(r => r[campo] !== null && r[campo] !== undefined);
+    // si mostrano le più pesanti in valore assoluto: sono quelle che fanno il totale
+    const mostrate = dati.slice().sort((a, b) => Math.abs(b[campo]) - Math.abs(a[campo])).slice(0, 8).sort((a, b) => b[campo] - a[campo]);
+    // lo zero sta dove serve: a sinistra se sono tutte in utile, a destra se tutte in perdita, altrimenti
+    // in proporzione, così nessuna metà del riquadro resta vuota
+    const maxPos = mostrate.reduce((m, r) => Math.max(m, r[campo]), 0), maxNeg = mostrate.reduce((m, r) => Math.max(m, -r[campo]), 0);
+    const ampiezza = maxPos + maxNeg, zero = ampiezza > 0 ? maxNeg / ampiezza * 100 : 0;
+    const barre = mostrate.map(r => {
+      const v = r[campo], larg = ampiezza > 0 ? Math.abs(v) / ampiezza * 100 : 0;
+      return '<a href="#/commessa/' + esc(r.id) + '" title="' + esc(r.etichetta + '\n' + (v < 0 ? etPerdita : etUtile) + ' ' + euro(v)) + '"><span class="cod">' + esc(r.codice) + '</span>' +
+        '<span class="asse"><span class="zero" style="left:' + zero.toFixed(1) + '%"></span><i class="' + (v < 0 ? 'neg' : 'pos') + '" style="' + (v < 0 ? 'right:' + (100 - zero).toFixed(1) : 'left:' + zero.toFixed(1)) + '%;width:' + larg.toFixed(1) + '%"></i></span>' +
+        '<span class="v ' + segno(v) + '">' + conta(v, 'euro0') + '</span></a>';
+    }).join('');
+    const tot = u.nCalcolabili ? u.totale : null;
+    return '<section class="dir-card"><h2>' + esc(titolo) + '</h2>' +
+      '<div class="dir-esito"><div><div class="et">' + (tot === null ? 'Non calcolabile' : (tot < 0 ? etPerdita : etUtile)) + '</div>' +
+      '<div class="grande ' + (tot === null ? 'grigio-t' : segno(tot)) + '">' + (tot === null ? Fmt.VUOTO : conta(tot, 'euro0')) + '</div></div>' +
+      '<div class="conta">' + u.n + (u.n === 1 ? ' commessa' : ' commesse') + (u.nCalcolabili ? '<br><span class="verde-t"><b>' + u.inUtile + '</b> in utile</span>, <span class="rosso-t"><b>' + u.inPerdita + '</b> in perdita</span>' : '') +
+      (u.n > u.nCalcolabili && senzaDati ? '<br>' + (u.n - u.nCalcolabili) + ' ' + senzaDati : '') + '</div></div>' +
+      (barre ? '<div class="dir-barre">' + barre + '</div>' + (dati.length > mostrate.length ? '<p class="dir-nota">Le ' + mostrate.length + ' commesse che pesano di più, su ' + dati.length + '.</p>' : '') : '<p class="dir-nessuna">Nessuna commessa in questo gruppo.</p>') +
+      '<div class="azione"><button type="button" class="' + (vista === vistaId ? 'attivo' : '') + '" data-vista="' + vistaId + '">' + (vista === vistaId ? 'Elenco filtrato su queste commesse' : 'Vedi solo queste commesse') + '</button></div></section>';
   }
 
   UI.registra('dashboard', function (cont) {
-    const tutte = Engine.calcolaTutte(Store.db);
     const P = Store.db.parametri;
-    const uniq = f => Array.from(new Set(tutte.map(r => r[f]).filter(x => x))).sort((a, b) => a.localeCompare(b, 'it'));
-    const opz = (lista, sel) => '<option value="">Tutti</option>' + lista.map(v => '<option value="' + esc(v) + '"' + (v === sel ? ' selected' : '') + '>' + esc(v) + '</option>').join('');
-    const statiOpz = '<option value="">Tutti</option>' + Engine.STATI.map(s => '<option value="' + esc(s) + '"' + (F.stato === s ? ' selected' : '') + '>' + esc(s) + '</option>').join('') + '<option value="finite"' + (F.stato === 'finite' ? ' selected' : '') + '>Tutte le finite</option>';
+    const tutte = Engine.calcolaTutte(Store.db);
+    const d = Engine.direzionale(tutte, P);
+    // rientro bancario del periodo scelto: sull'intera vita le righe sono quelle della pagina; sul solo
+    // esercizio le stesse commesse vanno ricalcolate senza i saldi iniziali
+    const rientro = periodoRientro === 'vita' ? Engine.direzionale(tutte, P, { vita: true }).rientro
+      : Engine.direzionale(Engine.calcolaTutte(Store.db, { senzaSaldi: true }), P).rientro;
+    // redditività effettiva della singola commessa, per l'elenco
+    tutte.forEach(r => {
+      const b = Engine.num(r.sostenibilitaConsuntivo.strutturale.conRedditivita);
+      r.redditivitaEffettiva = (r.oreUsate > 0 && b > 0) ? r.utileMaturato / b : null;
+    });
 
-    cont.innerHTML = UI.testata('Dashboard', 'Fotografia del portafoglio commesse · Esercizio ' + esc(P.annoGestione) + ' · saldi al 31/12/' + esc(P.annoGestione - 1) + ' + movimenti ' + esc(P.annoGestione),
-      UI.pulsanteEsporta('dash', 'Esporta commesse filtrate (CSV)') + '<button type="button" id="dash-azzera">Azzera filtri</button>') +
-      '<div class="pannello compatto"><div class="filtri" id="dash-filtri">' +
-      '<div class="campo largo"><label>Codice commessa</label><div id="dash-ricerca"></div></div>' +
-      '<div class="campo"><label>&nbsp;</label><span class="pill" id="dash-conta"></span></div>' +
-      '<div class="campo"><label>Tecnico</label><select class="in" name="tecnico">' + opz(uniq('tecnico'), F.tecnico) + '</select></div>' +
-      '<div class="campo"><label>Preposto</label><select class="in" name="preposto">' + opz(uniq('preposto'), F.preposto) + '</select></div>' +
-      '<div class="campo"><label>Cliente</label><select class="in" name="cliente">' + opz(uniq('cliente'), F.cliente) + '</select></div>' +
-      '<div class="campo"><label>Stato commessa</label><select class="in" name="stato">' + statiOpz + '</select></div>' +
-      '<div class="campo"><label>Ramo / area</label><select class="in" name="ramo">' + opz(uniq('ramo'), F.ramo) + '</select></div>' +
-      '<div class="campo"><label>Alert</label><select class="in" name="alert"><option value="">Tutte</option><option value="con"' + (F.alert === 'con' ? ' selected' : '') + '>Con alert</option><option value="CRITICO"' + (F.alert === 'CRITICO' ? ' selected' : '') + '>Solo critiche</option><option value="ATTENZIONE"' + (F.alert === 'ATTENZIONE' ? ' selected' : '') + '>Solo attenzione</option><option value="REGOLARE"' + (F.alert === 'REGOLARE' ? ' selected' : '') + '>Solo regolari</option></select></div>' +
-      '<div class="campo"><label>Data inizio da</label><input type="date" class="in" name="inizioDa" value="' + esc(F.inizioDa) + '"></div>' +
-      '<div class="campo"><label>Data inizio a</label><input type="date" class="in" name="inizioA" value="' + esc(F.inizioA) + '"></div>' +
-      '<div class="campo"><label>Fine prevista da</label><input type="date" class="in" name="fineDa" value="' + esc(F.fineDa) + '"></div>' +
-      '<div class="campo"><label>Fine prevista a</label><input type="date" class="in" name="fineA" value="' + esc(F.fineA) + '"></div>' +
-      '<div class="campo"><label>Devono iniziare entro</label><input type="date" class="in" name="iniziaEntro" value="' + esc(F.iniziaEntro) + '"></div>' +
-      '<div class="campo"><label>Devono terminare entro</label><input type="date" class="in" name="terminaEntro" value="' + esc(F.terminaEntro) + '"></div>' +
-      '<div class="campo"><label>Aggiornamento</label><label style="text-transform:none;font-size:13px;margin-top:6px"><input type="checkbox" name="nonAggiornate"' + (F.nonAggiornate ? ' checked' : '') + '> senza aggiornamento da oltre <b>' + esc(P.giorniAggiornamentoRecente) + ' gg</b></label>' +
-      (Store.vedePagina('parametri') ? '<div class="aiuto"><a href="#/parametri" title="Il numero di giorni si imposta in Parametri di controllo">modifica in Parametri</a></div>' : '') + '</div>' +
-      '</div></div>' +
-      '<div id="dash-kpi"></div>' +
-      UI.legenda() +
-      '<div id="dash-tab"></div>';
+    const anima = !senzaAnimazione && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    cont.innerHTML = '<div class="dir' + (anima ? ' anima' : '') + '">' +
+      UI.testata('Dashboard direzionale', 'Gli obiettivi dell\'anno e a che punto siamo. Saldi al 31/12/' + esc(P.annoGestione - 1) + ' più i movimenti del ' + esc(P.annoGestione) + '.',
+        UI.pulsanteEsporta('dash', 'Esporta elenco (CSV)') + '<button type="button" onclick="window.print()">Stampa</button>') +
+      '<div class="dir-cima">' + fascia(d, P, anima) + cardFatturazione(d, P, Engine.fatturatoMensile(Store.db, tutte.map(r => r.id))) + '</div>' +
+      '<div class="dir-griglia">' + cardRedditivita(d) + cardRientro(rientro, P) + '</div>' +
+      '<div class="dir-griglia">' +
+      cardUtile('Commesse finite', d.finite, tutte.filter(r => r.finito), 'utileMaturato', 'finite', 'Utile effettivo', 'Perdita effettiva', '') +
+      cardUtile('Commesse in corso', d.inCorso, tutte.filter(r => !r.finito), 'utileAFinire', 'inCorso', 'Utile a finire', 'Perdita a finire', 'senza budget, non calcolabili') +
+      '</div>' +
+      '<section class="dir-elenco"><h2 id="dash-elenco">Commesse</h2>' +
+      '<div class="dir-filtri">' + VISTE.map(v => '<button type="button" class="' + (vista === v[0] ? 'attivo' : '') + '" data-vista="' + v[0] + '">' + esc(v[1]) + ' <b>' + tutte.filter(v[2]).length + '</b></button>').join('') +
+      '<span class="conta" id="dash-conta"></span></div>' +
+      '<div id="dash-tab"></div></section></div>';
 
+    senzaAnimazione = false;   // vale per questo solo disegno: tornando sulla pagina l'animazione riparte
+    if (anima) animaContatori(cont);
+    else if (animaRientro) animaContatori(document.getElementById('dir-rientro'));
+    animaRientro = false;
+    // cambio di periodo del rientro: si ridisegna la pagina ferma e si rianima solo quel riquadro
+    cont.querySelectorAll('[data-periodo]').forEach(b => b.onclick = () => {
+      if (periodoRientro === b.dataset.periodo) return;
+      periodoRientro = b.dataset.periodo;
+      const y = window.scrollY;
+      senzaAnimazione = true;
+      animaRientro = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      UI.render();
+      window.scrollTo(0, y);   // UI.render riporta in cima: chi ha cliccato l'interruttore resta dov'era
+    });
+    const colUtile = v => Fmt.isNum(v) ? '<span class="' + segno(v) + '"><b>' + euro(v) + '</b></span>' : '<span class="muto">—</span>';
     const colonne = [
-      { campo: 'alert', titolo: 'Allerta', fmt: v => UI.badgeAlert(v) },
+      { campo: 'alert', titolo: 'Allerta', valOrd: r => Engine.LIVELLI_ALERT.indexOf(r.alert), fmt: v => UI.badgeAlert(v) },
       { campo: 'codice', titolo: 'Codice', fmt: (v, r) => UI.linkCommessa(r) },
       { campo: 'cliente', titolo: 'Cliente' },
       { campo: 'cantiere', titolo: 'Cantiere', classe: 'desc' },
-      { campo: 'tecnico', titolo: 'Tecnico' },
       { campo: 'stato', titolo: 'Stato', fmt: v => UI.badgeStato(v) },
-      { campo: 'contrattoAggiornato', titolo: 'Contratto', tipo: 'n', fmt: v => Fmt.euro(v) },
-      { campo: 'salCum', titolo: 'SAL', tipo: 'n', fmt: v => Fmt.euro(v) },
-      { campo: 'fattCum', titolo: 'Fatturato', tipo: 'n', fmt: v => Fmt.euro(v) },
-      { campo: 'salPct', titolo: 'SAL %', tipo: 'n', fmt: v => Fmt.pct(v) },
-      { campo: 'tempoPct', titolo: 'Tempo %', tipo: 'n', fmt: v => Fmt.pct(v) },
-      { campo: 'orePct', titolo: 'Ore %', tipo: 'n', fmt: v => Fmt.pct(v) },
-      { campo: 'dataFinePrevista', titolo: 'Fine prevista', fmt: v => Fmt.data(v) },
-      { campo: 'aggiornatoAl', titolo: 'Aggiornato al', fmt: v => Fmt.data(v) },
+      { campo: 'contrattoAggiornato', titolo: 'Contratto', tipo: 'n', fmt: v => euro(v) },
+      { campo: 'utileMaturato', titolo: 'Utile maturato', tipo: 'n', fmt: colUtile },
+      { campo: 'utileAFinire', titolo: 'Utile a finire', tipo: 'n', fmt: (v, r) => r.finito ? '<span class="muto" title="Commessa finita: vale l\'utile maturato">finita</span>' : colUtile(v) },
+      { campo: 'redditivitaEffettiva', titolo: 'Redditività effettiva', tipo: 'n', fmt: v => Fmt.isNum(v) ? '<span class="' + (v >= P.redditivita ? 'verde-t' : 'rosso-t') + '">' + pct(v) + '</span>' : '<span class="muto">—</span>' },
       { campo: 'motivi', titolo: 'Motivo allerta', ord: false, fmt: (v, r) => UI.motiviHtml(r) }
     ];
+    const def = VISTE.find(v => v[0] === vista) || VISTE[0];
+    const righe = tutte.filter(def[2]);
+    document.getElementById('dash-conta').textContent = vista === 'tutte' ? tutte.length + ' commesse' : righe.length + ' su ' + tutte.length;
+    const t = document.getElementById('dash-tab');
+    t.innerHTML = UI.tabella('dash', { colonne, righe, chiave: 'id', ordine: { campo: 'alert', dir: 'asc' }, vuoto: 'Nessuna commessa in questa vista.', onRiga: id => UI.vai('#/commessa/' + id) });
+    UI.legaTabelle(t);
 
-    function aggiorna() {
-      const rows = filtra(tutte);
-      // contatore accanto ai filtri: rende visibile l'effetto della ricerca anche se la tabella è più in basso
-      const attivi = Object.keys(F).some(k => F[k] && F[k] !== false);
-      const conta = document.getElementById('dash-conta');
-      conta.textContent = attivi ? rows.length + ' commesse su ' + tutte.length + ' corrispondono ai filtri' : tutte.length + ' commesse';
-      conta.className = 'pill ' + (attivi ? (rows.length ? 'server' : 'file') : '');
-      document.getElementById('dash-kpi').innerHTML = kpiHtml(Engine.riepilogo(rows));
-      const t = document.getElementById('dash-tab');
-      t.innerHTML = UI.tabella('dash', { colonne, righe: rows, chiave: 'id', ordine: { campo: 'codice', dir: 'asc' }, vuoto: 'Nessuna commessa corrisponde ai filtri.', onRiga: id => UI.vai('#/commessa/' + id) });
-      UI.legaTabelle(t);
-    }
-    const filtri = document.getElementById('dash-filtri');
-    UI.comboCodice(document.getElementById('dash-ricerca'), tutte, { valore: F.testo, placeholder: 'digita il codice o scegli dalla tendina', onCambio: (testo, esatto) => { codiceEsatto = esatto; } });
-    const onCambio = UI.debounce(() => {
-      filtri.querySelectorAll('[name]').forEach(el => { F[el.name] = el.type === 'checkbox' ? el.checked : el.value; });
-      aggiorna();
-    }, 150);
-    filtri.addEventListener('input', onCambio);
-    filtri.addEventListener('change', onCambio);
-    document.getElementById('dash-azzera').onclick = () => { Object.keys(F).forEach(k => { F[k] = k === 'nonAggiornate' ? false : ''; }); codiceEsatto = false; UI.render(); };
+    // torta, legenda, riquadri e pulsanti filtrano l'elenco: un secondo clic sulla stessa vista torna a "tutte"
+    const scegli = b => {
+      const scelta = b.dataset.vista;
+      vista = (vista === scelta && scelta !== 'tutte') ? 'tutte' : scelta;
+      const daFuori = !b.closest('.dir-filtri');
+      senzaAnimazione = true;
+      UI.render();
+      if (daFuori) { const el = document.getElementById('dash-elenco'); if (el) el.scrollIntoView({ block: 'start' }); }
+    };
+    cont.querySelectorAll('[data-vista]').forEach(b => {
+      b.onclick = () => scegli(b);
+      // le fette della torta non sono pulsanti veri: da tastiera rispondono a Invio e Spazio
+      if (b.classList.contains('fetta')) b.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scegli(b); } };
+    });
     const be = cont.querySelector('[data-esporta="dash"]');
     if (be) be.onclick = () => UI.esportaCsv('dashboard_commesse', UI.righeOrdinate('dash'), UI.COLONNE_EXPORT_SCHEDA);
-    aggiorna();
   });
 })();

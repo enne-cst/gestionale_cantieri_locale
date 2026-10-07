@@ -131,7 +131,7 @@
       { titolo: 'Qual è il prezzo per il cliente?', nota: 'quanto la commessa porta a casa, prima di qualunque costo', righe: [
         { op: '', campo: 'prezzo', et: c => c.etPrezzo },
         { op: '+', campo: 'integrazioni', et: c => c.etIntegrazioni || 'Integrazioni / varianti', nota: c => c.notaIntegrazioni },
-        { op: '−', campo: 'perdite', et: c => c.etPerdite || 'Perdite SAL accettate', nota: c => c.notaPerdite },
+        { op: '−', campo: 'perdite', et: c => c.etPerdite || 'Perdite SAL accettate', nota: c => c.notaPerdite, colore: v => v > 0 ? 'rosso' : '' },
         { op: '=', campo: 'totale', et: c => c.etTotale, forte: true }
       ] },
       { titolo: 'Quanto costa realizzarla?', nota: 'costi diretti e manodopera, quest\'ultima in euro e in ore', righe: [
@@ -241,6 +241,7 @@
       kp('Finite', k.finite, { calc: false }) +
       kp('Con criticità', k.critiche, { colore: k.critiche ? 'rosso' : 'verde', calc: false }) +
       kp('Con alert (attenzione + critico)', k.conAlert, { colore: k.conAlert ? 'giallo' : 'verde', calc: false }) +
+      kp('Incomplete (dati mancanti)', k.incomplete, { colore: k.incomplete ? 'bluette' : '', calc: false }) +
       '</div></div>';
 
     const economia = '<div class="pannello"><h2>Valori economici cumulati</h2><div class="kpi-griglia">' +
@@ -301,7 +302,7 @@
       '<div class="campo"><label>Cliente</label><select class="in" name="cliente">' + opz(uniq('cliente'), F.cliente) + '</select></div>' +
       '<div class="campo"><label>Stato commessa</label><select class="in" name="stato">' + statiOpz + '</select></div>' +
       '<div class="campo"><label>Ramo / area</label><select class="in" name="ramo">' + opz(uniq('ramo'), F.ramo) + '</select></div>' +
-      '<div class="campo"><label>Alert</label><select class="in" name="alert"><option value="">Tutte</option><option value="con"' + (F.alert === 'con' ? ' selected' : '') + '>Con alert</option><option value="CRITICO"' + (F.alert === 'CRITICO' ? ' selected' : '') + '>Solo critiche</option><option value="ATTENZIONE"' + (F.alert === 'ATTENZIONE' ? ' selected' : '') + '>Solo attenzione</option><option value="REGOLARE"' + (F.alert === 'REGOLARE' ? ' selected' : '') + '>Solo regolari</option></select></div>' +
+      '<div class="campo"><label>Alert</label><select class="in" name="alert"><option value="">Tutte</option><option value="con"' + (F.alert === 'con' ? ' selected' : '') + '>Con alert</option><option value="CRITICO"' + (F.alert === 'CRITICO' ? ' selected' : '') + '>Solo critiche</option><option value="ATTENZIONE"' + (F.alert === 'ATTENZIONE' ? ' selected' : '') + '>Solo attenzione</option><option value="INCOMPLETO"' + (F.alert === 'INCOMPLETO' ? ' selected' : '') + '>Solo incomplete</option><option value="REGOLARE"' + (F.alert === 'REGOLARE' ? ' selected' : '') + '>Solo regolari</option></select></div>' +
       '<div class="campo"><label>Data inizio da</label><input type="date" class="in" name="inizioDa" value="' + esc(F.inizioDa) + '"></div>' +
       '<div class="campo"><label>Data inizio a</label><input type="date" class="in" name="inizioA" value="' + esc(F.inizioA) + '"></div>' +
       '<div class="campo"><label>Fine prevista da</label><input type="date" class="in" name="fineDa" value="' + esc(F.fineDa) + '"></div>' +

@@ -5,6 +5,7 @@
   --primario: #1f3a5f; --primario2: #2b5285; --primario-chiaro: #e7eef8;
   --input: #fffbe6; --input-bordo: #e6d98a; --calc: #e9f3fb; --calc-bordo: #bcd6ea;
   --verde: #1e7d45; --verde-bg: #e3f4ea; --giallo: #b7791f; --giallo-bg: #fdf1d8; --rosso: #b42318; --rosso-bg: #fbe5e3;
+  --bluette: #4a63c8; --bluette-bg: #e7ebfb; --ambra: #e0a526;
   --grigio-bg: #eef0f3; --banda: #eceef2; --primario-graffa: #9fb3cc;
   --bordo-forte: #a3aebd; --calc-bordo-forte: #83abd0; --ombra: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
   --raggio: 6px; --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -67,6 +68,7 @@ p { margin: 6px 0; }
 .kpi.rosso .val { color: var(--rosso); }
 .kpi.giallo .val { color: var(--giallo); }
 .kpi.verde .val { color: var(--verde); }
+.kpi.bluette .val { color: var(--bluette); }
 /* sfondo: colora anche il fondo della card, non solo il valore */
 .kpi.sfondo.rosso { background: var(--rosso-bg); border-color: #f0c2bd; }
 .kpi.sfondo.verde { background: var(--verde-bg); border-color: #b6e0c5; }
@@ -82,6 +84,7 @@ p { margin: 6px 0; }
 .badge.REGOLARE { background: var(--verde-bg); color: var(--verde); }
 .badge.ATTENZIONE { background: var(--giallo-bg); color: var(--giallo); }
 .badge.CRITICO { background: var(--rosso-bg); color: var(--rosso); }
+.badge.INCOMPLETO { background: var(--bluette-bg); color: var(--bluette); }
 .badge.neutro { background: var(--grigio-bg); color: var(--testo2); font-weight: 500; }
 .badge.stato { background: var(--primario-chiaro); color: var(--primario); font-weight: 500; }
 /* esito della verifica di sostenibilità economica */
@@ -94,12 +97,17 @@ table.tab td.sotto-soglia { color: var(--rosso); font-weight: 650; }
 .motivi span, .motivi a { display: inline-block; background: var(--grigio-bg); border-radius: 3px; padding: 1px 6px; margin: 1px 3px 1px 0; color: inherit; }
 .motivi a { text-decoration: underline dotted; text-underline-offset: 2px; cursor: pointer; }
 .motivi a:hover { text-decoration: underline; filter: brightness(.92); }
-.motivi.CRITICO span, .motivi.CRITICO a { background: var(--rosso-bg); color: var(--rosso); }
-.motivi.ATTENZIONE span, .motivi.ATTENZIONE a { background: var(--giallo-bg); color: var(--giallo); }
+/* ogni motivo ha il colore del PROPRIO livello; .motivi.CRITICO / .ATTENZIONE colorano tutto il gruppo (anteprima di importazione) */
+.motivi.CRITICO span, .motivi.CRITICO a, .motivi span.CRITICO, .motivi a.CRITICO { background: var(--rosso-bg); color: var(--rosso); }
+.motivi.ATTENZIONE span, .motivi.ATTENZIONE a, .motivi span.ATTENZIONE, .motivi a.ATTENZIONE { background: var(--giallo-bg); color: var(--giallo); }
+.motivi span.INCOMPLETO, .motivi a.INCOMPLETO { background: var(--bluette-bg); color: var(--bluette); }
+.motivi span.CRITICO, .motivi a.CRITICO { font-weight: 650; }
+/* le perdite SAL accettate si leggono sempre in rosso, ovunque compaiano */
+.perdita { color: var(--rosso); font-weight: 650; }
 .campo.evidenziato input, .campo.evidenziato select, .campo.evidenziato textarea { outline: 2px solid var(--giallo); outline-offset: 1px; box-shadow: 0 0 0 4px var(--giallo-bg); transition: box-shadow .3s; }
 .campo.evidenziato label { color: var(--giallo); }
 .semaforo { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
-.semaforo.REGOLARE { background: var(--verde); } .semaforo.ATTENZIONE { background: #e0a526; } .semaforo.CRITICO { background: var(--rosso); }
+.semaforo.REGOLARE { background: var(--verde); } .semaforo.ATTENZIONE { background: var(--ambra); } .semaforo.CRITICO { background: var(--rosso); } .semaforo.INCOMPLETO { background: var(--bluette); }
 
 /* ---------------------------------------------------------------- tabelle */
 .tabella-wrap { overflow: auto; border: 1px solid var(--bordo); border-radius: var(--raggio); background: var(--carta); box-shadow: var(--ombra); }
@@ -115,6 +123,8 @@ table.tab tr.cliccabile { cursor: pointer; }
 table.tab tr.annullato td { color: var(--testo3); text-decoration: line-through; }
 table.tab tr.annullato td.no-barra { text-decoration: none; }
 table.tab tr.totale td { font-weight: 650; background: #f7f8fa; border-top: 2px solid var(--bordo); }
+/* riga di previsione: non è un totale, è una stima. Corsivo e bordo tratteggiato come la proiezione del grafico */
+table.tab tr.previsione td { font-style: italic; color: var(--testo2); border-top: 1px dashed var(--bordo-forte); background: #fbfbfc; }
 table.tab td.in { background: var(--input); }
 table.tab td.calc { background: var(--calc); }
 table.tab .cod { font-weight: 650; color: var(--primario); white-space: nowrap; }
@@ -327,8 +337,8 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 /* ---------------------------------------------------------------- grafico dell'utile maturato
    Disegno sobrio: griglia a filo, una linea sola, tratteggio solo per la proiezione a fine commessa. */
 /* con molte date la tela diventa più larga del pannello: si scorre in orizzontale come il Gantt */
-.grafico-utile { margin: 6px 0 4px; overflow-x: auto; }
-.grafico-utile svg { display: block; width: 100%; height: auto; }
+.grafico-utile { margin: 6px 0 4px; }
+.grafico-utile svg { display: block; width: 100%; height: auto; max-height: 300px; }
 .grafico-utile .g-griglia { stroke: var(--bordo2); stroke-width: 1; }
 .grafico-utile .g-zero { stroke: var(--bordo-forte); stroke-width: 1.5; }
 /* filo che scende dal pallino alla sua data: tenue, deve legare senza farsi notare */
@@ -377,6 +387,9 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .gantt .g-lab { position: sticky; left: 0; z-index: 4; background: var(--carta); border-right: 1px solid var(--bordo); border-bottom: 1px solid var(--bordo2); padding: 6px 10px; min-width: 0; }
 .gantt .g-lab b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .gantt .g-lab .sotto { font-size: 11px; white-space: nowrap; }
+/* nome della riga di date: pianificato o effettivo, a larghezza fissa così le date restano incolonnate */
+.gantt .g-lab .g-et { display: inline-block; width: 70px; color: var(--testo3); }
+.gantt .g-lab .sotto b { display: inline; color: var(--testo); font-weight: 650; overflow: visible; }
 .gantt .g-area { position: relative; min-height: 44px; border-bottom: 1px solid var(--bordo2); overflow: hidden; }
 .gantt .g-testa { background: #f7f8fa; border-bottom: 1px solid var(--bordo); color: var(--testo2); font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .03em; min-height: 0; }
 .gantt .g-lab.g-testa { display: flex; align-items: center; }
@@ -396,7 +409,8 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 /* colori di stato: stessa specificità per barre, pallini e legenda, così nessuna regola li copre */
 .gantt .g-barra.eff.g-verde, .gantt .semaforo.g-verde, .gantt-legenda i.g-verde { background-color: var(--verde); }
 .gantt .g-barra.eff.g-rosso, .gantt .semaforo.g-rosso, .gantt-legenda i.g-rosso { background-color: var(--rosso); }
-.gantt .g-barra.eff.g-blu, .gantt .semaforo.g-blu, .gantt-legenda i.g-blu { background-color: var(--primario2); }
+/* fase in corso nei tempi: verde come quelle concluse nei tempi, ma rigata perché non è ancora finita */
+.gantt .g-barra.eff.g-blu, .gantt .semaforo.g-blu, .gantt-legenda i.g-blu { background-color: var(--verde); }
 .gantt .g-barra.eff.g-giallo, .gantt .semaforo.g-giallo, .gantt-legenda i.g-giallo, .gantt-legenda .semaforo.g-giallo { background-color: #e0a526; }
 .gantt .g-barra.eff.g-neutro, .gantt .semaforo.g-neutro, .gantt-legenda i.g-neutro { background-color: var(--testo3); }
 .gantt .g-riga.cliccabile { cursor: pointer; }
@@ -419,3 +433,213 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 
 details.dettaglio-strutturale > summary { cursor: pointer; color: var(--primario); }
 details.dettaglio-strutturale[open] > summary { margin-bottom: 8px; }
+
+/* ---------------------------------------------------------------- ore per fase di lavoro (scheda Gantt) */
+.ore-fasi { display: grid; gap: 6px; }
+.ore-fasi .riga { display: grid; grid-template-columns: 220px 1fr 190px; gap: 12px; align-items: center; padding: 5px 8px; border: 1px solid var(--bordo2); border-radius: var(--raggio); }
+.ore-fasi .riga.oltre { border-color: #f0c2bd; background: #fffafa; }
+/* fase in subappalto: fuori dal conto delle ore, riga tratteggiata e senza barre */
+.ore-fasi .riga.subappalto { border-style: dashed; background: #fafbfc; }
+.gantt .g-lab .g-sub { color: var(--giallo); font-weight: 600; }
+fieldset[hidden] { display: none; }
+.ore-fasi .nome { min-width: 0; }
+.ore-fasi .nome b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ore-fasi .nome span { font-size: 11.5px; color: var(--testo3); }
+.ore-fasi .barre { display: grid; gap: 2px; }
+.ore-fasi .b { height: 8px; border-radius: 0 4px 4px 0; min-width: 2px; }
+.ore-fasi .b.prev { background: #9db6d6; }
+.ore-fasi .b.eff { background: var(--primario2); }
+.ore-fasi .riga.oltre .b.eff { background: var(--rosso); }
+.ore-fasi .num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; }
+.ore-fasi .num .muto { font-weight: 400; }
+.ore-fasi .scost { font-size: 11.5px; font-weight: 500; color: var(--testo2); }
+.ore-fasi .riga.oltre .scost { color: var(--rosso); font-weight: 650; }
+.legenda i.ore-prev { background: #9db6d6; border-color: transparent; }
+.legenda i.ore-eff { background: var(--primario2); border-color: transparent; }
+.legenda i.ore-oltre { background: var(--rosso); border-color: transparent; }
+@media (max-width: 800px) { .ore-fasi .riga { grid-template-columns: 1fr; } .ore-fasi .num { text-align: left; } }
+
+/* ---------------------------------------------------------------- dashboard direzionale
+   Una sola cosa forte: la fascia blu in alto, carta da disegno con la torta del portafoglio e il verdetto.
+   Sotto, riquadri piani e sobri: prima gli obiettivi (redditività, rientro), poi il risultato delle
+   commesse, poi l'elenco. Dentro la dashboard i titoli non sono in maiuscolo: sono frasi, non etichette. */
+.dir { --blu-notte: #16294a; --blu-carta: #1f3a5f;
+  --t-critico: #f0635c; --t-attenzione: #f2c94c; --t-incompleto: #8fa3f5; --t-regolare: #4fc487; }
+.dir .testata { margin-bottom: 16px; }
+.dir .testata h1 { font-size: 24px; letter-spacing: -.02em; }
+.dir h2 { text-transform: none; letter-spacing: -.01em; font-size: 18px; font-weight: 650; color: var(--testo); margin: 0 0 14px; }
+
+/* ---- in cima: lo stato delle commesse (fascia blu) e, accanto, il fatturato dell'esercizio */
+.dir-cima { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; margin-bottom: 20px; align-items: stretch; }
+@media (max-width: 1150px) { .dir-cima { grid-template-columns: 1fr; } }
+/* ---- la fascia: fondo blu pieno. Titolo sopra, poi ciambella e legenda affiancate */
+.dir-fascia { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); grid-template-areas: "testo testo" "torta legenda" "regola regola";
+  grid-template-rows: auto 1fr auto; gap: 18px 28px; align-items: center; padding: 22px 26px; border-radius: 14px; color: #dfe7f3; background-color: var(--blu-carta); }
+.dir-fascia-testo { grid-area: testo; }
+.dir-fascia-torta { grid-area: torta; }
+.dir-fascia .dir-legenda { grid-area: legenda; }
+.dir-fascia .regola { grid-area: regola; align-self: end; }
+.dir-torta { display: block; width: 100%; max-width: 320px; height: auto; overflow: visible; }
+.dir-torta .fetta { cursor: pointer; outline: none; transition: transform .18s ease; }
+.dir-torta .fetta path, .dir-torta .fetta circle { stroke: var(--blu-carta); stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; transition: filter .15s; }
+/* lo spessore della ciambella: stesso colore del settore, più scuro, senza bordo. Segue il settore quando si stacca */
+.dir-torta .fianco { cursor: pointer; filter: brightness(.66) saturate(.9); transition: transform .18s ease; }
+/* un solo livello: la ciambella è intera e non ha fette da separare */
+.dir-torta .fetta.intera path { stroke: none; }
+/* nel buco, il totale delle commesse */
+.dir-torta .tot { font-size: 30px; font-weight: 700; fill: #fff; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.dir-torta .tot-et { font-size: 10.5px; fill: #a9bbd6; }
+/* primo disegno: la maschera ad anello scopre la ciambella girando dall'alto in senso orario, poi compaiono i numeri */
+.dir-torta .giro { stroke-dasharray: 100 100; stroke-dashoffset: 0; }
+.dir-torta.anima .giro { animation: dir-giro 1.1s cubic-bezier(.65, 0, .25, 1) both; }
+.dir-torta.anima .num, .dir-torta.anima .tot, .dir-torta.anima .tot-et { animation: dir-appare .45s ease-out .75s both; }
+/* insieme ai contatori crescono le barre: da zero alla loro misura, ancorate al lato da cui partono */
+.dir.anima .dir-metro .pista i, .dir.anima .dir-tre .pista i, .dir.anima .dir-barre .asse i, .dir-card.anima .dir-tre .pista i { animation: dir-cresce 1.1s cubic-bezier(.2, .7, .2, 1) both; transform-origin: left center; }
+.dir.anima .dir-barre .asse i.neg { transform-origin: right center; }
+@keyframes dir-cresce { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes dir-giro { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@keyframes dir-appare { from { opacity: 0; } to { opacity: 1; } }
+.dir-torta .fetta:hover path, .dir-torta .fetta:hover circle { filter: brightness(1.12); }
+.dir-torta .fetta:focus-visible path, .dir-torta .fetta:focus-visible circle { stroke: #fff; stroke-width: 3; }
+.dir-torta .fetta.scelta path, .dir-torta .fetta.scelta circle { stroke: #fff; }
+.dir-torta .num { font-size: 19px; font-weight: 700; fill: #fff; pointer-events: none; font-variant-numeric: tabular-nums; }
+.dir-torta .num.ATTENZIONE, .dir-torta .num.INCOMPLETO, .dir-torta .num.REGOLARE { fill: var(--blu-notte); }
+.dir-torta g.CRITICO path, .dir-torta g.CRITICO circle, .dir-legenda .p.CRITICO { fill: var(--t-critico); background: var(--t-critico); }
+.dir-torta g.ATTENZIONE path, .dir-torta g.ATTENZIONE circle, .dir-legenda .p.ATTENZIONE { fill: var(--t-attenzione); background: var(--t-attenzione); }
+.dir-torta g.INCOMPLETO path, .dir-torta g.INCOMPLETO circle, .dir-legenda .p.INCOMPLETO { fill: var(--t-incompleto); background: var(--t-incompleto); }
+.dir-torta g.REGOLARE path, .dir-torta g.REGOLARE circle, .dir-legenda .p.REGOLARE { fill: var(--t-regolare); background: var(--t-regolare); }
+.dir-torta .vuota { fill: none; stroke: rgba(255,255,255,.12); }
+.dir-fascia-testo { min-width: 0; }
+.dir-anno { font-size: 13px; color: #a9bbd6; margin-bottom: 6px; }
+.dir-fascia h1 { font-size: clamp(24px, 2.3vw, 32px); line-height: 1.1; letter-spacing: -.025em; font-weight: 700; color: #fff; margin: 0 0 6px; }
+.dir-fascia .perche { font-size: 14px; color: #cfdaeb; margin: 0; }
+.dir-fascia .regola { font-size: 12.5px; line-height: 1.5; color: #a9bbd6; margin: 0; max-width: 58ch; }
+.dir-legenda { display: grid; gap: 6px; }
+.dir-legenda button { display: grid; grid-template-columns: 12px 1fr auto 44px; gap: 10px; align-items: center; width: 100%; text-align: left;
+  padding: 9px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.05); color: #fff; font-size: 13.5px; }
+.dir-legenda button:hover { background: rgba(255,255,255,.12); }
+.dir-legenda button.attivo { background: #fff; color: var(--blu-notte); border-color: #fff; }
+.dir-legenda button:focus-visible, .dir-filtri button:focus-visible, .dir-card .azione button:focus-visible { outline: 2px solid var(--t-attenzione); outline-offset: 2px; }
+.dir-legenda .p { width: 12px; height: 12px; border-radius: 3px; }
+.dir-legenda b { font-size: 20px; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.dir-legenda .q { font-size: 12px; text-align: right; opacity: .7; font-variant-numeric: tabular-nums; }
+/* fascia stretta: la legenda scende sotto la ciambella. La fascia occupa mezza pagina sopra i 1150px e
+   tutta la larghezza sotto: è stretta fra 1151 e 1360px di finestra, e di nuovo sotto gli 800px */
+@media (min-width: 1151px) and (max-width: 1360px), (max-width: 800px) {
+  .dir-fascia { grid-template-columns: 1fr; grid-template-areas: "testo" "torta" "legenda" "regola"; grid-template-rows: auto auto auto auto; }
+  .dir-torta { max-width: 260px; margin: 0 auto; }
+}
+
+/* ---- riquadri: piani, senza ombra, un filo e basta */
+.dir-griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+@media (max-width: 1000px) { .dir-griglia { grid-template-columns: 1fr; } }
+.dir-card { container-type: inline-size; background: var(--carta); border: 1px solid var(--bordo); border-radius: 14px; padding: 22px 24px; display: flex; flex-direction: column; min-width: 0; }
+.dir-nota { font-size: 12.5px; color: var(--testo2); margin: auto 0 0; padding-top: 16px; line-height: 1.5; max-width: 72ch; }
+.dir-nota b { color: var(--testo); }
+.verde-t { color: var(--verde); } .rosso-t { color: var(--rosso); } .grigio-t { color: var(--testo3); }
+.dir-nota b.verde-t { color: var(--verde); } .dir-nota b.rosso-t { color: var(--rosso); }
+
+/* ---- redditività: richiesta ed effettiva affiancate, divise da un filo */
+.dir-due { display: grid; grid-template-columns: 1fr 1fr; }
+.dir-due .lato { min-width: 0; }
+.dir-due .lato + .lato { border-left: 1px solid var(--bordo); padding-left: 24px; }
+.dir-due .et, .dir-tre .et, .dir-esito .et { font-size: 13px; color: var(--testo2); margin-bottom: 2px; }
+.dir-due .grande { font-size: clamp(34px, 3.4vw, 46px); font-weight: 700; letter-spacing: -.035em; line-height: 1.05; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dir-due .cifra { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 4px; white-space: nowrap; }
+.dir-due .sub { font-size: 12px; color: var(--testo3); margin-top: 3px; line-height: 1.4; }
+/* il metro: una pista con le tacche, come un metro da cantiere; la barra è l'effettivo, la tacca scura l'obiettivo */
+.dir-metro { position: relative; margin: 26px 0 30px; }
+.dir-metro .pista { position: relative; height: 16px; border-radius: 3px; overflow: hidden; background-color: #f4ecc9;
+  background-image: repeating-linear-gradient(90deg, rgba(31,58,95,.28) 0 1px, transparent 1px 10%), repeating-linear-gradient(90deg, rgba(31,58,95,.14) 0 1px, transparent 1px 2%); }
+.dir-metro .pista i { position: absolute; left: 0; top: 0; bottom: 0; min-width: 3px; border-radius: 0 3px 3px 0; opacity: .92; }
+.dir-metro .pista i.verde { background: var(--verde); } .dir-metro .pista i.rosso { background: var(--rosso); }
+.dir-metro .tacca { position: absolute; top: -6px; bottom: -6px; width: 3px; margin-left: -1.5px; background: var(--testo); border-radius: 2px; }
+.dir-metro .tacca span { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--testo2); white-space: nowrap; margin-top: 3px; }
+
+/* ---- fatturato dell'esercizio: tre cifre senza barre, solo i numeri */
+.dir-tre.senza-barre .val { margin-bottom: 8px; }
+/* sotto le cifre, il fatturato mese per mese: una colonna per mese, base comune, sommità arrotondata */
+.dir-mesi { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; align-items: end; padding-top: 34px; margin-top: auto; }
+.dir-mesi .colonna { height: 110px; display: flex; align-items: flex-end; border-bottom: 1px solid var(--bordo-forte); }
+.dir-mesi .colonna i { position: relative; display: block; width: 100%; min-height: 2px; background: var(--primario); border-radius: 4px 4px 0 0; transform-origin: center bottom; }
+.dir-mesi .mese:hover .colonna i { background: var(--primario2); }
+.dir-mesi .mese.senza .colonna i { background: transparent; min-height: 0; }
+.dir-mesi .colonna i span { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 3px; font-size: clamp(9px, 1.75cqw, 11.5px); letter-spacing: -.02em; font-style: normal; font-weight: 650; color: var(--testo); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dir-mesi .nome { text-align: center; font-size: 11px; color: var(--testo3); margin-top: 4px; }
+/* le colonne crescono dal basso insieme agli altri numeri */
+.dir.anima .dir-mesi .colonna i { animation: dir-sale 1.1s cubic-bezier(.2, .7, .2, 1) both; }
+.dir.anima .dir-mesi .colonna i span { animation: dir-appare .45s ease-out .75s both; }
+@keyframes dir-sale { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .dir.anima .dir-mesi .colonna i, .dir.anima .dir-mesi .colonna i span { animation: none; } }
+/* titolo del riquadro con, a destra, l'interruttore del periodo */
+.dir-card-testa { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.dir-card-testa h2 { margin: 0; }
+.dir-periodo { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--grigio-bg); }
+.dir-periodo button { border: 0; background: transparent; border-radius: 999px; padding: 5px 14px; font-size: 12.5px; color: var(--testo2); }
+.dir-periodo button:hover { color: var(--testo); background: transparent; }
+.dir-periodo button.attivo { background: var(--carta); color: var(--primario); font-weight: 650; box-shadow: var(--ombra); }
+.dir-periodo button:focus-visible { outline: 2px solid var(--primario2); outline-offset: 1px; }
+@media print { .dir-periodo button:not(.attivo) { display: none; } }
+/* ---- rientro bancario: tre cifre affiancate (rossa, verde, grigia), tre barre sulla stessa scala */
+.dir-tre { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+.dir-tre .voce { min-width: 0; padding: 0 20px; overflow: hidden; }
+.dir-tre .voce:first-child { padding-left: 0; }
+.dir-tre .voce:last-child { padding-right: 0; }
+.dir-tre .voce + .voce { border-left: 1px solid var(--bordo); }
+.dir-tre .et { overflow-wrap: anywhere; }
+/* la cifra è proporzionata al riquadro (cqw), non alla finestra: resta sempre dentro la sua colonna */
+.dir-tre .val { font-size: clamp(17px, 4.3cqw, 30px); font-weight: 700; letter-spacing: -.03em; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@container (max-width: 520px) {
+  /* riquadro stretto: anche richiesta ed effettiva vanno una sotto l'altra, come le voci del rientro,
+     così i due riquadri affiancati restano alti uguali senza vuoti in mezzo */
+  .dir-due { grid-template-columns: 1fr; gap: 18px; }
+  .dir-due .lato + .lato { border-left: 0; padding-left: 0; border-top: 1px solid var(--bordo); padding-top: 16px; }
+  .dir-tre { grid-template-columns: 1fr; gap: 18px; }
+  .dir-tre .voce, .dir-tre .voce:first-child, .dir-tre .voce:last-child { padding: 0; }
+  .dir-tre .voce + .voce { border-left: 0; border-top: 1px solid var(--bordo); padding-top: 16px; }
+  .dir-tre .val { font-size: 28px; }
+}
+.dir-tre .pista { height: 6px; border-radius: 3px; background: var(--grigio-bg); overflow: hidden; margin: 10px 0 8px; }
+.dir-tre .pista i { display: block; height: 100%; border-radius: 0 3px 3px 0; min-width: 2px; }
+.dir-tre .sub { font-size: 12px; color: var(--testo3); line-height: 1.4; }
+/* il richiesto è un dato, non una didascalia: sta su una riga sua, scuro e più grande, sopra il calcolo */
+.dir-tre .sub .richiesto { display: block; font-size: 15px; font-weight: 650; color: var(--testo); font-variant-numeric: tabular-nums; margin-bottom: 3px; }
+.dir-tre .rosso .val { color: var(--rosso); } .dir-tre .rosso .pista i { background: var(--rosso); }
+.dir-tre .verde .val { color: var(--verde); } .dir-tre .verde .pista i { background: var(--verde); }
+.dir-tre .grigio .val { color: var(--testo2); } .dir-tre .grigio .pista i { background: var(--testo3); }
+@media (max-width: 640px) {
+  .dir-due { grid-template-columns: 1fr; gap: 16px; } .dir-due .lato + .lato { border-left: 0; padding-left: 0; } }
+
+/* ---- risultato delle commesse: la cifra, poi una barra per commessa ai due lati dello zero */
+.dir-esito { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+.dir-esito .grande { font-size: clamp(32px, 3.2vw, 44px); font-weight: 700; letter-spacing: -.035em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.dir-esito .conta { font-size: 13px; color: var(--testo2); text-align: right; line-height: 1.5; }
+.dir-barre { display: grid; gap: 2px; }
+.dir-barre a { display: grid; grid-template-columns: minmax(70px, 130px) 1fr 104px; gap: 12px; align-items: center; color: var(--testo); padding: 5px 6px; margin: 0 -6px; border-radius: 6px; font-size: 13px; }
+.dir-barre a:hover { background: var(--primario-chiaro); text-decoration: none; }
+.dir-barre .cod { font-weight: 650; color: var(--primario); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dir-barre .asse { position: relative; height: 14px; }
+.dir-barre .asse .zero { position: absolute; top: -4px; bottom: -4px; width: 1px; background: var(--bordo-forte); }
+.dir-barre .asse i { position: absolute; top: 0; bottom: 0; min-width: 2px; }
+.dir-barre .asse i.pos { background: var(--verde); border-radius: 0 4px 4px 0; }
+.dir-barre .asse i.neg { background: var(--rosso); border-radius: 4px 0 0 4px; }
+.dir-barre .v { text-align: right; font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; }
+.dir-nessuna { color: var(--testo3); margin: 0; }
+.dir-card .azione { margin-top: auto; padding-top: 18px; }
+.dir-card .dir-nota + .azione { margin-top: 0; padding-top: 12px; }
+.dir-card .azione button { border-radius: 999px; padding: 7px 16px; border-color: var(--primario2); color: var(--primario2); font-weight: 600; }
+.dir-card .azione button:hover { background: var(--primario-chiaro); }
+.dir-card .azione button.attivo { background: var(--primario2); color: #fff; }
+
+/* ---- elenco */
+.dir-elenco h2 { margin-top: 28px; }
+.dir-filtri { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 12px; }
+.dir-filtri button { border-radius: 999px; padding: 5px 14px; font-size: 13px; }
+.dir-filtri button b { font-variant-numeric: tabular-nums; opacity: .75; margin-left: 2px; }
+.dir-filtri button.attivo { background: var(--primario); border-color: var(--primario); color: #fff; }
+.dir-filtri .conta { margin-left: auto; font-size: 12.5px; color: var(--testo2); }
+.dir .tabella-wrap { border-radius: 14px; box-shadow: none; }
+@media (prefers-reduced-motion: reduce) { .dir-torta .fetta, .dir-torta .fetta path, .dir-torta .fetta circle { transition: none; }
+  .dir-torta.anima .giro, .dir-torta.anima .num, .dir-torta.anima .tot, .dir-torta.anima .tot-et,
+  .dir.anima .dir-metro .pista i, .dir.anima .dir-tre .pista i, .dir.anima .dir-barre .asse i, .dir-card.anima .dir-tre .pista i { animation: none; } }
+@media print { .dir-filtri, .dir-card .azione { display: none; } .dir-fascia { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }

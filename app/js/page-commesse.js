@@ -4,7 +4,7 @@
   const esc = UI.esc;
   const F = { testo: '', stato: '', tecnico: '', definite: false, annullate: false };
   const CAMPI_ANAGRAFICA = ['dataInserimento', 'codice', 'cliente', 'cantiere', 'indirizzo', 'ramo', 'tecnico', 'preposto', 'dataInizioPrevista', 'dataInizioEffettiva',
-    'dataFinePrevista', 'dataFineEffettiva', 'dataFinePrevistaOriginale', 'stato', 'ritenutePreviste', 'contrattoIniziale', 'integrazioni', 'causaAggiornamentoDataFine', 'note'];
+    'dataFinePrevista', 'dataFineEffettiva', 'dataFinePrevistaOriginale', 'stato', 'ritenutePreviste', 'contrattoIniziale', 'integrazioni', 'integrazioniRiferimento', 'causaAggiornamentoDataFine', 'note'];
 
   const Commesse = {
     opzioniSelect(conTutte) {
@@ -46,6 +46,7 @@
         UI.campo({ nome: 'contrattoIniziale', etichetta: 'Contratto iniziale (€)', tipo: 'euro' }, c.contrattoIniziale) +
         UI.campo({ nome: 'integrazioni', etichetta: 'Integrazioni / varianti (€)', tipo: 'euro' }, c.integrazioni) +
         UI.campo({ nome: 'contrattoAggiornato', etichetta: 'Contratto aggiornato (€)', tipo: 'sola', html: Fmt.euro(Engine.contrattoAggiornato(c)) }) +
+        UI.campo({ nome: 'integrazioniRiferimento', etichetta: 'Riferimento documentale delle integrazioni', classe: 'largo', placeholder: 'integrazione contrattuale n. … del …', aiuto: 'Obbligatorio quando ci sono integrazioni: senza il documento che le giustifica la commessa va in alert CRITICO.' }, c.integrazioniRiferimento) +
         '</div></fieldset>' +
         '<fieldset><legend>Note</legend>' + UI.campo({ nome: 'note', etichetta: 'Note anagrafiche', tipo: 'textarea', classe: 'largo' }, c.note) + '</fieldset>' +
         '</form>';
@@ -97,31 +98,74 @@
       });
     },
 
-    // Eliminazione (solo senza registrazioni collegate) o annullamento
+    // Registrazioni che appartengono a una commessa e che spariscono con lei.
+    collegati(id) {
+      const db = Store.db, n = l => l.filter(x => x.commessaId === id).length;
+      const c = { movimenti: n(db.movimenti), costi: n(db.costi), saldi: n(db.saldi), fasi: n(db.fasi) };
+      c.totale = c.movimenti + c.costi + c.saldi + c.fasi;
+      return c;
+    },
+    // Toglie dall'archivio la commessa con tutto ciò che le appartiene. I preventivi da cui è nata restano,
+    // ma tornano liberi: puntare a una commessa che non esiste più romperebbe l'integrità dell'archivio.
+    _rimuovi(db, id) {
+      const cur = db.commesse.find(x => x.id === id);
+      if (!cur) throw new Error('Commessa non più presente.');
+      const tolti = {};
+      ['movimenti', 'costi', 'saldi', 'fasi'].forEach(k => {
+        tolti[k] = db[k].filter(x => x.commessaId === id).length;
+        db[k] = db[k].filter(x => x.commessaId !== id);
+      });
+      db.preventivi.forEach(p => { if (p.commessaId === id) { p.commessaId = ''; p.convertitoIl = ''; p.convertitoDa = ''; } });
+      db.commesse = db.commesse.filter(x => x.id !== id);
+      Store.log(db, 'commessa', id, cur.codice, 'ELIMINAZIONE', Store.diff(cur, {}, CAMPI_ANAGRAFICA).concat(
+        Object.keys(tolti).filter(k => tolti[k]).map(k => ({ campo: k, prima: tolti[k] + ' registrazioni', dopo: 'eliminate' }))));
+    },
+
+    // Una commessa si può ANNULLARE (sparisce da elenchi e dashboard ma resta nello storico, si può
+    // ripristinare) oppure ELIMINARE davvero, insieme alle sue registrazioni. Fino alla Rev.5 una commessa
+    // con registrazioni si poteva solo annullare, e una annullata non si poteva più togliere: restava
+    // nell'archivio e ricompariva con "mostra le annullate", dando l'idea che l'eliminazione non funzionasse.
     async elimina(id) {
       if (!Store.puo('commessa.elimina')) return UI.permessoNegato();
       const c = Store.commessa(id); if (!c) return;
-      const collegati = Store.db.movimenti.filter(m => m.commessaId === id).length + Store.db.costi.filter(k => k.commessaId === id).length + Store.db.saldi.filter(s => s.commessaId === id).length + Store.db.fasi.filter(f => f.commessaId === id).length;
-      if (collegati > 0) {
-        const ok = await UI.conferma({
-          titolo: 'Annulla commessa ' + c.codice, pericolo: true, testoConferma: 'Annulla commessa', richiediTesto: c.codice,
-          html: 'La commessa ha <b>' + collegati + '</b> registrazioni collegate (movimenti, costi, saldi o fasi del Gantt) e non può essere eliminata definitivamente.<br>' +
-            'Può essere <b>annullata</b>: sparisce da elenchi e dashboard, ma resta nello storico con le sue registrazioni.'
-        });
-        if (!ok) return;
-        await Store.salva(db => {
-          const cur = db.commesse.find(x => x.id === id); cur.annullato = true; cur.annullatoIl = new Date().toISOString();
-          Store.log(db, 'commessa', id, cur.codice, 'ANNULLAMENTO COMMESSA', [{ campo: 'annullato', prima: false, dopo: true }]);
-        });
-        UI.toast('Commessa annullata.'); UI.vai('#/commesse'); return;
-      }
-      const ok = await UI.conferma({ titolo: 'Elimina commessa ' + c.codice, pericolo: true, testoConferma: 'Elimina definitivamente', richiediTesto: c.codice, html: 'La commessa non ha registrazioni collegate e verrà <b>eliminata definitivamente</b> dall\'Anagrafica. L\'operazione resta tracciata nel registro.' });
-      if (!ok) return;
-      await Store.salva(db => {
-        db.commesse = db.commesse.filter(x => x.id !== id);
-        Store.log(db, 'commessa', id, c.codice, 'ELIMINAZIONE', Store.diff(c, {}, CAMPI_ANAGRAFICA));
+      const n = Commesse.collegati(id);
+      const elenco = [['movimenti', n.movimenti], ['costi diretti', n.costi], ['saldi', n.saldi], ['fasi del Gantt', n.fasi]].filter(x => x[1]).map(x => x[1] + ' ' + x[0]).join(', ');
+      const codice = String(c.codice || '').trim();
+      // il codice si confronta senza badare a maiuscole e spazi: un codice importato in minuscolo o con uno
+      // spazio in coda non deve rendere impossibile la conferma
+      const uguale = v => String(v || '').trim().toUpperCase() === codice.toUpperCase();
+      const corpo = '<p>Commessa <b>' + esc(Engine.etichetta(c)) + '</b>' + (c.annullato ? ' <span class="badge neutro">già annullata</span>' : '') + '</p>' +
+        (n.totale ? '<div class="msg avviso">Ha <b>' + n.totale + '</b> registrazioni collegate: ' + esc(elenco) + '.</div>' : '<div class="msg info">Non ha registrazioni collegate.</div>') +
+        '<ul class="sotto" style="margin:8px 0 12px 18px">' +
+        (c.annullato ? '' : '<li><b>Annulla</b>: sparisce da elenchi e dashboard, resta nello storico con le sue registrazioni e si può ripristinare.</li>') +
+        '<li><b>Elimina definitivamente</b>: la commessa' + (n.totale ? ' e le sue ' + n.totale + ' registrazioni vengono tolte' : ' viene tolta') + ' dall\'archivio. Non si può tornare indietro; resta solo la riga nel registro modifiche.</li></ul>' +
+        '<div class="campo"><label>Per confermare digita il codice: <b>' + esc(codice) + '</b></label><input type="text" class="in" id="del-conf" autocomplete="off"></div>';
+      const controlla = m => {
+        if (uguale(m.el.querySelector('#del-conf').value)) return true;
+        m.msg('<div class="msg errore">Il codice digitato non corrisponde a ' + esc(codice) + '.</div>');
+        return false;
+      };
+      UI.modale({
+        titolo: 'Elimina o annulla la commessa ' + codice, corpo, stretta: true,
+        pulsanti: (c.annullato ? [] : [{
+          testo: 'Annulla commessa', async azione(m) {
+            if (!controlla(m)) return;
+            await Store.salva(db => {
+              const cur = db.commesse.find(x => x.id === id);
+              if (!cur) throw new Error('Commessa non più presente.');
+              cur.annullato = true; cur.annullatoIl = new Date().toISOString();
+              Store.log(db, 'commessa', id, cur.codice, 'ANNULLAMENTO COMMESSA', [{ campo: 'annullato', prima: false, dopo: true }]);
+            });
+            m.chiudi(); UI.toast('Commessa annullata.'); UI.vai('#/commesse');
+          }
+        }]).concat([{
+          testo: 'Elimina definitivamente', classe: 'pericolo', async azione(m) {
+            if (!controlla(m)) return;
+            await Store.salva(db => Commesse._rimuovi(db, id));
+            m.chiudi(); UI.toast('Commessa eliminata' + (n.totale ? ' con ' + n.totale + ' registrazioni collegate.' : '.')); UI.vai('#/commesse');
+          }
+        }])
       });
-      UI.toast('Commessa eliminata.'); UI.vai('#/commesse');
     },
     async ripristina(id) {
       if (!Store.puo('commessa.elimina')) return UI.permessoNegato();
@@ -151,7 +195,7 @@
 
     const colonne = [
       // il pulsante "Apri" sta nella prima colonna, accanto al codice della commessa
-      { campo: 'azioni', titolo: '', ord: false, classe: 'azioni-riga', fmt: (v, r) => r.annullato ? (Store.puo('commessa.elimina') ? '<button type="button" data-azione="ripristina" data-id="' + esc(r.id) + '">Ripristina</button>' : '') : '<a class="btn piccolo" href="#/commessa/' + esc(r.id) + '">Apri</a>' },
+      { campo: 'azioni', titolo: '', ord: false, classe: 'azioni-riga', fmt: (v, r) => r.annullato ? (Store.puo('commessa.elimina') ? '<button type="button" data-azione="ripristina" data-id="' + esc(r.id) + '">Ripristina</button><button type="button" class="pericolo" data-azione="elimina" data-id="' + esc(r.id) + '">Elimina</button>' : '') : '<a class="btn piccolo" href="#/commessa/' + esc(r.id) + '">Apri</a>' },
       { campo: 'alert', titolo: 'Allerta', fmt: (v, r) => r.definita ? '<span class="badge neutro">definita ' + esc(r.chiusuraDefinitiva.anno) + '</span>' : UI.badgeAlert(v) },
       { campo: 'codice', titolo: 'Codice', fmt: (v, r) => r.annullato ? '<span class="cod">' + esc(v) + '</span>' : UI.linkCommessa(r) },
       { campo: 'cliente', titolo: 'Cliente' },
@@ -174,7 +218,7 @@
       if (F.annullate) r = r.concat(annullate.map(c => Object.assign({ annullato: true, alert: '', motivi: [], contrattoAggiornato: Engine.contrattoAggiornato(c) }, c)));
       document.getElementById('com-conta').textContent = r.length + ' commesse visibili su ' + rows.length + (F.definite ? ' operative + ' + definite.length + ' definite' : ' operative');
       const t = document.getElementById('com-tab');
-      t.innerHTML = UI.tabella('commesse', { colonne, righe: r, chiave: 'id', ordine: { campo: 'codice', dir: 'asc' }, classeRiga: x => x.annullato ? 'annullato' : (x.definita ? 'muto' : ''), onRiga: id => { const c = Store.commessa(id); if (c && !c.annullato) UI.vai('#/commessa/' + id); }, onAzione: (az, id) => { if (az === 'ripristina') Commesse.ripristina(id); } });
+      t.innerHTML = UI.tabella('commesse', { colonne, righe: r, chiave: 'id', ordine: { campo: 'codice', dir: 'asc' }, classeRiga: x => x.annullato ? 'annullato' : (x.definita ? 'muto' : ''), onRiga: id => { const c = Store.commessa(id); if (c && !c.annullato) UI.vai('#/commessa/' + id); }, onAzione: (az, id) => { if (az === 'ripristina') Commesse.ripristina(id); else if (az === 'elimina') Commesse.elimina(id); } });
       UI.legaTabelle(t);
     }
     const fil = document.getElementById('com-filtri');

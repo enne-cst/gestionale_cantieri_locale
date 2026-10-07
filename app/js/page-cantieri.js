@@ -69,7 +69,7 @@
       '<div class="griglia-2"><div class="pannello" id="cant-mese"></div><div class="pannello" id="cant-alert"></div></div>' +
       '<div class="pannello compatto"><div class="filtri" id="cant-filtri">' +
       '<div class="campo largo"><label>Ricerca</label><input type="search" class="in" name="testo" value="' + esc(F.testo) + '" placeholder="codice, cliente, cantiere, tecnico, preposto"></div>' +
-      '<div class="campo"><label>Allerta</label><select class="in" name="alert"><option value="">Tutte</option><option value="CRITICO"' + (F.alert === 'CRITICO' ? ' selected' : '') + '>Critico</option><option value="ATTENZIONE"' + (F.alert === 'ATTENZIONE' ? ' selected' : '') + '>Attenzione</option><option value="REGOLARE"' + (F.alert === 'REGOLARE' ? ' selected' : '') + '>Regolare</option></select></div>' +
+      '<div class="campo"><label>Allerta</label><select class="in" name="alert"><option value="">Tutte</option><option value="CRITICO"' + (F.alert === 'CRITICO' ? ' selected' : '') + '>Critico</option><option value="ATTENZIONE"' + (F.alert === 'ATTENZIONE' ? ' selected' : '') + '>Attenzione</option><option value="INCOMPLETO"' + (F.alert === 'INCOMPLETO' ? ' selected' : '') + '>Incompleto</option><option value="REGOLARE"' + (F.alert === 'REGOLARE' ? ' selected' : '') + '>Regolare</option></select></div>' +
       '<div class="campo"><label>Stato</label><label style="text-transform:none;font-size:13px;margin-top:6px"><input type="checkbox" name="soloAperte"' + (F.soloAperte ? ' checked' : '') + '> solo non finite</label></div></div></div>' +
       UI.legenda() + '<div id="cant-tab"></div>';
 
@@ -94,7 +94,7 @@
       { campo: 'scostOre', titolo: '% ore / % SAL / scostamento', classe: 'calc', fmt: (v, r) => Cantieri.oreSalHtml(r) },
       { campo: 'costiSforamento', titolo: 'Costi diretti', classe: 'calc', fmt: (v, r) => Cantieri.costiHtml(r) },
       { campo: 'costoEffettivo', titolo: 'Costo effettivo cumulato', tipo: 'n', classe: 'calc', fmt: v => Fmt.euro(v) },
-      { campo: 'perditeCum', titolo: 'Perdite SAL', tipo: 'n', classe: 'calc', fmt: v => Fmt.euro(v, { zeroVuoto: true }) },
+      { campo: 'perditeCum', titolo: 'Perdite SAL', tipo: 'n', classe: 'calc', fmt: v => v > 0 ? '<span class="perdita">' + Fmt.euro(v) + '</span>' : Fmt.euro(v, { zeroVuoto: true }) },
       { campo: 'valoreRecuperabile', titolo: 'Valore recuperabile', tipo: 'n', classe: 'calc', fmt: v => Fmt.euro(v) },
       { campo: 'noteAzione', titolo: 'Note / Azione', classe: 'desc in', fmt: (v, r) => esc(v || '') + ((Store.puo('noteAzione') || Store.puo('aggiornatoAl')) ? ' <button type="button" class="piccolo" data-azione="note" data-id="' + esc(r.id) + '">✎</button>' : '') },
       { campo: 'aggiornatoAl', titolo: 'Aggiornato al', classe: 'in nowrap', fmt: v => v ? Fmt.data(v) : '<span style="color:var(--rosso)">mancante</span>' }
@@ -109,16 +109,16 @@
         kp('Contratto aggiornato', Fmt.euro(k.contrattoAggiornato)) + kp('Perdite SAL accettate', Fmt.euro(k.perditeCum), { colore: k.perditeCum > 0 ? 'rosso' : '' }) + kp('Valore recuperabile', Fmt.euro(k.valoreRecuperabile)) +
         kp('SAL maturato', Fmt.euro(k.salCum)) + kp('Fatturato lordo', Fmt.euro(k.fattCum)) + kp('SAL non fatturato', Fmt.euro(k.salNonFatturato), { colore: k.salNonFatturato > 0 ? 'giallo' : '' }) + kp('Residuo lavori effettivo', Fmt.euro(k.residuoLavori)) +
         '</div><div class="kpi-griglia">' +
-        kp('Residuo da fatturare', Fmt.euro(k.residuoDaFatturare)) + kp('Fatturato oltre recuperabile', Fmt.euro(k.fatturatoOltreRecuperabile), { colore: k.fatturatoOltreRecuperabile > 0 ? 'rosso' : '' }) + kp('Ritenute da sbloccare', Fmt.euro(k.ritenuteDaSbloccare), { colore: k.ritenuteDaSbloccare > 0 ? 'giallo' : '' }) +
+        kp('Residuo da fatturare', Fmt.euro(k.residuoDaFatturare)) + kp('Fatturato oltre recuperabile', Fmt.euro(k.fatturatoOltreRecuperabile), { colore: k.fatturatoOltreRecuperabile > 0 ? 'giallo' : '' }) + kp('Ritenute da sbloccare', Fmt.euro(k.ritenuteDaSbloccare), { colore: k.ritenuteDaSbloccare > 0 ? 'giallo' : '' }) +
         kp('Costo effettivo cumulato', Fmt.euro(k.costoEffettivo)) +
         (uno ? kp('Stato / allerta', UI.badgeAlert(uno.alert) + ' <span class="piccolo">' + esc(uno.stato) + '</span>', { calc: false }) : kp('Portafoglio complessivo', k.n + ' commesse', { calc: false })) +
         kp('Aggiornato al', Fmt.data(uno ? uno.aggiornatoAl : k.aggiornatoAlMax), { sub: uno ? '' : 'data più recente' }) +
-        kp('Cantieri critici', k.critiche, { colore: k.critiche ? 'rosso' : 'verde', calc: false }) + kp('Cantieri in attenzione', k.attenzione, { colore: k.attenzione ? 'giallo' : 'verde', calc: false }) + '</div>';
+        kp('Cantieri critici', k.critiche, { colore: k.critiche ? 'rosso' : 'verde', calc: false }) + kp('Cantieri in attenzione', k.attenzione, { colore: k.attenzione ? 'giallo' : 'verde', calc: false }) + kp('Cantieri incompleti', k.incomplete, { colore: k.incomplete ? 'bluette' : '', calc: false }) + '</div>';
       const cm = Engine.costoMensile(Store.db, D.commessaId || null);
       document.getElementById('cant-mese').innerHTML = '<h2>Costo mensile ' + esc(P.annoGestione) + (uno ? ' – ' + esc(uno.codice) : ' – tutte le commesse') + '</h2><p class="sotto">Ore del mese × ' + Fmt.euro(P.costoOrario) + '/h + costi diretti del mese (solo esercizio corrente).</p>' +
         '<div class="tabella-wrap"><table class="tab"><thead><tr><th>Mese</th><th class="n">Ore</th><th class="n">Costi diretti</th><th class="n">Costo mese</th><th class="n">Costo cumulato</th></tr></thead><tbody>' +
         cm.map(r => '<tr><td>' + r.nome + '</td><td class="n">' + Fmt.ore(r.ore, { zeroVuoto: true }) + '</td><td class="n">' + Fmt.euro(r.costiDiretti, { zeroVuoto: true }) + '</td><td class="n calc">' + Fmt.euro(r.costoMese, { zeroVuoto: true }) + '</td><td class="n calc">' + Fmt.euro(r.cumulato) + '</td></tr>').join('') + '</tbody></table></div>';
-      const conAlert = sel.filter(r => r.alert !== 'REGOLARE').sort((a, b) => (a.alert === 'CRITICO' ? 0 : 1) - (b.alert === 'CRITICO' ? 0 : 1));
+      const conAlert = sel.filter(r => r.alert !== 'REGOLARE').sort((a, b) => Engine.LIVELLI_ALERT.indexOf(a.alert) - Engine.LIVELLI_ALERT.indexOf(b.alert));
       document.getElementById('cant-alert').innerHTML = '<h2>Commesse che richiedono attenzione</h2>' + (conAlert.length ? '<div class="tabella-wrap"><table class="tab"><tbody>' +
         conAlert.map(r => '<tr><td>' + UI.badgeAlert(r.alert) + '</td><td>' + UI.linkCommessa(r) + '<div class="piccolo muto">' + esc(r.cliente) + '</div></td><td>' + UI.motiviHtml(r) + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="vuoto">Nessuna commessa con alert nella selezione.</div>');
     }

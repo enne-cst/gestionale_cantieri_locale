@@ -38,6 +38,15 @@
     sogliaSalNonFatturato: 0.05,
     annoGestione: 2026,
     giorniAggiornamentoRecente: 30,
+    // Soglie degli alert CRITICI, impostabili dall'azienda (Parametri). Sotto la soglia lo stesso
+    // problema resta un alert di ATTENZIONE.
+    sogliaErroreAcquisizione: 0.05,   // prezzo venduto sotto il prezzo minimo sostenibile oltre questa quota
+    sogliaOreOltrePreviste: 0.10,     // ore segnate oltre quelle previste
+    sogliaCostiOltrePrevisti: 0.10,   // costi diretti segnati oltre quelli previsti
+    sogliaPerditeAccettate: 0.05,     // perdite SAL accettate sul prezzo di vendita (contratto aggiornato)
+    // Dashboard direzionale: rientro bancario desiderato nell'anno, in euro. Vuoto = ricavato dalle ore
+    // previste del portafoglio × rientro bancario per ora.
+    obiettivoRientroAnnuo: null,
     // Verifica di sostenibilità economica della commessa (modello "Analisi semplificata").
     // Il costo strutturale orario resta quello già definito sopra (costoOrario): una sola fonte per tutta l'app.
     rischioStrutturale: 0.03,
@@ -74,6 +83,10 @@
   ];
 
   const GRUPPI_STRUTTURALI = ['COSTI DIRETTI/INDIRETTI', 'SPESE GENERALI'];
+
+  // Livelli di alert, dal più grave: la commessa prende il livello del suo motivo più grave.
+  // INCOMPLETO = mancano dati; non è un giudizio sull'andamento della commessa.
+  const LIVELLI_ALERT = ['CRITICO', 'ATTENZIONE', 'INCOMPLETO', 'REGOLARE'];
 
   // Esiti possibili della verifica di sostenibilità, nella stessa gerarchia del modello
   const ESITI_SOSTENIBILITA = ['CONGRUA', 'NON CONGRUA', 'NON CONGRUO', 'DA COMPLETARE'];
@@ -160,10 +173,18 @@
   function indicizza(db) {
     const anno = db.parametri.annoGestione;
     const idx = {};
-    const get = id => (idx[id] || (idx[id] = { saldo: null, movimenti: [], costi: [] }));
+    const get = id => (idx[id] || (idx[id] = { saldo: null, movimenti: [], costi: [], fasi: [], orePerFase: {} }));
     attivi(db.saldi).forEach(s => { if (s.anno === anno) get(s.commessaId).saldo = s; });
     attivi(db.movimenti).forEach(m => { if (annoDi(m.data) === anno) get(m.commessaId).movimenti.push(m); });
     attivi(db.costi).forEach(k => { if (annoDi(k.data) === anno) get(k.commessaId).costi.push(k); });
+    // Cronoprogramma: le ore di una fase si contano su tutti gli anni, perché il saldo iniziale porta
+    // le ore degli anni passati in un solo numero e non sa a quale fase appartenevano.
+    (db.fasi || []).forEach(f => { get(f.commessaId).fasi.push(f); });
+    attivi(db.movimenti).forEach(m => {
+      if (!m.faseId || !num(m.ore)) return;
+      const o = get(m.commessaId).orePerFase;
+      o[m.faseId] = (o[m.faseId] || 0) + num(m.ore);
+    });
     return idx;
   }
   // opz.senzaSaldi: il saldo iniziale non entra nei cumulativi. Serve a leggere la commessa come se
@@ -191,6 +212,35 @@
       saldo, periodo, cumulato, hasSaldo: !!a.saldo,
       senzaSaldi, saldoEscluso: (senzaSaldi && a.saldo) ? saldoReale : null,
       nMovimenti: a.movimenti.length, nCosti: a.costi.length
+    };
+  }
+
+  // Ore del cronoprogramma (Gantt): per ogni fase le ore previste, gli uomini e le ore effettive, cioè
+  // quelle dei movimenti attribuiti alla fase. Serve a capire in quale fase il cantiere ha sforato.
+  function oreFasi(db, commessaId, idx) {
+    const a = (idx || indicizza(db))[commessaId] || { fasi: [], orePerFase: {} };
+    const righe = (a.fasi || []).map(f => {
+      // fase in subappalto: le ore sono del subappaltatore e non si controllano, qualunque cosa sia scritta
+      const subappalto = f.esecutore === 'subappalto';
+      const previste = (!subappalto && has(f.orePreviste)) ? num(f.orePreviste) : null;
+      const effettive = num((a.orePerFase || {})[f.id]);
+      return {
+        id: f.id, fase: f.fase || '', uomini: (!subappalto && has(f.uomini)) ? num(f.uomini) : null,
+        subappalto, subappaltatore: subappalto ? (f.subappaltatore || '') : '',
+        previste, effettive,
+        scostamento: previste === null ? null : effettive - previste,
+        pct: (previste === null || previste <= 0) ? null : effettive / previste,
+        oltre: previste !== null && effettive > previste + 1e-9
+      };
+    });
+    const conOre = righe.filter(r => r.previste !== null);
+    const attribuite = righe.reduce((t, r) => t + r.effettive, 0);
+    const nSubappalto = righe.filter(r => r.subappalto).length;
+    return {
+      // nFasi = fasi eseguite dall'azienda, le sole di cui si contano le ore
+      righe, nFasi: righe.length - nSubappalto, nSubappalto, nConOre: conOre.length,
+      previste: conOre.length ? conOre.reduce((t, r) => t + r.previste, 0) : null,
+      attribuite, oltre: righe.filter(r => r.oltre)
     };
   }
 
@@ -307,91 +357,124 @@
     const codiceTemp = String(c.codice || '').toUpperCase().slice(0, 4) === 'TEMP';
     const soglia = num(P.sogliaSalNonFatturato);
 
-    // ---- severità
-    const critico =
-      (fatturatoOltreRecuperabile !== null && fatturatoOltreRecuperabile > 0) ||
-      (contratto !== null && perditeCum > contratto) ||
-      (giorniRitardo !== null && giorniRitardo > 0) ||
-      (scostTempo !== null && scostTempo < -num(P.scartoTempoCritico)) ||
-      (orePct !== null && orePct >= 1) ||
-      (scostOre !== null && scostOre > num(P.scartoOreCritico)) ||
-      costiSforamento > 0;
-    const attenzione =
-      contratto === null || codiceTemp || dI === null || dJ === null || dY === null ||
-      (finito && !has(c.dataFineEffettiva)) ||
-      dataFineIncompleta ||
-      (scostTempo !== null && scostTempo < -num(P.scartoTempoAttenzione)) ||
-      (scostOre !== null && scostOre > num(P.scartoOreAttenzione)) ||
-      (valoreRecuperabile > 0 && salNonFatturato > valoreRecuperabile * soglia) ||
-      (ritenuteDaSbloccare > 0 && finito) ||
-      (salCum > 0 && costiBudget > 0 && costiSostenuti === 0) ||
-      (finito && valoreRecuperabile > 0 && residuoLavori > valoreRecuperabile * soglia) ||
-      perditeCum > 0;
-    // Una commessa DEFINITA è chiusa e archiviata: non produce più allerte né note operative.
-    // Senza saldo iniziale i suoi cumulativi sono a zero e ogni indicatore risulterebbe falsato.
-    const alert = definita ? 'REGOLARE' : (critico ? 'CRITICO' : (attenzione ? 'ATTENZIONE' : 'REGOLARE'));
+    // ---- risultato economico
+    // Utile maturato: quello della colonna "Maturato" del conto della commessa.
+    const utileMaturato = fattCum - perditeCum - costiSostenuti - costoOreEffettive;
+    // Utile a finire: quanto resterà a commessa conclusa. Ore e costi a finire non possono essere meno
+    // di quelli già consumati: se il budget è già superato, vale il consumato.
+    const oreAFinire = Math.max(oreBudget, oreUsate);
+    const costiAFinire = Math.max(costiBudget, costiSostenuti);
+    const utileAFinire = (valoreRecuperabile === null || !hasOreBudget || !hasCostiBudget) ? null
+      : valoreRecuperabile - costiAFinire - oreAFinire * costoOrario;
+    // La commessa ha una storia (movimenti, costi o un saldo iniziale)? Senza, gli indicatori di
+    // avanzamento non dicono nulla: una commessa appena inserita in Anagrafica non è in ritardo.
+    const hasDati = agg.nMovimenti > 0 || agg.nCosti > 0 || agg.hasSaldo;
 
-    // ---- motivi (stesso ordine della Rev.14)
-    const motivi = [];
-    if (fatturatoOltreRecuperabile !== null && fatturatoOltreRecuperabile > 0) motivi.push('FATTURATO OLTRE VALORE RECUPERABILE');
-    if (contratto !== null && perditeCum > contratto) motivi.push('PERDITE ACCETTATE OLTRE CONTRATTO');
-    if (perditeCum > 0) motivi.push('PERDITA SAL ACCETTATA (€ ' + fmtEuroSemplice(perditeCum) + ')');
-    if (giorniRitardo !== null && giorniRitardo > 0) motivi.push('RITARDO PRODUTTIVO (' + Math.round(giorniRitardo) + ' GG)');
-    if (scostTempo !== null && scostTempo < -num(P.scartoTempoAttenzione)) motivi.push('AVANZAMENTO PIÙ LENTO DEL TEMPO');
-    if (orePct !== null && orePct > 1) motivi.push('ORE OLTRE BUDGET');
-    if (orePct !== null && orePct === 1) motivi.push('ORE PREVENTIVATE ESAURITE');
-    if (scostOre !== null && scostOre > num(P.scartoOreAttenzione)) motivi.push("CONSUMO ORE SUPERIORE ALL'AVANZAMENTO");
-    if (costiSforamento > 0) motivi.push('COSTI DIRETTI OLTRE BUDGET');
-    if (valoreRecuperabile > 0 && salNonFatturato > valoreRecuperabile * soglia) motivi.push('SAL MATURATO NON FATTURATO');
-    if (ritenuteDaSbloccare > 0 && finito) motivi.push('RITENUTE DA SBLOCCARE');
-    if (salCum > 0 && costiBudget > 0 && costiSostenuti === 0) motivi.push('COSTI DIRETTI NON REGISTRATI');
-    if (finito && valoreRecuperabile > 0 && residuoLavori > valoreRecuperabile * soglia) motivi.push('CANTIERE FINITO CON RESIDUO LAVORI');
-    if (finito && !has(c.dataFineEffettiva)) motivi.push('DATA FINE EFFETTIVA MANCANTE');
-    if (dataFineIncompleta) motivi.push('GESTIONE DATA FINE INCOMPLETA');
-    if (dY === null) motivi.push('AGGIORNATO AL MANCANTE');
-    if (contratto === null || dI === null || dJ === null) motivi.push('DATI PREVISIONALI INCOMPLETI');
-    if (codiceTemp) motivi.push('CODICE COMMESSA TEMPORANEO');
-
-    // ---- dettaglio dei motivi per l'interfaccia: i codici (motivi) restano quelli del foglio CANTIERI Rev.14;
-    // per i motivi di dati mancanti/incompleti si indica il campo interessato, il difetto e la maschera in cui correggerlo.
-    const q = s => '«' + s + '»';
-    const motiviDettaglio = motivi.map(m => {
-      const d = { motivo: m, testo: m, campi: [], form: null };
-      if (m === 'AGGIORNATO AL MANCANTE') {
-        d.testo = 'Campo ' + q('Aggiornato al') + ' non compilato: senza questa data non si calcolano avanzamento temporale e ritardo';
-        d.campi = ['aggiornatoAl']; d.form = 'note';
-      } else if (m === 'DATI PREVISIONALI INCOMPLETI') {
-        const manca = [];
-        if (contratto === null) manca.push(['contrattoIniziale', 'Contratto iniziale']);
-        if (dI === null) manca.push(['dataInizioEffettiva', 'Data di inizio effettivo']);
-        if (dJ === null) manca.push(['dataFinePrevista', 'Data di fine prevista']);
-        d.testo = 'Dati previsionali incompleti: ' + (manca.length === 1 ? 'campo ' : 'campi ') + manca.map(x => q(x[1])).join(', ') + ' non compilat' + (manca.length === 1 ? 'o' : 'i');
-        d.campi = manca.map(x => x[0]); d.form = 'anagrafica';
-      } else if (m === 'DATA FINE EFFETTIVA MANCANTE') {
-        d.testo = 'Commessa finita ma campo ' + q('Data di fine effettiva') + ' non compilato';
-        d.campi = ['dataFineEffettiva']; d.form = 'anagrafica';
-      } else if (m === 'GESTIONE DATA FINE INCOMPLETA') {
-        if (dJ === null) { d.testo = 'Campo ' + q('Data di fine prevista') + ' vuoto ma ' + q('Causa aggiornamento data fine') + ' indicata'; d.campi = ['dataFinePrevista']; }
-        else { d.testo = 'Campo ' + q('Data di fine prevista') + ' modificato rispetto all\'originaria ma ' + q('Causa aggiornamento data fine') + ' non indicata'; d.campi = ['causaAggiornamentoDataFine']; }
-        d.form = 'anagrafica';
-      } else if (m === 'CODICE COMMESSA TEMPORANEO') {
-        d.testo = 'Campo ' + q('Codice commessa') + ' temporaneo (inizia con TEMP): da sostituire con il codice definitivo';
-        d.campi = ['codice']; d.form = 'anagrafica';
-      }
-      return d;
-    });
-
-    // ---- note informative (non incidono sulla severità, non presenti in Rev.14)
+    // le tre versioni della verifica di sostenibilità servono già qui: l'iniziale decide l'errore di acquisizione
     const sostenibilita = calcolaSostenibilita(c, db);                            // aggiornata (vigente): esito, allerte, elenchi
     const sostenibilitaIniziale = calcolaSostenibilita(c, db, 'iniziale');        // storico, sui dati iniziali
     const sostenibilitaConsuntivo = calcolaSostenibilita(c, db, 'consuntivo',     // situazione maturata
       { fatturato: fattCum, ore: oreUsate, costi: costiSostenuti });
+    const fasiOre = oreFasi(db, c.id, idx);
 
+    // ---- motivi di alert, ciascuno con il suo livello.
+    // CRITICO: solo i casi elencati qui sotto, con le soglie di Parametri. ATTENZIONE: tutti gli altri
+    // problemi di andamento. INCOMPLETO: dati mancanti.
+    const q = s => '«' + s + '»';
+    const E = v => (num(v) < 0 ? '−' : '') + '€ ' + fmtEuroSemplice(Math.abs(num(v)));
+    const Pz = v => fmtPctSemplice(v);
+    const M = [];
+    const segna = (livello, motivo, testo, extra) => M.push(Object.assign({ livello, motivo, testo: testo || motivo, campi: [], form: null }, extra || {}));
+
+    // 1-2. risultato economico
+    if (finito && hasDati && utileMaturato < 0)
+      segna('CRITICO', 'COMMESSA FINITA IN PERDITA', 'Commessa finita in perdita: utile maturato ' + E(utileMaturato));
+    if (!finito && utileAFinire !== null && utileAFinire < 0)
+      segna('CRITICO', 'COMMESSA IN PERDITA A FINIRE', 'Commessa in perdita a finire: utile previsto a commessa finita ' + E(utileAFinire));
+    // 3. errore di acquisizione: il prezzo venduto (contratto iniziale) sta sotto il prezzo minimo sostenibile
+    const sI = sostenibilitaIniziale;
+    if (sI.prezzoComputo !== null && sI.prezzoMinimo !== null && !sI.mancanti.length && sI.scostamentoPct !== null &&
+      sI.scostamentoPct < -num(P.sogliaErroreAcquisizione) - 1e-12)
+      segna('CRITICO', 'ERRORE DI ACQUISIZIONE', 'Errore di acquisizione: prezzo venduto ' + E(sI.prezzoComputo) + ' sotto il prezzo minimo sostenibile ' + E(sI.prezzoMinimo) + ' del ' + Pz(-sI.scostamentoPct) + ' (soglia ' + Pz(P.sogliaErroreAcquisizione) + ')');
+    // 4. SAL in ritardo rispetto alle ore segnate
+    if (scostOre !== null && scostOre > num(P.scartoOreCritico))
+      segna('CRITICO', 'SAL DA EMETTERE', 'SAL da emettere: ore consumate ' + Pz(orePct) + ' contro SAL ' + Pz(salPct) + ' (scarto oltre ' + Pz(P.scartoOreCritico) + ')');
+    else if (scostOre !== null && scostOre > num(P.scartoOreAttenzione))
+      segna('ATTENZIONE', "CONSUMO ORE SUPERIORE ALL'AVANZAMENTO", "Consumo ore superiore all'avanzamento: ore " + Pz(orePct) + ' contro SAL ' + Pz(salPct));
+    // 5. integrazioni senza riferimento documentale
+    if (num(c.integrazioni) !== 0 && !String(c.integrazioniRiferimento || '').trim())
+      segna('CRITICO', 'INTEGRAZIONI SENZA RIFERIMENTO DOCUMENTALE', 'Integrazioni di ' + E(num(c.integrazioni)) + ' senza riferimento documentale (integrazione contrattuale n. … del …)',
+        { campi: ['integrazioniRiferimento'], form: 'anagrafica' });
+    // 6. ore oltre le previste
+    if (orePct !== null && orePct > 1 + num(P.sogliaOreOltrePreviste) + 1e-12)
+      segna('CRITICO', 'ORE OLTRE IL PREVISTO', 'Ore segnate ' + fmtNumSemplice(oreUsate) + ' h contro ' + fmtNumSemplice(oreBudget) + ' h previste: +' + Pz(orePct - 1) + ' (soglia ' + Pz(P.sogliaOreOltrePreviste) + ')');
+    else if (orePct !== null && orePct > 1) segna('ATTENZIONE', 'ORE OLTRE BUDGET', 'Ore oltre il budget: +' + Pz(orePct - 1));
+    else if (orePct !== null && orePct === 1) segna('ATTENZIONE', 'ORE PREVENTIVATE ESAURITE', 'Ore preventivate esaurite');
+    // 7. costi diretti oltre i previsti (senza budget costi non si giudica: è un dato mancante)
+    if (hasCostiBudget && costiSforamento > 0) {
+      if (costiSostenuti > costiBudget * (1 + num(P.sogliaCostiOltrePrevisti)) + 1e-9)
+        segna('CRITICO', 'COSTI DIRETTI OLTRE IL PREVISTO', 'Costi diretti ' + E(costiSostenuti) + ' contro ' + E(costiBudget) + ' previsti' + (costiBudget > 0 ? ': +' + Pz(costiSforamento / costiBudget) : '') + ' (soglia ' + Pz(P.sogliaCostiOltrePrevisti) + ')');
+      else segna('ATTENZIONE', 'COSTI DIRETTI OLTRE BUDGET', 'Costi diretti oltre il budget di ' + E(costiSforamento));
+    }
+    // 8. perdite accettate sul prezzo di vendita
+    if (perditeCum > 0) {
+      if (contratto !== null && perditeCum > contratto * num(P.sogliaPerditeAccettate) + 1e-9)
+        segna('CRITICO', 'PERDITE ACCETTATE OLTRE SOGLIA', 'Perdite SAL accettate ' + E(perditeCum) + (contratto > 0 ? ': ' + Pz(perditeCum / contratto) + ' del prezzo di vendita' : '') + ' (soglia ' + Pz(P.sogliaPerditeAccettate) + ')');
+      else segna('ATTENZIONE', 'PERDITA SAL ACCETTATA (€ ' + fmtEuroSemplice(perditeCum) + ')', 'Perdita SAL accettata: ' + E(perditeCum));
+    }
+
+    // ---- attenzione: tutti gli altri problemi di andamento
+    if (fatturatoOltreRecuperabile !== null && fatturatoOltreRecuperabile > 0)
+      segna('ATTENZIONE', 'FATTURATO OLTRE VALORE RECUPERABILE', 'Fatturato oltre il valore recuperabile di ' + E(fatturatoOltreRecuperabile));
+    if (giorniRitardo !== null && giorniRitardo > 0) segna('ATTENZIONE', 'RITARDO PRODUTTIVO (' + Math.round(giorniRitardo) + ' GG)', 'Ritardo produttivo di ' + Math.round(giorniRitardo) + ' giorni');
+    // l'avanzamento contro il tempo si giudica solo su una commessa aperta che ha già una storia:
+    // su una finita il residuo lavori dice la stessa cosa, su una appena inserita non c'è nulla da giudicare
+    if (!finito && hasDati && scostTempo !== null && scostTempo < -num(P.scartoTempoAttenzione))
+      segna('ATTENZIONE', 'AVANZAMENTO PIÙ LENTO DEL TEMPO', 'Avanzamento più lento del tempo: SAL ' + Pz(salPct) + ' contro tempo trascorso ' + Pz(tempoPct));
+    if (valoreRecuperabile > 0 && salNonFatturato > valoreRecuperabile * soglia)
+      segna('ATTENZIONE', 'SAL MATURATO NON FATTURATO', 'SAL maturato non fatturato: ' + E(salNonFatturato));
+    if (ritenuteDaSbloccare > 0 && finito) segna('ATTENZIONE', 'RITENUTE DA SBLOCCARE', 'Ritenute da sbloccare: ' + E(ritenuteDaSbloccare));
+    if (salCum > 0 && costiBudget > 0 && costiSostenuti === 0) segna('ATTENZIONE', 'COSTI DIRETTI NON REGISTRATI', 'Costi diretti previsti ma nessuno registrato');
+    if (finito && hasDati && valoreRecuperabile > 0 && residuoLavori > valoreRecuperabile * soglia)
+      segna('ATTENZIONE', 'CANTIERE FINITO CON RESIDUO LAVORI', 'Cantiere finito con residuo lavori: SAL maturato ' + E(salCum) + ' su ' + E(valoreRecuperabile) + ' di valore recuperabile, mancano ' + E(residuoLavori));
+    if (finito && !has(c.dataFineEffettiva))
+      segna('ATTENZIONE', 'DATA FINE EFFETTIVA MANCANTE', 'Commessa finita ma campo ' + q('Data di fine effettiva') + ' non compilato', { campi: ['dataFineEffettiva'], form: 'anagrafica' });
+    fasiOre.oltre.forEach(f => segna('ATTENZIONE', 'ORE OLTRE IL PREVISTO NELLA FASE ' + String(f.fase).toUpperCase(),
+      'Fase ' + q(f.fase) + ': ' + fmtNumSemplice(f.effettive) + ' h segnate contro ' + fmtNumSemplice(f.previste) + ' h previste'));
+
+    // ---- incompleto: dati mancanti, con il campo interessato e la maschera in cui correggerlo
+    if (dataFineIncompleta) {
+      if (dJ === null) segna('INCOMPLETO', 'GESTIONE DATA FINE INCOMPLETA', 'Campo ' + q('Data di fine prevista') + ' vuoto ma ' + q('Causa aggiornamento data fine') + ' indicata', { campi: ['dataFinePrevista'], form: 'anagrafica' });
+      else segna('INCOMPLETO', 'GESTIONE DATA FINE INCOMPLETA', 'Campo ' + q('Data di fine prevista') + " modificato rispetto all'originaria ma " + q('Causa aggiornamento data fine') + ' non indicata', { campi: ['causaAggiornamentoDataFine'], form: 'anagrafica' });
+    }
+    if (dY === null) segna('INCOMPLETO', 'AGGIORNATO AL MANCANTE', 'Campo ' + q('Aggiornato al') + ' non compilato: senza questa data non si calcolano avanzamento temporale e ritardo', { campi: ['aggiornatoAl'], form: 'note' });
+    {
+      // una commessa ancora da iniziare non ha, per forza, una data di inizio effettivo
+      const manca = [];
+      if (contratto === null) manca.push(['contrattoIniziale', 'Contratto iniziale']);
+      if (dI === null && c.stato !== 'Da iniziare') manca.push(['dataInizioEffettiva', 'Data di inizio effettivo']);
+      if (dJ === null) manca.push(['dataFinePrevista', 'Data di fine prevista']);
+      if (manca.length) segna('INCOMPLETO', 'DATI PREVISIONALI INCOMPLETI',
+        'Dati previsionali incompleti: ' + (manca.length === 1 ? 'campo ' : 'campi ') + manca.map(x => q(x[1])).join(', ') + ' non compilat' + (manca.length === 1 ? 'o' : 'i'),
+        { campi: manca.map(x => x[0]), form: 'anagrafica' });
+    }
+    if (codiceTemp) segna('INCOMPLETO', 'CODICE COMMESSA TEMPORANEO', 'Campo ' + q('Codice commessa') + ' temporaneo (inizia con TEMP): da sostituire con il codice definitivo', { campi: ['codice'], form: 'anagrafica' });
+    if (!hasOreBudget) segna('INCOMPLETO', 'BUDGET ORE NON DEFINITO', 'Budget ore non definito: ore previste da indicare nel Budget', { form: 'budget', campi: ['orePreviste'] });
+    if (!hasCostiBudget) segna('INCOMPLETO', 'BUDGET COSTI DIRETTI NON DEFINITO', 'Budget costi diretti non definito: costi diretti previsti da indicare nel Budget (0 se non ce ne sono)', { form: 'budget', campi: ['costiDirettiPrevisti'] });
+
+    // i motivi si leggono dal più grave; a parità di livello resta l'ordine in cui sono stati rilevati
+    const peso = l => LIVELLI_ALERT.indexOf(l);
+    const motiviDettaglio = M.map((m, i) => ({ m, i })).sort((x, y) => peso(x.m.livello) - peso(y.m.livello) || x.i - y.i).map(x => x.m);
+    const motivi = motiviDettaglio.map(m => m.motivo);
+    const conta = l => motiviDettaglio.filter(m => m.livello === l).length;
+    // Una commessa DEFINITA è chiusa e archiviata: non produce più allerte né note operative.
+    // Senza saldo iniziale i suoi cumulativi sono a zero e ogni indicatore risulterebbe falsato.
+    const alert = (definita || !motiviDettaglio.length) ? 'REGOLARE' : motiviDettaglio[0].livello;
+
+    // ---- note informative (non incidono sulla severità, non presenti in Rev.14)
     const note = [];
     if (sostenibilita.compilata && sostenibilita.esito === 'NON CONGRUA') note.push('Verifica di sostenibilità economica NON CONGRUA');
     if (sostenibilita.compilata && sostenibilita.esito === 'NON CONGRUO') note.push('Verifica di sostenibilità economica non congrua: ricarico sotto la soglia della Direzione');
-    if (!hasOreBudget) note.push('Budget ore non definito');
-    if (!hasCostiBudget) note.push('Budget costi diretti non definito');
     if (dJ !== null && dI !== null && dJ <= dI) note.push('Data fine prevista non successiva alla data inizio');
     if (definita) { motivi.length = 0; motiviDettaglio.length = 0; note.length = 0; }
 
@@ -419,7 +502,10 @@
       budget: bud, sostenibilita, sostenibilitaIniziale, sostenibilitaConsuntivo, saldo: agg.saldo, periodo: agg.periodo, hasSaldo: agg.hasSaldo,
       senzaSaldi: agg.senzaSaldi, saldoEscluso: agg.saldoEscluso, nMovimenti: agg.nMovimenti, nCosti: agg.nCosti,
       definita, chiusuraDefinitiva: c.chiusuraDefinitiva || null,
-      alert, motivi, motiviDettaglio, note
+      utileMaturato, utileAFinire, oreAFinire, costiAFinire, hasDati, fasiOre,
+      integrazioniRiferimento: c.integrazioniRiferimento || '',
+      alert, motivi, motiviDettaglio, note,
+      nCritici: definita ? 0 : conta('CRITICO'), nAttenzione: definita ? 0 : conta('ATTENZIONE'), nIncompleti: definita ? 0 : conta('INCOMPLETO')
     };
   }
 
@@ -448,7 +534,10 @@
       finite: count(r => r.finito),
       critiche: count(r => r.alert === 'CRITICO'),
       attenzione: count(r => r.alert === 'ATTENZIONE'),
-      conAlert: count(r => r.alert !== 'REGOLARE'),
+      incomplete: count(r => r.alert === 'INCOMPLETO'),
+      regolari: count(r => r.alert === 'REGOLARE'),
+      // "con alert" = con un problema di andamento: i soli dati mancanti non contano
+      conAlert: count(r => r.alert === 'CRITICO' || r.alert === 'ATTENZIONE'),
       contrattoAggiornato: sum('contrattoAggiornato'),
       salCum: sum('salCum'), fattCum: sum('fattCum'), salNonFatturato: sum('salNonFatturato'),
       residuoLavori: sum('residuoLavori'), residuoDaFatturare: sum('residuoDaFatturare'),
@@ -483,6 +572,93 @@
     };
   }
 
+  // ---------------------------------------------------------------- dashboard direzionale: obiettivi e stato
+  // Da un lato gli obiettivi (redditività richiesta e rientro bancario desiderato, dai Parametri), dall'altro
+  // a che punto si è. Le formule sono quelle del conto della commessa, sommate sul portafoglio:
+  //   utile maturato            = fatturato − perdite SAL − costi diretti − ore consumate × costo orario
+  //   redditività effettiva (%) = utile maturato ÷ prezzo sostenibile della parte strutturale delle ore consumate
+  //   rientro bancario effettivo = utile maturato − redditività richiesta sulle ore consumate
+  // Il rientro bancario si può leggere in due modi, secondo le righe che si passano:
+  //   - sul solo esercizio: righe calcolate senza i saldi iniziali (calcolaTutte con senzaSaldi). Il desiderato
+  //     è l'obiettivo dell'anno dei Parametri oppure, se non impostato, le ore ancora da fare a inizio anno;
+  //   - sull'intera vita delle commesse (opz.vita): righe con i saldi iniziali. L'obiettivo dell'anno non
+  //     c'entra: il desiderato viene sempre dalle ore previste dell'intero budget.
+  function direzionale(rows, P, opz) {
+    const S = parametriSostenibilita(P);
+    const somma = (l, f) => l.reduce((t, r) => t + num(f(r)), 0);
+    const finite = rows.filter(r => r.finito);
+    const inCorso = rows.filter(r => !r.finito);
+    // "eseguite": commesse su cui si è già lavorato, le sole su cui un risultato effettivo ha senso
+    const eseguite = rows.filter(r => r.oreUsate > 0);
+    const baseDi = r => num(r.sostenibilitaConsuntivo.strutturale.conRedditivita);
+    const reddRichiestaDi = r => num(r.sostenibilitaConsuntivo.strutturale.redditivita);
+    const rientroDi = r => r.utileMaturato - reddRichiestaDi(r);
+
+    // ---- redditività
+    const conBudget = rows.filter(r => r.hasOreBudget);
+    const reddObiettivo = somma(conBudget, r => r.sostenibilita.strutturale.redditivita);   // sull'intero portafoglio, a budget
+    const reddRichiestaEseguito = somma(eseguite, reddRichiestaDi);                         // sul lavoro già fatto
+    const utileEseguito = somma(eseguite, r => r.utileMaturato);
+    const baseEseguito = somma(eseguite, baseDi);
+
+    // ---- rientro bancario
+    // ore su cui si chiede il rientro: l'intero budget, meno quelle già fatte negli anni precedenti quando
+    // il saldo iniziale è escluso (cioè quando si guarda il solo esercizio)
+    const oreDaRientrare = r => Math.max(0, r.oreBudget - (r.saldoEscluso ? num(r.saldoEscluso.ore) : 0));
+    const rientroDaOre = somma(conBudget, oreDaRientrare) * S.rientroOrario;
+    const obiettivoImpostato = !(opz && opz.vita) && has(P.obiettivoRientroAnnuo) && num(P.obiettivoRientroAnnuo) > 0;
+    const finiteEseguite = finite.filter(r => r.oreUsate > 0);
+
+    // ---- fatturazione dell'esercizio: quanto si è fatturato nell'anno contro quanto si poteva fatturare
+    // nell'anno. Di ogni commessa conta solo il contributo dell'esercizio: ciò che era già stato fatturato
+    // negli anni precedenti (saldo iniziale) non è né fatturato né fatturabile quest'anno.
+    //   fatturabile = valore recuperabile (contratto aggiornato − perdite SAL accettate) − fatturato del saldo
+    const conContratto = rows.filter(r => r.valoreRecuperabile !== null);
+    const fatturabileDi = r => Math.max(0, r.valoreRecuperabile - num(r.saldo.fatturatoLordo));
+    const fatturazione = {
+      fatturato: somma(rows, r => r.periodo.fatturatoLordo),
+      fatturabile: somma(conContratto, fatturabileDi),
+      daFatturare: somma(conContratto, r => Math.max(0, fatturabileDi(r) - num(r.periodo.fatturatoLordo))),
+      // di quel che resta, la parte già maturata come SAL: si può fatturare subito
+      salDaFatturare: somma(rows, r => r.salNonFatturato),
+      nSenzaContratto: rows.length - conContratto.length
+    };
+    fatturazione.quota = fatturazione.fatturabile > 0 ? fatturazione.fatturato / fatturazione.fatturabile : null;
+
+    // ---- stato del portafoglio dagli alert: basta una commessa critica per il rosso
+    const n = l => rows.filter(r => r.alert === l).length;
+    const critiche = n('CRITICO'), attenzione = n('ATTENZIONE'), incomplete = n('INCOMPLETO'), regolari = n('REGOLARE');
+    const utile = (l, f) => {
+      const v = l.map(f).filter(x => x !== null && x !== undefined);
+      return { n: l.length, nCalcolabili: v.length, totale: v.reduce((t, x) => t + x, 0), inUtile: v.filter(x => x >= 0).length, inPerdita: v.filter(x => x < 0).length };
+    };
+    return {
+      n: rows.length,
+      stato: critiche ? 'CRITICO' : (attenzione ? 'ATTENZIONE' : 'REGOLARE'),
+      critiche, attenzione, incomplete, regolari,
+      fatturazione,
+      redditivita: {
+        richiestaPct: S.redditivita, richiesta: reddObiettivo, richiestaEseguito: reddRichiestaEseguito,
+        effettiva: utileEseguito, effettivaPct: baseEseguito > 0 ? utileEseguito / baseEseguito : null,
+        nEseguite: eseguite.length
+      },
+      rientro: {
+        desiderato: obiettivoImpostato ? num(P.obiettivoRientroAnnuo) : rientroDaOre, desideratoImpostato: obiettivoImpostato,
+        orario: S.rientroOrario,
+        effettivo: somma(eseguite, rientroDi),
+        effettivoFinite: somma(finiteEseguite, rientroDi),
+        dovutoFinite: somma(finiteEseguite, r => r.oreUsate) * S.rientroOrario,
+        // rientro che il lavoro già eseguito avrebbe dovuto dare: è il metro con cui giudicare l'effettivo
+        // (il desiderato riguarda l'intero portafoglio, anche il lavoro ancora da fare)
+        dovutoEseguito: somma(eseguite, r => r.oreUsate) * S.rientroOrario,
+        nFinite: finiteEseguite.length
+      },
+      // finite: il risultato è quello effettivo; in corso: quello previsto a finire (null se manca il budget)
+      finite: utile(finite, r => r.utileMaturato),
+      inCorso: utile(inCorso, r => r.utileAFinire)
+    };
+  }
+
   // ---------------------------------------------------------------- dashboard MOVIMENTI (periodo = solo data movimento)
   function dashboardMovimenti(db, opt) {
     const anno = (opt && opt.anno) || db.parametri.annoGestione;
@@ -503,6 +679,20 @@
     return z;
   }
   function fatturatoNetto(m) { return num(m.fatturatoLordo) - num(m.ritenuta) + num(m.svincolo); }
+
+  // Fatturato lordo dell'esercizio mese per mese, per le commesse indicate (di norma quelle operative).
+  // La somma dei dodici mesi è il fatturato dell'anno della dashboard direzionale.
+  function fatturatoMensile(db, commesseId) {
+    const anno = db.parametri.annoGestione;
+    const ammesse = {};
+    (commesseId || []).forEach(id => { ammesse[id] = true; });
+    const mesi = MESI.map((nome, i) => ({ mese: i + 1, nome, fatturato: 0 }));
+    attivi(db.movimenti).forEach(m => {
+      if (annoDi(m.data) !== anno || !ammesse[m.commessaId]) return;
+      mesi[meseDi(m.data) - 1].fatturato += num(m.fatturatoLordo);
+    });
+    return mesi;
+  }
 
   // Tabella costo mensile (foglio CANTIERI, AA:AC): ore mese × costo orario + costi diretti mese
   function costoMensile(db, commessaId) {
@@ -920,6 +1110,14 @@
     if (!(a >= 2000 && a <= 2099)) errori.push('Anno di gestione non valido.');
     const g = num(p.giorniAggiornamentoRecente);
     if (!(g >= 1 && g <= 3650 && g === Math.round(g))) errori.push('I giorni per "aggiornamento recente" devono essere un numero intero di giorni maggiore di zero.');
+    ['sogliaErroreAcquisizione', 'sogliaPerditeAccettate'].forEach(f => {
+      if (!(num(p[f]) >= 0 && num(p[f]) <= 1)) errori.push('Il parametro ' + f + ' deve essere una percentuale tra 0 e 100.');
+    });
+    // ore e costi possono sforare anche di più del 100 % del previsto
+    ['sogliaOreOltrePreviste', 'sogliaCostiOltrePrevisti'].forEach(f => {
+      if (!(num(p[f]) >= 0 && num(p[f]) <= 10)) errori.push('Il parametro ' + f + ' deve essere una percentuale tra 0 e 1000.');
+    });
+    if (has(p.obiettivoRientroAnnuo) && num(p.obiettivoRientroAnnuo) < 0) errori.push("Il rientro bancario desiderato nell'anno non può essere negativo.");
     ['rischioStrutturale', 'sogliaRicaricoDirezione'].forEach(f => {
       if (!(num(p[f]) >= 0 && num(p[f]) <= 1)) errori.push('Il parametro ' + f + ' deve essere una percentuale tra 0 e 100.');
     });
@@ -1055,6 +1253,11 @@
     const v = Math.round(num(n) * 10000) / 100;
     return String(v).replace('.', ',') + ' %';
   }
+  function fmtNumSemplice(n) {
+    const v = Math.round(num(n) * 100) / 100;
+    const parti = String(v).split('.');
+    return parti[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (parti[1] ? ',' + parti[1] : '');
+  }
   function fmtDataSemplice(iso) {
     return isoOk(iso) ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : String(iso || '');
   }
@@ -1066,13 +1269,13 @@
 
   return {
     STATI, STATI_FINITI, TIPI_MOVIMENTO, CAUSE_DATA_FINE, MESI, RUOLI, MACRO_CATEGORIE_DEFAULT, PARAMETRI_DEFAULT, CAMPI_TIPO,
-    PESI_STRUTTURALI_DEFAULT, GRUPPI_STRUTTURALI, ESITI_SOSTENIBILITA,
+    PESI_STRUTTURALI_DEFAULT, GRUPPI_STRUTTURALI, ESITI_SOSTENIBILITA, LIVELLI_ALERT,
     parametriSostenibilita, pesiStrutturali, dettaglioStrutturale, prezzoStrutturale,
     vociSostenibilita, verificaSostenibilita, calcolaSostenibilita, calcolaSostenibilitaPreventivo,
     prossimoNumeroPreventivo, commessaDaPreventivo,
     validaSostenibilita, validaVociSostenibilita, validaPreventivo, validaConversione, validaPesiStrutturali,
     has, num, isoOk, dayNum, annoDi, meseDi, isFinito, attivi, isDefinita, operative, etichetta, contrattoAggiornato, isPregressa, dataSaldo, budgetDi,
-    fatturatoNetto, aggregati, indicizza, serieUtile, calcolaCommessa, calcolaTutte, riepilogo, dashboardMovimenti, costoMensile, dashboardBudget,
+    fatturatoNetto, aggregati, indicizza, oreFasi, serieUtile, calcolaCommessa, calcolaTutte, riepilogo, direzionale, dashboardMovimenti, fatturatoMensile, costoMensile, dashboardBudget,
     validaCommessa, validaMovimento, validaCosto, validaSaldo, validaParametri, preparaChiusura, residuiAperti
   };
 });
