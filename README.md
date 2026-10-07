@@ -216,4 +216,5 @@ sul server prima di servire qualsiasi contenuto. Chi ha quelle credenziali entra
 **Riservatezza:** `data/database.json` è versionato nel repository e finisce quindi anche su Render.
 Se i dati dei cantieri sono reali, il repository GitHub va tenuto **privato**.
 #   g e s t i o n a l e _ c a n t i e r i _ l o c a l e  
+ #   g e s t i o n a l e _ c a n t i e r i _ l o c a l e  
  
