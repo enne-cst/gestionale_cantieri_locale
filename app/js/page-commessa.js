@@ -1,4 +1,4 @@
-/* FIDA EDILE – Dettaglio commessa: pagina unica a schede */
+/* Gestione Cantieri – Dettaglio commessa: pagina unica a schede */
 (function () {
   'use strict';
   const esc = UI.esc;
@@ -43,8 +43,7 @@
   function riepilogo(r, c) {
     const P = Store.db.parametri;
     const colOre = r.scostOre === null ? '' : (r.scostOre > P.scartoOreCritico ? 'rosso' : (r.scostOre > P.scartoOreAttenzione ? 'giallo' : 'verde'));
-    return '<div class="pannello"><div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><span style="font-size:20px">' + UI.badgeAlert(r.alert) + '</span>' + UI.motiviHtml(r) + '</div>' +
-      (r.note.length ? '<div class="sotto" style="margin-top:6px">Note informative: ' + r.note.map(esc).join(' · ') + '</div>' : '') + '</div>' +
+    return (r.note.length ? '<div class="pannello"><div class="sotto">Note informative: ' + r.note.map(esc).join(' · ') + '</div></div>' : '') +
       // stessi pannelli della Dashboard di analisi, calcolati sulla sola commessa aperta
       Analisi.pannelli(Engine.riepilogo([r]), { singola: true, sostIni: r.sostenibilitaIniziale, sostAgg: r.sostenibilita, sostCons: r.sostenibilitaConsuntivo }) +
       '<div class="griglia-2">' +
@@ -253,9 +252,9 @@
 
   function controllo(r, c) {
     const P = Store.db.parametri;
-    return '<div class="pannello"><div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><span style="font-size:20px">' + UI.badgeAlert(r.alert) + '</span>' + UI.motiviHtml(r) + '</div><p class="sotto">La commessa prende il livello del suo motivo più grave; ogni motivo ha il colore del proprio livello. ' +
-      'Soglie critiche: SAL da emettere (ore − SAL) ' + Pc(P.scartoOreCritico) + ' · ore oltre le previste ' + Pc(P.sogliaOreOltrePreviste) + ' · costi diretti oltre i previsti ' + Pc(P.sogliaCostiOltrePrevisti) + ' · perdite accettate ' + Pc(P.sogliaPerditeAccettate) + ' del prezzo di vendita · errore di acquisizione ' + Pc(P.sogliaErroreAcquisizione) + '. ' +
-      'Soglie di attenzione: tempo ' + Pc(P.scartoTempoAttenzione) + ' · ore ' + Pc(P.scartoOreAttenzione) + ' · SAL non fatturato ' + Pc(P.sogliaSalNonFatturato) + ' del recuperabile.</p></div>' +
+    return '<div class="pannello"><p class="sotto">La commessa prende il livello del suo motivo più grave; se mancano dati che falsano i calcoli (data fine prevista, aggiornato al, dati previsionali, budget ore o costi) è classificata INCOMPLETO prima di tutto, perché gli altri alert potrebbero non essere veritieri. Ogni motivo ha il colore del proprio livello. ' +
+      'Soglie critiche: SAL da emettere (ore − SAL) ' + Pc(P.scartoOreCritico) + ' · ore oltre le previste ' + Pc(P.sogliaOreOltrePreviste) + ' · costi diretti oltre i previsti ' + Pc(P.sogliaCostiOltrePrevisti) + ' · perdite accettate ' + Pc(P.sogliaPerditeAccettate) + ' del prezzo di vendita · errore di acquisizione ' + Pc(P.sogliaErroreAcquisizione) + ' · fase in forte ritardo ' + Pc(P.sogliaRitardoFase) + ' della durata. ' +
+      'Soglie di attenzione: tempo ' + Pc(P.scartoTempoAttenzione) + ' · ore ' + Pc(P.scartoOreAttenzione) + ' · SAL non fatturato ' + Pc(P.sogliaSalNonFatturato) + ' del recuperabile · tolleranza ore della fase ' + Pc(P.tolleranzaOreFase) + '. Passando sopra un motivo se ne legge il dettaglio.</p></div>' +
       '<div class="griglia-3">' +
       '<div class="pannello"><h2>Valori economici cumulativi</h2>' + kv([
         ['Contratto originario', E(r.contrattoIniziale), 'calc'], ['Variazioni', E(r.integrazioni), 'calc'], ['Contratto aggiornato', E(r.contrattoAggiornato), 'calc'], ['SAL cumulato', E(r.salCum), 'calc'], ['Fatturato lordo cumulato', E(r.fattCum), 'calc'],
@@ -299,7 +298,11 @@
       UI.pulsanteEsporta('scheda', 'Esporta scheda (CSV)') + '<button type="button" onclick="window.print()">Stampa</button>' +
       (Store.puo('commessa.elimina') ? '<button type="button" class="pericolo" id="b-del">Elimina / annulla</button>' : '');
     cont.innerHTML = '<div class="scheda-commessa">' + UI.barraRitorno('<b>Scheda commessa ' + esc(c.codice) + '</b>') +
-      UI.testata(c.codice + ' · ' + c.cliente, esc(c.cantiere) + ' &nbsp;·&nbsp; ' + UI.badgeStato(c.stato) + ' &nbsp;·&nbsp; ' + UI.badgeAlert(r.alert) + (c.tecnico ? ' &nbsp;·&nbsp; tecnico ' + esc(c.tecnico) : '') + (c.preposto ? ' · preposto ' + esc(c.preposto) : '') + (c.annullato ? ' &nbsp;<span class="badge neutro">COMMESSA ANNULLATA</span>' : '') + (r.definita ? ' &nbsp;<span class="badge neutro">COMMESSA DEFINITA</span>' : ''), azioni, 'Scheda commessa') +
+      UI.testata(c.codice + ' · ' + c.cliente, esc(c.cantiere) + ' &nbsp;·&nbsp; ' + UI.badgeStato(c.stato) + (r.motivi.length ? '' : ' &nbsp;·&nbsp; ' + UI.badgeAlert(r.alert)) + (c.tecnico ? ' &nbsp;·&nbsp; tecnico ' + esc(c.tecnico) : '') + (c.preposto ? ' · preposto ' + esc(c.preposto) : '') +
+        ' &nbsp;·&nbsp; ' + (c.aggiornatoAl ? 'aggiornato al ' + Dt(c.aggiornatoAl) : '<span style="color:var(--rosso)">«Aggiornato al» mancante</span>') +
+        ((Store.puo('noteAzione') || Store.puo('aggiornatoAl')) ? ' <button type="button" class="piccolo" data-az="note" title="Modifica «Aggiornato al» e note">✎</button>' : '') + (c.annullato ? ' &nbsp;<span class="badge neutro">COMMESSA ANNULLATA</span>' : '') + (r.definita ? ' &nbsp;<span class="badge neutro">COMMESSA DEFINITA</span>' : ''), azioni, 'Scheda commessa') +
+      // I motivi dell'allerta stanno sopra le schede: si leggono da qualunque scheda, non solo dal riepilogo.
+      (r.motivi.length ? '<div class="allerta-commessa ' + esc(r.alert) + '"><div class="livello">' + esc(r.alert) + '</div>' + UI.motiviHtml(r) + '</div>' : '') +
       '<div class="tabs-riga">' +
       '<div class="tabs">' + TABS.map(t => '<a href="#/commessa/' + esc(id) + '/' + t[0] + '" class="' + (tab === t[0] ? 'attivo' : '') + '">' + t[1] + (t[0] === 'movimenti' ? ' (' + r.nMovimenti + ')' : (t[0] === 'costi' ? ' (' + r.nCosti + ')' : (t[0] === 'gantt' ? ' (' + Store.db.fasi.filter(f => f.commessaId === id).length + ')' : ''))) + '</a>').join('') + '</div>' +
       // L'interruttore è sempre visibile, anche quando non c'è nulla da escludere: se comparisse solo

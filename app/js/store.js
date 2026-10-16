@@ -1,5 +1,5 @@
 /*
- * FIDA EDILE – Persistenza, tracciabilità e permessi.
+ * Gestione Cantieri – Persistenza, tracciabilità e permessi.
  *
  * Due modalità, rilevate automaticamente:
  *  - "server": l'app è servita da server.js → i dati stanno in data/database.json (condivisibile in rete locale);
@@ -10,9 +10,9 @@
  */
 (function (root) {
   'use strict';
-  const CHIAVE_LOCALE = 'fidaedile.gestionecantieri.db';
+  const CHIAVE_LOCALE = 'gestionecantieri.db';
   // Password richiesta per collegarsi come Direzione o come Amministratore. Gli altri utenti non hanno password.
-  const PASSWORD_DIREZIONE = 'FidaEdile2026!';
+  const PASSWORD_DIREZIONE = 'Cantieri2026!';
   const RUOLI_CON_PASSWORD = ['direzione', 'admin'];
   // Interruttore: con false la password è sospesa (Direzione senza password e app che si apre direttamente come Direzione).
   // Rimettere true per riattivare la password e l'apertura come Operativo.
@@ -46,7 +46,14 @@
       if (!this.db) {
         this.modo = 'file';
         let raw = null;
-        try { raw = localStorage.getItem(CHIAVE_LOCALE); } catch (e) { raw = null; }
+        try {
+          raw = localStorage.getItem(CHIAVE_LOCALE);
+          // la chiave aveva un prefisso, poi tolto: i dati salvati con il vecchio nome si recuperano
+          if (!raw) {
+            const vecchia = Object.keys(localStorage).find(k => k !== CHIAVE_LOCALE && k.endsWith('.' + CHIAVE_LOCALE));
+            if (vecchia) { raw = localStorage.getItem(vecchia); localStorage.setItem(CHIAVE_LOCALE, raw); localStorage.removeItem(vecchia); }
+          }
+        } catch (e) { raw = null; }
         this.db = Schema.migra(raw ? JSON.parse(raw) : null);
         if (!raw) this._scriviLocale();
       }
@@ -82,6 +89,7 @@
       analisi: ['admin'],
       parametri: ['admin'],
       registro: ['admin'],
+      'guida-alert': ['admin'],
       dashboard: ['admin', 'direzione'],
       cantieri: ['admin', 'direzione'],
       // l'importazione crea e modifica commesse: chi è in sola consultazione non la vede

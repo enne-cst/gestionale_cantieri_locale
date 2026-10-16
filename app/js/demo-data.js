@@ -1,5 +1,5 @@
 /*
- * FIDA EDILE – Dati dimostrativi.
+ * Gestione Cantieri – Dati dimostrativi.
  * Contiene le tre commesse di prova presenti nel file Excel Rev.14 (C042, C011, TEST10),
  * usate per verificare l'equivalenza dei calcoli, più i casi di test richiesti dalle
  * indicazioni: CASO A (ordinaria 2026), CASO B (scostamento), CASO C (pregressa).

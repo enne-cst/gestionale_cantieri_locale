@@ -1,5 +1,5 @@
 /*
- * FIDA EDILE – Gestione Cantieri: server locale (solo moduli integrati di Node.js, nessuna libreria).
+ * Gestione Cantieri: server locale (solo moduli integrati di Node.js, nessuna libreria).
  *
  * Avvio:   node server.js            → http://localhost:8765  (solo questo PC)
  *          node server.js --rete     → raggiungibile anche dagli altri PC della rete locale
@@ -176,7 +176,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (p === '/api/info') {
-    return json(res, 200, { app: 'FIDA EDILE – Gestione Cantieri', file: FILE_DB, backup: DIR_BACKUP, host: os.hostname() });
+    return json(res, 200, { app: 'Gestione Cantieri', file: FILE_DB, backup: DIR_BACKUP, host: os.hostname() });
   }
 
   // ------------------------------------------------------------ file statici
@@ -192,7 +192,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORTA, HOST, () => {
   console.log('');
-  console.log('  FIDA EDILE - Gestione Cantieri');
+  console.log('  Gestione Cantieri');
   console.log('  ------------------------------');
   console.log('  Apri nel browser:  http://localhost:' + PORTA);
   if (inRete) {

@@ -1,4 +1,4 @@
-/* FIDA EDILE – Cronoprogramma della commessa: fasi di lavoro con date previste ed effettive, disegnate come diagramma di Gantt */
+/* Gestione Cantieri – Cronoprogramma della commessa: fasi di lavoro con date previste ed effettive, disegnate come diagramma di Gantt */
 (function () {
   'use strict';
   const esc = UI.esc;
@@ -62,7 +62,7 @@
     if (f.fineEffettiva > oggi) avvisi.push('La fine effettiva è una data futura.');
     if ((f.prezzoVendita !== null || f.quantita !== null) && !f.um) avvisi.push('Sono indicati quantità o prezzo ma non l\'unità di misura.');
     if (f.esecutore === 'subappalto') { if (!f.subappaltatore) avvisi.push('Subappaltatore non indicato.'); }
-    else if (f.orePreviste === null) avvisi.push('Ore previste non indicate: la fase non entra nel controllo delle ore.');
+    else if (!(f.orePreviste > 0)) avvisi.push('Ore previste non indicate: la commessa va in alert CRITICO finché la fase non ha le sue ore previste.');
     if ((f.prezzoVendita === null) !== (f.quantita === null)) avvisi.push('Senza ' + (f.quantita === null ? 'la quantità' : 'il prezzo di vendita') + ' l\'importo del materiale non è calcolabile.');
     const c = Store.commessa(f.commessaId);
     if (c && c.dataInizioPrevista && f.inizioPrevisto && f.inizioPrevisto < c.dataInizioPrevista) avvisi.push('L\'inizio previsto della fase precede l\'inizio previsto della commessa (' + Fmt.data(c.dataInizioPrevista) + ').');
@@ -173,6 +173,7 @@
             oreScost: ore[f.id] ? ore[f.id].scostamento : null,
             orePct: ore[f.id] ? ore[f.id].pct : null,
             oreOltre: !!(ore[f.id] && ore[f.id].oltre),
+            senzaOre: !!(ore[f.id] && ore[f.id].senzaOre),
             st: stato(f, oggi)
           });
         });
@@ -195,6 +196,7 @@
       const senzaFase = Math.max(0, r.oreUsate - O.attribuite);
       const diverso = O.previste !== null && Math.abs(O.previste - r.oreBudget) > 0.005;
       const puoBudget = Store.puo('budget.modifica');
+      const maxOre = Math.max(1, ...righe.filter(x => !x.subappalto).map(x => Math.max(Engine.num(x.orePreviste), x.oreEffettive)));
       const pannelloOre = !righe.length ? '' : '<div class="pannello"><h2>Ore per fase di lavoro</h2>' +
         '<p class="spiegazione">Le <b>ore previste</b> si indicano fase per fase (con il numero di uomini); le <b>ore effettive</b> sono quelle dei movimenti di ore attribuiti alla fase. Si vede così in quale fase il cantiere ha consumato più del previsto. Le fasi date in <b>subappalto</b> restano fuori dal conto: le ore sono del subappaltatore.</p>' +
         '<div class="kpi-griglia kpi-gantt">' +
@@ -203,21 +205,31 @@
         UI.kpi('Ore effettive attribuite alle fasi', Fmt.ore(O.attribuite), { colore: O.previste !== null && O.attribuite > O.previste ? 'rosso' : '' }) +
         UI.kpi('Ore effettive senza fase', Fmt.ore(senzaFase), { colore: senzaFase > 0 ? 'giallo' : '', sub: senzaFase > 0 ? 'movimenti di ore senza fase, o saldo iniziale' : 'tutte le ore hanno una fase' }) +
         UI.kpi('Fasi oltre le ore previste', String(O.oltre.length), { colore: O.oltre.length ? 'rosso' : 'verde', calc: false }) +
+        UI.kpi('Fasi senza ore previste', String(O.senzaOre.length), { colore: O.senzaOre.length ? 'rosso' : 'verde', calc: false }) +
         '</div>' +
+        (O.senzaOre.length ? '<div class="msg errore">' + UI.badgeAlert('CRITICO') + ' ' + (O.senzaOre.length === 1 ? 'Una fase non ha' : O.senzaOre.length + ' fasi non hanno') + ' le ore previste: <b>' + O.senzaOre.map(x => esc(x.fase)).join('</b>, <b>') + '</b>. Senza ore previste la fase non si può controllare: indicarle con «Modifica».</div>' : '') +
         (diverso || (O.previste !== null && !r.hasOreBudget) ? '<div class="msg avviso">Le ore previste del Gantt (<b>' + Fmt.ore(O.previste) + '</b>) non coincidono con le ore previste a budget (<b>' + (r.hasOreBudget ? Fmt.ore(r.oreBudget) : 'non definite') + '</b>): alert, margini e verifica di sostenibilità usano quelle del budget. ' +
           (puoBudget ? '<button type="button" class="piccolo" id="b-ore-budget">Porta nel budget le ore del Gantt</button>' : '') + '</div>' : '') +
         '<div class="ore-fasi">' + righe.map(f => {
           // fase in subappalto: niente barre, solo chi la esegue
           if (f.subappalto) return '<div class="riga subappalto"><div class="nome" title="' + esc(f.fase) + '"><b>' + esc(f.fase) + '</b><span>subappalto' + (f.subappaltatore ? ': ' + esc(f.subappaltatore) : '') + '</span></div>' +
-            '<div class="barre"></div><div class="num"><span class="muto">ore non rilevate</span></div></div>';
-          const max = Math.max(Engine.num(f.orePreviste), f.oreEffettive, 1);
-          return '<div class="riga' + (f.oreOltre ? ' oltre' : '') + '"><div class="nome" title="' + esc(f.fase) + '"><b>' + esc(f.fase) + '</b><span>' + (f.uomini !== null ? Fmt.numero(f.uomini) + (f.uomini === 1 ? ' uomo' : ' uomini') : 'uomini non indicati') + '</span></div>' +
-            '<div class="barre"><div class="b prev" style="width:' + (Engine.num(f.orePreviste) / max * 100).toFixed(1) + '%" title="Ore previste"></div>' +
-            '<div class="b eff" style="width:' + (f.oreEffettive / max * 100).toFixed(1) + '%" title="Ore effettive"></div></div>' +
-            '<div class="num">' + Fmt.ore(f.oreEffettive) + ' <span class="muto">su ' + (f.orePreviste === null ? 'non indicate' : Fmt.ore(f.orePreviste)) + '</span>' +
-            (f.oreScost === null ? '' : '<div class="scost">' + (f.oreScost > 0 ? '+' : '') + Fmt.ore(f.oreScost) + (f.orePct !== null ? ' · ' + Fmt.pct(f.orePct, 0) : '') + '</div>') + '</div></div>';
+            '<div class="barre"></div><div class="esito"><span class="muto">ore non rilevate</span></div></div>';
+          // stessa scala per tutte le fasi, così le barre si confrontano anche fra una fase e l'altra;
+          // colori del diagramma di Gantt: previsto azzurro, effettivo verde (rosso oltre il previsto), a righe se la fase è in corso
+          const critica = f.oreOltre || f.senzaOre, inCorso = !!f.inizioEffettivo && !f.fineEffettiva;
+          const lung = v => (Engine.num(v) / maxOre * 100).toFixed(1) + '%';
+          return '<div class="riga' + (critica ? ' oltre' : '') + '"><div class="nome" title="' + esc(f.fase) + '"><b>' + esc(f.fase) + '</b><span>' + (f.uomini !== null ? Fmt.numero(f.uomini) + (f.uomini === 1 ? ' uomo' : ' uomini') : 'uomini non indicati') + (inCorso ? ' · in corso' : (f.fineEffettiva ? ' · conclusa' : ' · da avviare')) + '</span></div>' +
+            '<div class="barre">' +
+            '<div class="linea"><span class="et">Previste</span><div class="pista">' + (f.orePreviste > 0 ? '<div class="b prev" style="width:' + lung(f.orePreviste) + '"></div>' : '') + '</div><span class="val">' + (f.senzaOre ? '<span class="badge CRITICO">mancanti</span>' : Fmt.ore(f.orePreviste)) + '</span></div>' +
+            '<div class="linea"><span class="et">Effettive</span><div class="pista">' + (f.oreEffettive > 0 ? '<div class="b eff ' + (critica ? 'g-rosso' : 'g-verde') + (inCorso ? ' aperta' : '') + '" style="width:' + lung(f.oreEffettive) + '"></div>' : '') +
+            // la tacca segna sulle effettive dove finivano le previste
+            (f.oreOltre ? '<i class="soglia" style="left:' + lung(f.orePreviste) + '" title="Ore previste"></i>' : '') + '</div><span class="val"><b>' + Fmt.ore(f.oreEffettive) + '</b></span></div>' +
+            '</div>' +
+            '<div class="esito">' + (f.senzaOre ? '<b>ore previste mancanti</b>' : f.oreScost === null ? '' :
+              '<b>' + (f.oreScost > 0 ? '+' : '') + Fmt.ore(Math.abs(f.oreScost)) + '</b><span>' + (f.oreOltre ? 'oltre le previste' : (f.oreScost === 0 ? 'pari alle previste' : 'ancora disponibili')) + (f.orePct !== null ? ' · ' + Fmt.pct(f.orePct, 0) + ' usato' : '') + '</span>') + '</div></div>';
         }).join('') + '</div>' +
-        '<div class="legenda" style="margin:10px 0 0"><span><i class="ore-prev"></i>ore previste</span><span><i class="ore-eff"></i>ore effettive</span><span><i class="ore-oltre"></i>ore effettive oltre le previste</span></div></div>';
+        '<div class="legenda gantt-legenda"><span><i class="g-prev"></i>ore previste</span><span><i class="g-verde"></i>ore effettive entro le previste</span><span><i class="g-rosso"></i>ore effettive oltre le previste</span>' +
+        '<span><i class="g-verde aperta"></i>fase in corso</span><span><i class="ore-soglia"></i>limite delle ore previste</span></div></div>';
       const kpi = '<div class="kpi-griglia kpi-gantt">' +
         UI.kpi('Fasi', String(righe.length), { sub: concluse + ' concluse · ' + inCorso + ' in corso · ' + (righe.length - concluse - inCorso) + ' da avviare' }) +
         UI.kpi('In ritardo', String(conta('rosso')), { colore: conta('rosso') ? 'rosso' : 'verde', sub: conta('giallo') ? conta('giallo') + ' con avvio in ritardo' : '' }) +
@@ -239,7 +251,7 @@
         { campo: 'scostFine', titolo: 'Scostamento fine', tipo: 'n', classe: 'calc', fmt: v => v > 0 ? '<span style="color:var(--rosso)">' + gg(v) + '</span>' : gg(v) },
         { campo: 'esecutore', titolo: 'Chi esegue', classe: 'in', valOrd: r => r.subappalto ? 'subappalto ' + r.subappaltatore : 'azienda', fmt: (v, r) => r.subappalto ? '<span class="badge neutro">subappalto</span>' + (r.subappaltatore ? ' ' + esc(r.subappaltatore) : '') : 'Azienda' },
         { campo: 'uomini', titolo: 'Uomini', tipo: 'n', classe: 'in', fmt: (v, r) => r.subappalto ? '<span class="muto">—</span>' : Fmt.numero(v) },
-        { campo: 'orePreviste', titolo: 'Ore previste', tipo: 'n', classe: 'in', fmt: (v, r) => r.subappalto ? '<span class="muto">—</span>' : Fmt.ore(v) },
+        { campo: 'orePreviste', titolo: 'Ore previste', tipo: 'n', classe: 'in', fmt: (v, r) => r.subappalto ? '<span class="muto">—</span>' : (r.senzaOre ? '<span class="badge CRITICO">mancanti</span>' : Fmt.ore(v)) },
         { campo: 'oreEffettive', titolo: 'Ore effettive', tipo: 'n', classe: 'calc', fmt: (v, r) => r.subappalto ? '<span class="muto">—</span>' : (r.oreOltre ? '<span style="color:var(--rosso)"><b>' + Fmt.ore(v) + '</b></span>' : Fmt.ore(v)) },
         { campo: 'quantita', titolo: 'Quantità', tipo: 'n', classe: 'in', fmt: v => Fmt.numero(v) },
         { campo: 'um', titolo: 'U.M.', classe: 'in', fmt: v => v ? esc(v) : '<span class="muto">—</span>' },

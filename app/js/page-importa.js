@@ -1,4 +1,4 @@
-/* FIDA EDILE – Importazione delle commesse da un foglio Excel (modello, anteprima, conferma) */
+/* Gestione Cantieri – Importazione delle commesse da un foglio Excel (modello, anteprima, conferma) */
 (function () {
   'use strict';
   const esc = UI.esc;

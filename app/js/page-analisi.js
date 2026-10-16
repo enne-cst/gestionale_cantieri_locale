@@ -1,4 +1,4 @@
-/* FIDA EDILE – Dashboard di analisi (riservata all'amministratore)
+/* Gestione Cantieri – Dashboard di analisi (riservata all'amministratore)
  * Versione integrale di tutti gli indicatori. La Dashboard della Direzione (page-dashboard.js)
  * ne e' una copia ridotta: le due pagine sono indipendenti. */
 (function () {
@@ -73,8 +73,8 @@
       c.risultato = meno(c.totale, c.costiTotali);
       c.avanzo = meno(c.risultato, c.redditivita);
       c.resta = meno(c.avanzo, c.rientro);
-      // quanta redditività e quanto rientro si riesce davvero a coprire, espressi nell'unità del parametro
-      // impostato in Parametri: la redditività in percentuale, il rientro bancario in euro all'ora.
+      // quanta redditività e quanto surplus si riesce davvero a coprire, espressi nell'unità del parametro
+      // impostato in Parametri: la redditività in percentuale, il surplus economico in euro all'ora.
       // Sono la vecchia copertura (da 0 a 100) riportata sulla scala del valore desiderato.
       c.copRedditivita = (Fmt.isNum(c.risultato) && c.base > 0) ? c.risultato / c.base : null;
       c.copRientro = (Fmt.isNum(c.avanzo) && c.oreSost > 0) ? c.avanzo / c.oreSost : null;
@@ -147,7 +147,7 @@
         { op: '=', campo: 'risultato', et: 'Utile/perdita effettivo di commessa', forte: true, sfondo: true, spicca: true,
           sub: c => (Fmt.isNum(c.totale) && Fmt.isNum(c.costiTotali)) ? esc(euro(c.totale) + ' − ' + euro(c.costiTotali)) : '' }
       ] },
-      { titolo: 'Copre la redditività e il rientro? Quanto resta?', nota: 'redditività e rientro bancario richiesti dalla verifica di sostenibilità, sulle ore della colonna', righe: [
+      { titolo: 'Copre la redditività e il surplus? Quanto resta?', nota: 'redditività e surplus economico richiesti dalla verifica di sostenibilità, sulle ore della colonna', righe: [
         { op: '−', campo: 'redditivita', et: 'Redditività richiesta' },
         // la redditività che la colonna produce davvero, sulla stessa scala del parametro di Parametri:
         // verde quando arriva a quella richiesta, rossa quando resta sotto
@@ -155,8 +155,8 @@
           fmt: v => pct(v),
           colore: v => 'sfondo ' + (v >= S.redditivita ? 'verde' : 'rosso') },
         { op: '=', campo: 'avanzo', et: 'Avanzo dopo la redditività', segno: true },
-        { op: '−', campo: 'rientro', et: 'Rientro bancario richiesto' },
-        { op: '', campo: 'copRientro', et: 'Rientro bancario coperto', info: true,
+        { op: '−', campo: 'rientro', et: 'Surplus economico richiesto' },
+        { op: '', campo: 'copRientro', et: 'Surplus economico coperto', info: true,
           fmt: v => euro(v).replace(' €', '') + ' su ' + euro(S.rientroOrario) + '/h',
           colore: v => v >= S.rientroOrario ? 'verde' : 'rosso' },
         { op: '=', campo: 'resta', et: 'Differenza', segno: true }
@@ -195,7 +195,7 @@
     }).join('');
 
     return '<div class="pannello"><h2>Il conto della commessa</h2>' +
-      '<p class="spiegazione">Lo stesso conto letto in quattro situazioni: si parte dal <b>prezzo per il cliente</b>, si tolgono i <b>costi</b> e si guarda se quello che resta copre la <b>redditività</b> e il <b>rientro bancario</b> richiesti dalla verifica di sostenibilità.' +
+      '<p class="spiegazione">Lo stesso conto letto in quattro situazioni: si parte dal <b>prezzo per il cliente</b>, si tolgono i <b>costi</b> e si guarda se quello che resta copre la <b>redditività</b> e il <b>surplus economico</b> richiesti dalla verifica di sostenibilità.' +
       (nota ? ' ' + nota : '') + '</p>' +
       // le bande sono uno strato di sfondo che corre dietro tutte le righe e tiene insieme la colonna.
       // Le prime tre corsie (etichetta del gruppo, graffa, segni) restano trasparenti.

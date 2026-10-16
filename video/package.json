@@ -1,0 +1,23 @@
+{
+  "name": "video-gestione-cantieri",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Video promozionale di Gestione Cantieri: schermate reali catturate con Playwright, montaggio con Remotion.",
+  "scripts": {
+    "prepara": "node prepara.js",
+    "anteprima": "remotion studio src/index.jsx",
+    "video": "remotion render src/index.jsx Promo out/gestione-cantieri.mp4",
+    "genera": "node prepara.js && node musica.js && remotion render src/index.jsx Promo out/gestione-cantieri.mp4",
+    "musica": "node musica.js"
+  },
+  "dependencies": {
+    "@fontsource/barlow": "^5.0.13",
+    "@fontsource/barlow-condensed": "^5.0.13",
+    "@remotion/cli": "^4.0.534",
+    "@remotion/fonts": "^4.0.534",
+    "playwright-core": "^1.47.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "^4.0.534"
+  }
+}

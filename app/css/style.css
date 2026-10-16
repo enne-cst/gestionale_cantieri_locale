@@ -1,4 +1,4 @@
-/* FIDA EDILE – Gestione Cantieri: stile sobrio, manageriale, a tabelle */
+/* Gestione Cantieri: stile sobrio, manageriale, a tabelle */
 :root {
   --bg: #f3f4f6; --carta: #ffffff; --bordo: #d9dde3; --bordo2: #e8ebef;
   --testo: #1f2937; --testo2: #5b6573; --testo3: #8a94a3;
@@ -32,7 +32,9 @@ p { margin: 6px 0; }
 #app { display: grid; grid-template-columns: 218px 1fr; min-height: 100vh; }
 #app.solo { display: block; }
 .laterale { background: var(--primario); color: #d6e0ee; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
-.marchio { padding: 18px 18px 12px; border-bottom: 1px solid rgba(255,255,255,.12); }
+.marchio { padding: 16px 18px 12px; border-bottom: 1px solid rgba(255,255,255,.12); display: flex; align-items: center; gap: 11px; }
+/* il logo ha facce blu scuro: sul fondo della barra sparirebbero, quindi sta su una tessera bianca */
+.marchio img { flex: none; width: 40px; height: 40px; padding: 5px; background: #fff; border-radius: 8px; }
 .marchio b { display: block; color: #fff; font-size: 15px; letter-spacing: .04em; }
 .marchio span { font-size: 11.5px; opacity: .8; }
 .nav { display: flex; flex-direction: column; padding: 8px 0; flex: 1; overflow: auto; }
@@ -102,6 +104,22 @@ table.tab td.sotto-soglia { color: var(--rosso); font-weight: 650; }
 .motivi.ATTENZIONE span, .motivi.ATTENZIONE a, .motivi span.ATTENZIONE, .motivi a.ATTENZIONE { background: var(--giallo-bg); color: var(--giallo); }
 .motivi span.INCOMPLETO, .motivi a.INCOMPLETO { background: var(--bluette-bg); color: var(--bluette); }
 .motivi span.CRITICO, .motivi a.CRITICO { font-weight: 650; }
+.motivi [data-dettaglio] { cursor: help; }
+.motivi a[data-dettaglio] { cursor: pointer; }
+.motivi .n-fasi { display: inline-block; min-width: 16px; padding: 0 4px; margin-left: 2px; border-radius: 8px; background: var(--carta); font-size: 10px; text-align: center; }
+/* dettaglio di un motivo di allerta, al passaggio del mouse (vedi UI.motiviHtml) */
+.dettaglio-motivo { position: fixed; z-index: 2000; max-width: min(460px, calc(100vw - 16px)); background: var(--carta); color: var(--testo); border: 1px solid var(--bordo); border-left: 4px solid var(--testo3); border-radius: var(--raggio); box-shadow: 0 6px 20px rgba(16,24,40,.18); padding: 8px 12px; font-size: 12.5px; line-height: 1.45; pointer-events: none; }
+.dettaglio-motivo[hidden] { display: none; }
+.dettaglio-motivo.CRITICO { border-left-color: var(--rosso); }
+.dettaglio-motivo.ATTENZIONE { border-left-color: var(--giallo); }
+.dettaglio-motivo.INCOMPLETO { border-left-color: var(--bluette); }
+.dettaglio-motivo .dm-liv { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: var(--testo3); }
+.dettaglio-motivo.CRITICO .dm-liv { color: var(--rosso); }
+.dettaglio-motivo.ATTENZIONE .dm-liv { color: var(--giallo); }
+.dettaglio-motivo.INCOMPLETO .dm-liv { color: var(--bluette); }
+.dettaglio-motivo .dm-titolo { font-weight: 650; margin-bottom: 4px; }
+.dettaglio-motivo .dm-testo { white-space: pre-line; color: var(--testo2); }
+.dettaglio-motivo .dm-azione { margin-top: 6px; font-size: 11.5px; color: var(--primario); }
 /* le perdite SAL accettate si leggono sempre in rosso, ovunque compaiano */
 .perdita { color: var(--rosso); font-weight: 650; }
 .campo.evidenziato input, .campo.evidenziato select, .campo.evidenziato textarea { outline: 2px solid var(--giallo); outline-offset: 1px; box-shadow: 0 0 0 4px var(--giallo-bg); transition: box-shadow .3s; }
@@ -129,7 +147,7 @@ table.tab td.in { background: var(--input); }
 table.tab td.calc { background: var(--calc); }
 table.tab .cod { font-weight: 650; color: var(--primario); white-space: nowrap; }
 table.tab .desc { max-width: 320px; }
-table.tab .motivi { min-width: 340px; } /* i motivi descrittivi non devono schiacciarsi in una colonna stretta */
+table.tab .motivi { min-width: 220px; } /* i motivi descrittivi non devono schiacciarsi in una colonna stretta */
 table.tab .azioni-riga { white-space: nowrap; width: 1%; }
 table.tab td.azioni-riga:first-child { padding-right: 4px; }
 table.tab td.azioni-riga:first-child .btn { padding: 2px 9px; font-size: 11.5px; font-weight: 600; color: var(--primario); }
@@ -445,23 +463,32 @@ fieldset[hidden] { display: none; }
 .ore-fasi .nome { min-width: 0; }
 .ore-fasi .nome b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ore-fasi .nome span { font-size: 11.5px; color: var(--testo3); }
-.ore-fasi .barre { display: grid; gap: 2px; }
-.ore-fasi .b { height: 8px; border-radius: 0 4px 4px 0; min-width: 2px; }
-.ore-fasi .b.prev { background: #9db6d6; }
-.ore-fasi .b.eff { background: var(--primario2); }
-.ore-fasi .riga.oltre .b.eff { background: var(--rosso); }
-.ore-fasi .num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; }
-.ore-fasi .num .muto { font-weight: 400; }
-.ore-fasi .scost { font-size: 11.5px; font-weight: 500; color: var(--testo2); }
-.ore-fasi .riga.oltre .scost { color: var(--rosso); font-weight: 650; }
-.legenda i.ore-prev { background: #9db6d6; border-color: transparent; }
-.legenda i.ore-eff { background: var(--primario2); border-color: transparent; }
-.legenda i.ore-oltre { background: var(--rosso); border-color: transparent; }
-@media (max-width: 800px) { .ore-fasi .riga { grid-template-columns: 1fr; } .ore-fasi .num { text-align: left; } }
+/* due barre per fase con i colori del diagramma di Gantt: previste in azzurro, effettive piene (verde o rosso) */
+.ore-fasi .barre { display: grid; gap: 4px; min-width: 0; }
+.ore-fasi .linea { display: grid; grid-template-columns: 62px 1fr 78px; gap: 8px; align-items: center; }
+.ore-fasi .et { font-size: 11px; color: var(--testo3); }
+.ore-fasi .linea + .linea .et { color: var(--testo); font-weight: 650; }
+.ore-fasi .pista { position: relative; height: 14px; background: #f3f5f8; border-radius: 3px; }
+.ore-fasi .b { height: 14px; border-radius: 3px; min-width: 3px; }
+.ore-fasi .b.prev { background: var(--primario-chiaro); border: 1px solid #9db6d6; }
+.ore-fasi .b.eff.g-verde { background-color: var(--verde); }
+.ore-fasi .b.eff.g-rosso { background-color: var(--rosso); }
+.ore-fasi .b.aperta { background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.35) 0 3px, transparent 3px 6px); border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.ore-fasi .soglia, .legenda i.ore-soglia { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 2px solid var(--primario); }
+.legenda i.ore-soglia { position: static; height: 12px; border-width: 0 0 0 2px; border-radius: 0; }
+.ore-fasi .val { text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--testo2); }
+.ore-fasi .val b { color: var(--testo); }
+.ore-fasi .esito { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--verde); }
+.ore-fasi .esito b { display: block; font-size: 14px; }
+.ore-fasi .esito span { font-size: 11.5px; color: var(--testo2); }
+.ore-fasi .riga.oltre .esito, .ore-fasi .riga.oltre .esito span { color: var(--rosso); }
+.ore-fasi .esito .muto { color: var(--testo3); }
+@media (max-width: 800px) { .ore-fasi .riga { grid-template-columns: 1fr; } .ore-fasi .esito { text-align: left; } }
+@media print { .ore-fasi .b, .ore-fasi .pista { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 
 /* ---------------------------------------------------------------- dashboard direzionale
    Una sola cosa forte: la fascia blu in alto, carta da disegno con la torta del portafoglio e il verdetto.
-   Sotto, riquadri piani e sobri: prima gli obiettivi (redditività, rientro), poi il risultato delle
+   Sotto, riquadri piani e sobri: prima gli obiettivi (redditività, surplus), poi il risultato delle
    commesse, poi l'elenco. Dentro la dashboard i titoli non sono in maiuscolo: sono frasi, non etichette. */
 .dir { --blu-notte: #16294a; --blu-carta: #1f3a5f;
   --t-critico: #f0635c; --t-attenzione: #f2c94c; --t-incompleto: #8fa3f5; --t-regolare: #4fc487; }
@@ -580,7 +607,7 @@ fieldset[hidden] { display: none; }
 .dir-periodo button.attivo { background: var(--carta); color: var(--primario); font-weight: 650; box-shadow: var(--ombra); }
 .dir-periodo button:focus-visible { outline: 2px solid var(--primario2); outline-offset: 1px; }
 @media print { .dir-periodo button:not(.attivo) { display: none; } }
-/* ---- rientro bancario: tre cifre affiancate (rossa, verde, grigia), tre barre sulla stessa scala */
+/* ---- surplus economico: tre cifre affiancate (rossa, verde, grigia), tre barre sulla stessa scala */
 .dir-tre { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
 .dir-tre .voce { min-width: 0; padding: 0 20px; overflow: hidden; }
 .dir-tre .voce:first-child { padding-left: 0; }
@@ -590,7 +617,7 @@ fieldset[hidden] { display: none; }
 /* la cifra è proporzionata al riquadro (cqw), non alla finestra: resta sempre dentro la sua colonna */
 .dir-tre .val { font-size: clamp(17px, 4.3cqw, 30px); font-weight: 700; letter-spacing: -.03em; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
 @container (max-width: 520px) {
-  /* riquadro stretto: anche richiesta ed effettiva vanno una sotto l'altra, come le voci del rientro,
+  /* riquadro stretto: anche richiesta ed effettiva vanno una sotto l'altra, come le voci del surplus,
      così i due riquadri affiancati restano alti uguali senza vuoti in mezzo */
   .dir-due { grid-template-columns: 1fr; gap: 18px; }
   .dir-due .lato + .lato { border-left: 0; padding-left: 0; border-top: 1px solid var(--bordo); padding-top: 16px; }
@@ -643,3 +670,31 @@ fieldset[hidden] { display: none; }
   .dir-torta.anima .giro, .dir-torta.anima .num, .dir-torta.anima .tot, .dir-torta.anima .tot-et,
   .dir.anima .dir-metro .pista i, .dir.anima .dir-tre .pista i, .dir.anima .dir-barre .asse i, .dir-card.anima .dir-tre .pista i { animation: none; } }
 @media print { .dir-filtri, .dir-card .azione { display: none; } .dir-fascia { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+
+/* ---------------------------------------------------------------- fascia dell'allerta in testa alla scheda commessa */
+/* il livello è un blocco pieno a sinistra, staccato dai motivi che gli stanno accanto */
+.allerta-commessa { display: flex; align-items: stretch; background: var(--carta); border: 1px solid var(--bordo); border-radius: var(--raggio); box-shadow: var(--ombra); margin-bottom: 16px; overflow: hidden; }
+.allerta-commessa .livello { display: flex; align-items: center; padding: 10px 18px; color: #fff; font-size: 13px; font-weight: 700; letter-spacing: .08em; white-space: nowrap; }
+.allerta-commessa .motivi { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 8px 14px; min-width: 0; }
+.allerta-commessa .motivi span, .allerta-commessa .motivi a { margin: 0; }
+.allerta-commessa.CRITICO { border-color: var(--rosso); } .allerta-commessa.CRITICO .livello { background: var(--rosso); }
+.allerta-commessa.ATTENZIONE { border-color: var(--ambra); } .allerta-commessa.ATTENZIONE .livello { background: var(--giallo); }
+.allerta-commessa.INCOMPLETO { border-color: var(--bluette); } .allerta-commessa.INCOMPLETO .livello { background: var(--bluette); }
+@media print { .allerta-commessa .livello { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+@media (max-width: 800px) { .allerta-commessa { flex-direction: column; } }
+
+/* Guida agli alert (Sistema, solo amministratore) */
+.guida-regole ul { margin: 6px 0 0 18px; padding: 0; line-height: 1.55; }
+.guida-gruppo { margin-bottom: 18px; }
+.guida-gruppo h2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 15px; margin: 0 0 8px; }
+.guida-gruppo h2 .badge { font-size: 12.5px; }
+.guida-gruppo h2 .sotto { font-size: 12.5px; font-weight: 400; color: var(--testo2); }
+.guida-tab td { line-height: 1.45; }
+.guida-tab td:nth-child(3), .guida-tab td:nth-child(4) { min-width: 240px; }
+.guida-tab td:nth-child(5) { min-width: 160px; color: var(--testo2); }
+.guida-tab .guida-titolo { min-width: 200px; }
+.guida-tab .guida-titolo .badge { white-space: normal; }
+.guida-tab .guida-num { font-size: 14px; }
+.guida-modifica { margin-top: 5px; font-size: 11.5px; color: var(--bluette); }
+.guida-par { color: var(--primario); }
+@media print { .guida-gruppo { break-inside: auto; } .guida-tab th { position: static; } }

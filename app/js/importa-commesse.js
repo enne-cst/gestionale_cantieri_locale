@@ -1,5 +1,5 @@
 /*
- * FIDA EDILE – Importazione delle commesse da un foglio Excel.
+ * Gestione Cantieri – Importazione delle commesse da un foglio Excel.
  *
  * Qui c'è la sola logica, senza interfaccia: l'elenco dei campi che compongono il modello,
  * la costruzione del modello stesso e la lettura di un file compilato con tutti i controlli.
@@ -475,7 +475,7 @@
       ]));
     };
     const righe = [
-      [{ v: 'FIDA EDILE – Modello per l\'importazione delle commesse', s: 'titolo' }],
+      [{ v: 'Gestione Cantieri – Modello per l\'importazione delle commesse', s: 'titolo' }],
       nota('Ci sono quattro fogli da compilare: COMMESSE (una riga per ogni commessa), SALDI (i valori cumulativi al 31/12 degli anni precedenti), MOVIMENTI e COSTI (le registrazioni dell\'esercizio ' + annoGestione + '). Si compilano solo i fogli che servono: quelli lasciati vuoti vengono ignorati. Il foglio ELENCHI contiene i valori ammessi e i suggerimenti; questo foglio è solo una guida e non viene letto dal programma.'),
       [],
       [{ v: 'Come si compila il foglio COMMESSE', s: 'grassetto' }],

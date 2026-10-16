@@ -1,4 +1,4 @@
-/* FIDA EDILE – Costi diretti (archivio separato, costo effettivo puro) */
+/* Gestione Cantieri – Costi diretti (archivio separato, costo effettivo puro) */
 (function () {
   'use strict';
   const esc = UI.esc;

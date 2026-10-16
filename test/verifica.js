@@ -1,5 +1,5 @@
 /*
- * Verifica di equivalenza con il DATABASE CONTRATTI FIDA EDILE – REV.14.
+ * Verifica di equivalenza con il DATABASE CONTRATTI – REV.14.
  * Esegui con:  node test/verifica.js
  *
  * I valori attesi delle commesse C042, C011 e TEST10 sono quelli calcolati da Excel
@@ -62,7 +62,7 @@ sezione('C042 – valori foglio CANTIERI');
   // Rev.5: lo sforamento dei costi (+3,2 %) e lo scarto ore/SAL (7,5 %) stanno sotto le soglie critiche
   eq('allerta (A)', 'ATTENZIONE', r.alert);
   eq('motivi (B)', [
-    "CONSUMO ORE SUPERIORE ALL'AVANZAMENTO", 'COSTI DIRETTI OLTRE BUDGET', 'PERDITA SAL ACCETTATA (€ 2.000,00)', 'AVANZAMENTO PIÙ LENTO DEL TEMPO'
+    "CONSUMO ORE SUPERIORE ALL'AVANZAMENTO", 'COSTI DIRETTI OLTRE BUDGET', 'PERDITA SAL ACCETTATA', 'AVANZAMENTO PIÙ LENTO DEL TEMPO'
   ], r.motivi);
   eq('budget: costo ore (F)', 82422, r.budget.costoOre);
   eq('budget: costo totale (H)', 113730, r.budget.costoTotalePrevisto);
@@ -84,16 +84,17 @@ sezione('C011 – valori foglio CANTIERI');
   eq('tempo % (aggiornato al mancante)', null, r.tempoPct);
   eq('ore budget (assente = 0)', 0, r.oreBudget);
   eq('ore %', null, r.orePct);
-  eq('giorni ritardo (budget assente)', null, r.giorniRitardo);
+  eq('giorni ritardo (budget assente: non serve, la data fine non è stata spostata)', 0, r.giorniRitardo);
   eq('costo effettivo', 0, r.costoEffettivo);
   // Rev.5: integrazioni senza riferimento documentale = critico; i dati mancanti sono motivi INCOMPLETO
-  eq('allerta', 'CRITICO', r.alert);
+  // ha alert critici, ma mancano «Aggiornato al» e i budget: dati che falsano i calcoli, quindi è INCOMPLETA
+  eq('allerta', 'INCOMPLETO', r.alert);
   eq('motivi', [
+    'AGGIORNATO AL MANCANTE', 'BUDGET ORE NON DEFINITO', 'BUDGET COSTI DIRETTI NON DEFINITO',
     'INTEGRAZIONI SENZA RIFERIMENTO DOCUMENTALE',
-    'PERDITA SAL ACCETTATA (€ 1.000,00)', 'SAL MATURATO NON FATTURATO', 'CANTIERE FINITO CON RESIDUO LAVORI', 'DATA FINE EFFETTIVA MANCANTE',
-    'AGGIORNATO AL MANCANTE', 'BUDGET ORE NON DEFINITO', 'BUDGET COSTI DIRETTI NON DEFINITO'
+    'PERDITA SAL ACCETTATA', 'SAL MATURATO NON FATTURATO', 'CANTIERE FINITO CON RESIDUO LAVORI', 'DATA FINE EFFETTIVA MANCANTE'
   ], r.motivi);
-  eq('livelli dei motivi', ['CRITICO', 'ATTENZIONE', 'ATTENZIONE', 'ATTENZIONE', 'ATTENZIONE', 'INCOMPLETO', 'INCOMPLETO', 'INCOMPLETO'], r.motiviDettaglio.map(m => m.livello));
+  eq('livelli dei motivi', ['INCOMPLETO', 'INCOMPLETO', 'INCOMPLETO', 'CRITICO', 'ATTENZIONE', 'ATTENZIONE', 'ATTENZIONE', 'INCOMPLETO'], r.motiviDettaglio.map(m => m.livello));
   eq('budget: margine teorico senza budget', 1, r.budget.margineTeorico, 1e-9);
 }
 
@@ -118,7 +119,7 @@ sezione('TEST10 – valori foglio CANTIERI');
   eq('costo effettivo', 19737, r.costoEffettivo);
   eq('giorni ritardo', 0, r.giorniRitardo);
   eq('allerta', 'ATTENZIONE', r.alert);
-  eq('motivi', ['PERDITA SAL ACCETTATA (€ 5.000,00)'], r.motivi);
+  eq('motivi', ['PERDITA SAL ACCETTATA'], r.motivi);
 }
 
 // ------------------------------------------------------------------ dashboard MOVIMENTI (foglio MOVIMENTI 2026, riga 3: TUTTE, Gennaio–Dicembre)
@@ -155,7 +156,8 @@ sezione('Dashboard MOVIMENTI – solo commesse Excel, Gennaio–Dicembre');
   // riepilogo (CANTIERI riga 3/5 con TUTTE, senza la riga duplicata dell'Excel)
   const rr = Engine.riepilogo(Engine.calcolaTutte(dbx));
   eq('contratto aggiornato totale', 143061.41 + 182758 + 100000, rr.contrattoAggiornato);
-  eq('cantieri critici (S5)', 1, rr.critiche);
+  // l'unica commessa critica dell'Excel (C011) ha dati che falsano i calcoli: è contata fra le incomplete
+  eq('cantieri critici (S5): la critica con dati mancanti va fra le incomplete', 0, rr.critiche);
   eq('cantieri in attenzione', 2, rr.attenzione);
   eq('aggiornato al massimo (P5)', '2026-08-25', rr.aggiornatoAlMax);
 
@@ -295,7 +297,7 @@ sezione('Rev.5 – alert a tre livelli e soglie impostabili');
   const liv = cod => (r.motiviDettaglio.find(m => m.motivo === cod) || {}).livello;
   eq('fatturato oltre recuperabile: ATTENZIONE', 'ATTENZIONE', liv('FATTURATO OLTRE VALORE RECUPERABILE'));
   eq('ritenute da sbloccare: ATTENZIONE', 'ATTENZIONE', liv('RITENUTE DA SBLOCCARE'));
-  eq('finita senza data di fine effettiva: ATTENZIONE', 'ATTENZIONE', liv('DATA FINE EFFETTIVA MANCANTE'));
+  eq('finita senza data di fine effettiva: dato incompleto', 'INCOMPLETO', liv('DATA FINE EFFETTIVA MANCANTE'));
   eq('finita: niente «avanzamento più lento del tempo»', undefined, liv('AVANZAMENTO PIÙ LENTO DEL TEMPO'));
   eq('finita in utile: nessun critico', 'ATTENZIONE', r.alert);
 
@@ -356,8 +358,16 @@ sezione('Rev.5 – ore per fase dal Gantt');
   eq('fase B: non oltre', false, o.righe.find(x => x.id === 'fb').oltre);
   eq('fase senza ore: non giudicata', null, o.righe.find(x => x.id === 'fc').scostamento);
   const r = Engine.calcolaTutte(d)[0];
-  eq('alert di attenzione sulla fase sforata', 'ATTENZIONE', (r.motiviDettaglio.find(m => /NELLA FASE DEMOLIZIONI/.test(m.motivo)) || {}).livello);
+  const faseOltre = r.motiviDettaglio.find(m => m.motivo === 'ORE OLTRE IL PREVISTO NELLA FASE') || {};
+  eq('alert di attenzione sulla fase sforata (+20 %, oltre la tolleranza)', 'ATTENZIONE', faseOltre.livello);
+  eq('il titolo è fisso, la fase sta nel dettaglio', true, /«Demolizioni»/.test(faseOltre.testo || ''));
+  d.parametri.tolleranzaOreFase = 0.25;
+  eq('sforamento della fase entro la tolleranza: nessun alert', undefined, Engine.calcolaTutte(d)[0].motiviDettaglio.find(m => m.motivo === 'ORE OLTRE IL PREVISTO NELLA FASE'));
+  d.parametri.tolleranzaOreFase = 0.10;
   eq('ore usate della commessa: solo esercizio in corso', 140, r.oreUsate);
+  eq('fase senza ore previste: segnalata', ['fc'], o.senzaOre.map(x => x.id));
+  eq('fase senza ore previste: alert critico', 'CRITICO', (r.motiviDettaglio.find(m => m.motivo === 'ORE PREVISTE MANCANTI NELLA FASE' && /«Finiture»/.test(m.testo)) || {}).livello);
+  eq('fase senza ore previste: la commessa è critica', 'CRITICO', r.alert);
   // la stessa fase sforata, data in subappalto: le sue ore non si controllano più
   d.fasi.find(f => f.id === 'fa').esecutore = 'subappalto';
   d.fasi.find(f => f.id === 'fa').subappaltatore = 'Demolizioni Srl';
@@ -366,8 +376,79 @@ sezione('Rev.5 – ore per fase dal Gantt');
   eq('subappalto: le sue ore previste escono dal totale del Gantt', 200, o2.previste);
   eq('subappalto: fasi dell\u2019azienda', 2, o2.nFasi);
   eq('subappalto: fasi in subappalto', 1, o2.nSubappalto);
-  eq('subappalto: nessun alert sulla fase', undefined, Engine.calcolaTutte(d)[0].motiviDettaglio.find(m => /NELLA FASE/.test(m.motivo)));
+  eq('subappalto: nessun alert sulla fase', undefined, Engine.calcolaTutte(d)[0].motiviDettaglio.find(m => m.motivo === 'ORE OLTRE IL PREVISTO NELLA FASE'));
+  eq('subappalto: una fase senza ore non è segnalata', false, o2.righe.find(x => x.id === 'fa').senzaOre);
   eq('migrazione: una fase senza esecutore è dell\u2019azienda', 'azienda', Schema.migra({ commesse: [], fasi: [{ id: 'x', commessaId: 'y' }] }).fasi[0].esecutore);
+}
+
+sezione('Matrice alert 15/10/2026 – ritardi e titoli');
+{
+  const d = Schema.nuovoDb(); d.parametri.annoGestione = 2026;
+  d.commesse.push(Object.assign(Schema.nuovaCommessa(), { id: 'r1', codice: 'R1', cliente: 'X', cantiere: 'Y', stato: 'In corso', dataInizioEffettiva: '2026-01-10', dataFinePrevista: '2026-12-31', dataFinePrevistaOriginale: '2026-12-31', contrattoIniziale: 100000, aggiornatoAl: '2026-06-30', budget: { orePreviste: 1000, costiDirettiPrevisti: 0 } }));
+  d.movimenti.push(Object.assign(Schema.nuovoMovimento(), { id: 'mr', commessaId: 'r1', tipo: 'SAL + FATTURA', data: '2026-06-01', sal: 50000, fatturatoLordo: 50000, ore: 400 }));
+  const c = d.commesse[0];
+  const mot = t => Engine.calcolaTutte(d)[0].motiviDettaglio.find(m => m.motivo === t);
+  c.dataFinePrevista = '2027-01-30'; c.causaAggiornamentoDataFine = 'Altra causa';
+  eq('ritardo produttivo con «Altra causa», ore non esaurite', 'ATTENZIONE', (mot('RITARDO PRODUTTIVO') || {}).livello);
+  eq('ritardo produttivo: giorni', 30, Engine.calcolaTutte(d)[0].giorniRitardo);
+  eq('ritardo produttivo: la causa sta nel dettaglio', true, /Altra causa/.test(mot('RITARDO PRODUTTIVO').testo));
+  c.causaAggiornamentoDataFine = 'Ritardo produttivo aziendale';
+  eq('ritardo produttivo aziendale', 'ATTENZIONE', (mot('RITARDO PRODUTTIVO') || {}).livello);
+  c.causaAggiornamentoDataFine = 'Proroga/Sospensione autorizzata';
+  eq('proroga autorizzata: nessun ritardo produttivo', undefined, mot('RITARDO PRODUTTIVO'));
+  c.dataFinePrevista = '2026-12-31'; c.causaAggiornamentoDataFine = 'Nessuna variazione';
+  // fasi: 'Scavi' 01/02–28/02 (28 gg), al 30/06 non conclusa → +122 gg: forte ritardo
+  const fase = o => d.fasi.push(Object.assign(Schema.nuovaFase(), { commessaId: 'r1', orePreviste: 100 }, o));
+  fase({ id: 'f1', fase: 'Scavi', inizioPrevisto: '2026-02-01', finePrevista: '2026-02-28', inizioEffettivo: '2026-02-01' });
+  fase({ id: 'f2', fase: 'Getti', inizioPrevisto: '2026-01-01', finePrevista: '2026-06-20' });           // 171 gg, +10 gg = 5,8 %: sotto soglia
+  fase({ id: 'f3', fase: 'Ponteggi', inizioPrevisto: '2026-03-01', finePrevista: '2026-03-31', esecutore: 'subappalto', subappaltatore: 'Z' });
+  fase({ id: 'f4', fase: 'Rinterri', inizioPrevisto: '2026-02-01', finePrevista: '2026-02-28', fineEffettiva: '2026-05-01', inizioEffettivo: '2026-02-01' }); // conclusa: no
+  const fr = mot('FASE IN FORTE RITARDO') || {};
+  eq('fase in forte ritardo: CRITICO', 'CRITICO', fr.livello);
+  eq('un solo alert per tutte le fasi in ritardo', 2, fr.nFasi);
+  eq('dettaglio con le fasi (anche in subappalto)', [true, true, false, false], ['«Scavi»', '«Ponteggi»', '«Getti»', '«Rinterri»'].map(x => fr.testo.indexOf(x) >= 0));
+  d.parametri.sogliaRitardoFase = 5;
+  eq('soglia al 500 %: nessuna fase in forte ritardo', undefined, mot('FASE IN FORTE RITARDO'));
+  d.parametri.sogliaRitardoFase = 0.15;
+  c.aggiornatoAl = '';
+  eq('senza «Aggiornato al» il ritardo delle fasi non si calcola', undefined, mot('FASE IN FORTE RITARDO'));
+  eq('titolo fisso «Aggiornato al mancante»', 'INCOMPLETO', (mot('AGGIORNATO AL MANCANTE') || {}).livello);
+  c.aggiornatoAl = '2026-06-30'; c.dataFinePrevista = '2027-02-01';
+  eq('data fine spostata senza causa: titolo nuovo', 'INCOMPLETO', (mot('DATA FINE PREVISTA INCOMPLETA') || {}).livello);
+  eq('i titoli non portano numeri', true, Engine.calcolaTutte(d)[0].motivi.every(m => !/d/.test(m)));
+}
+
+sezione('Classificazione: i dati incompleti che falsano i calcoli vincono su tutto');
+{
+  const d = Schema.nuovoDb(); d.parametri.annoGestione = 2026;
+  d.commesse.push(Object.assign(Schema.nuovaCommessa(), { id: 'k1', codice: 'K1', cliente: 'X', cantiere: 'Y', stato: 'In corso', dataInizioEffettiva: '2026-01-10', dataFinePrevista: '2026-12-31', dataFinePrevistaOriginale: '2026-12-31', contrattoIniziale: 100000, integrazioni: 5000, aggiornatoAl: '2026-06-30', budget: { orePreviste: 1000, costiDirettiPrevisti: 0 } }));
+  const c = d.commesse[0], k = () => Engine.calcolaTutte(d)[0];
+  eq('integrazioni senza riferimento: critica', 'CRITICO', k().alert);
+  c.codice = 'TEMP-01';
+  eq('codice TEMP non falsa i calcoli: resta critica', 'CRITICO', k().alert);
+  c.aggiornatoAl = '';
+  eq('manca «Aggiornato al»: incompleta anche se critica', 'INCOMPLETO', k().alert);
+  eq('il dato che falsa è il primo motivo', 'AGGIORNATO AL MANCANTE', k().motivi[0]);
+  eq('il critico resta fra i motivi, col suo livello', 'CRITICO', k().motiviDettaglio.find(m => m.motivo === 'INTEGRAZIONI SENZA RIFERIMENTO DOCUMENTALE').livello);
+  eq('nel riepilogo conta solo la classe', [0, 1], [Engine.riepilogo([k()]).critiche, Engine.riepilogo([k()]).incomplete]);
+  c.aggiornatoAl = '2026-06-30'; c.integrazioniRiferimento = 'Ordine n. 1';
+  eq('senza altri alert, il codice TEMP basta per incompleta', 'INCOMPLETO', k().alert);
+  eq('catalogo dei dati che falsano: 24, 25, 26, 28, 29', ['24', '25', '26', '28', '29'],
+    require('../app/js/alert-catalogo.js').ALERT.filter(a => Engine.ALERT_BLOCCANTI.indexOf(a.titolo) >= 0).map(a => a.n));
+}
+
+sezione('Guida agli alert – catalogo allineato al motore');
+{
+  const Cat = require('../app/js/alert-catalogo.js');
+  const src = fs.readFileSync(require('path').join(__dirname, '..', 'app', 'js', 'engine.js'), 'utf8');
+  // tutti gli alert che il motore può produrre, con il loro livello, letti dal sorgente
+  const motore = {};
+  src.replace(/segna(?:Fasi)?\('(CRITICO|ATTENZIONE|INCOMPLETO)', (["'])(.+?)\2/g, (x, liv, q, tit) => { motore[tit] = liv; return x; });
+  const cat = {}; Cat.ALERT.forEach(a => { cat[a.titolo] = a.livello; });
+  eq('numerazione della matrice: 1–29 più il 9 bis', 30, new Set(Cat.ALERT.map(a => a.n)).size);
+  eq('titoli del catalogo unici', Cat.ALERT.length, Object.keys(cat).length);
+  const coppie = o => Object.keys(o).sort().map(k => k + ' → ' + o[k]);
+  eq('ogni alert del motore è nel catalogo, con lo stesso livello', coppie(motore), coppie(cat));
 }
 
 sezione('Rev.5 – dashboard direzionale');
@@ -377,14 +458,18 @@ sezione('Rev.5 – dashboard direzionale');
   eq('stato del portafoglio: basta una critica', 'CRITICO', D.stato);
   eq('conteggi per livello', rows.length, D.critiche + D.attenzione + D.incomplete + D.regolari);
   eq('redditività richiesta %', P.redditivita, D.redditivita.richiestaPct);
-  const eseguite = rows.filter(r => r.oreUsate > 0);
-  eq('redditività effettiva € = utile maturato delle eseguite', eseguite.reduce((t, r) => t + r.utileMaturato, 0), D.redditivita.effettiva);
+  const finiteConOre = rows.filter(r => r.finito && r.oreUsate > 0);
+  eq('redditività effettiva € = utile maturato delle sole finite', finiteConOre.reduce((t, r) => t + r.utileMaturato, 0), D.redditivita.effettiva);
+  eq('redditività: numero di commesse finite considerate', finiteConOre.length, D.redditivita.nFinite);
+  eq('una commessa in corso non entra nella redditività', null, Engine.direzionale(rows.filter(r => !r.finito), P).redditivita.effettivaPct);
   // sulla singola commessa i numeri sono quelli del conto della commessa (colonna Maturato)
   const t10 = byCod['TEST10'];
   const D1 = Engine.direzionale([t10], P);
   const sC = t10.sostenibilitaConsuntivo.strutturale;
   eq('TEST10: utile maturato', 40000 - 5000 - 6000 - 300 * 45.79, t10.utileMaturato);
-  eq('TEST10: redditività effettiva %', t10.utileMaturato / sC.conRedditivita, D1.redditivita.effettivaPct, 1e-9);
+  // la redditività si misura sulle sole finite: TEST10 è in corso, si prova la stessa commessa data per finita
+  eq('TEST10: in corso, fuori dalla redditività', null, D1.redditivita.effettivaPct);
+  eq('TEST10 finita: redditività effettiva %', t10.utileMaturato / sC.conRedditivita, Engine.direzionale([Object.assign({}, t10, { finito: true })], P).redditivita.effettivaPct, 1e-9);
   eq('TEST10: rientro effettivo = utile − redditività richiesta', t10.utileMaturato - sC.redditivita, D1.rientro.effettivo);
   eq('TEST10: rientro desiderato = ore previste × €/h', 1000 * P.rientroOrario, D1.rientro.desiderato);
   eq('obiettivo di rientro impostato a mano', 50000, Engine.direzionale([t10], Object.assign({}, P, { obiettivoRientroAnnuo: 50000 })).rientro.desiderato);
@@ -412,7 +497,7 @@ sezione('Rev.5 – dashboard direzionale');
     eq('fatturato mensile: i dodici mesi sommano al fatturato dell\u2019anno', Engine.direzionale(rows, P).fatturazione.fatturato, tuttiMesi.reduce((t, x) => t + x.fatturato, 0));
     eq('fatturato mensile: senza commesse, tutto a zero', 0, Engine.fatturatoMensile(db, []).reduce((t, x) => t + x.fatturato, 0));
   }
-  // rientro bancario sul solo esercizio e sull'intera vita: la pregressa C-2025-07 ha 1.500 ore nel saldo e 500 nel 2026
+  // surplus economico sul solo esercizio e sull'intera vita: la pregressa C-2025-07 ha 1.500 ore nel saldo e 500 nel 2026
   {
     const c25 = byCod['C-2025-07'];
     const anno = Engine.calcolaTutte(db, { senzaSaldi: true }).find(r => r.codice === 'C-2025-07');
@@ -562,10 +647,10 @@ sezione('Sostenibilità economica – equivalenza con il modello');
 {
   const dbS = Schema.nuovoDb();
   dbS.parametri.costoOrario = 543494.63 / 11868;   // BEP strutturale mensile / ore produttive mensili
-  dbS.parametri.rientroOrario = 80000 / 11868;     // rientro bancario mensile / ore produttive mensili
+  dbS.parametri.rientroOrario = 80000 / 11868;     // surplus economico mensile / ore produttive mensili
   const S = Engine.parametriSostenibilita(dbS.parametri);
   eq('costo strutturale €/h (Dettaglio B6)', 45.794963768115942, S.costoOrario, 1e-9);
-  eq('rientro bancario €/h (Dettaglio B8)', 6.7408156386922817, S.rientroOrario, 1e-9);
+  eq('surplus economico €/h (Dettaglio B8)', 6.7408156386922817, S.rientroOrario, 1e-9);
   eq('rischio strutturale (D28)', 0.03, S.rischio);
   eq('redditività (F28)', 0.12, S.redditivita);
   eq('soglia minima di ricarico (D29)', 0.15, S.sogliaRicarico);
@@ -577,7 +662,7 @@ sezione('Sostenibilità economica – equivalenza con il modello');
   eq('rischio sulla parte strutturale (B38)', 1373.8489130434782, str.rischio, 1e-6);
   eq('costo strutturale prudenziale (B39)', 47168.81268115942, str.prudenziale, 1e-6);
   eq('prezzo con redditività (B40)', 53600.92350131752, str.conRedditivita, 1e-6);
-  eq('quota di rientro bancario (B41)', 6740.815638692282, str.rientro, 1e-6);
+  eq('quota di surplus economico (B41)', 6740.815638692282, str.rientro, 1e-6);
   eq('prezzo sostenibile della parte strutturale (B42)', 60341.7391400098, str.prezzo, 1e-6);
 
   // dettaglio dei pesi (Dettaglio C12:F34)
@@ -789,7 +874,7 @@ sezione('Esportazione / importazione totale dei dati');
 
   const busta = Dati.esporta(pieno, { modo: 'server', utente: 'Direzione' });
 
-  eq('formato dichiarato', 'fida-edile.export', busta.formato);
+  eq('formato dichiarato', 'gestione-cantieri.export', busta.formato);
   eq('versione del formato', 1, busta.versioneFormato);
   eq('entità descritte', Dati.ORDINE.length, Object.keys(busta.struttura.entita).length);
   eq('ordine di inserimento presente', true, Array.isArray(busta.struttura.ordine) && busta.struttura.ordine[0] === 'utenti');
@@ -1133,7 +1218,7 @@ async function verificaImportazioneExcel() {
     righeProva[0], cCompresso.foglio('COMMESSE')[0].map(c => Xlsx.testo(c)));
   eq('e produce lo stesso esito', rProva.nNuove, ImportaExcel.prepara(cCompresso, db).nNuove);
 
-  const rif = __dirname + '/../reference/DATABASE CONTRATTI FIDA EDILE – REV.14 DEFINITIVA.xlsx';
+  const rif = __dirname + '/../reference/DATABASE CONTRATTI – REV.14 DEFINITIVA.xlsx';
   if (fs.existsSync(rif)) {
     const orig = await Xlsx.leggi(fs.readFileSync(rif));
     eq('fogli del file Excel originale',

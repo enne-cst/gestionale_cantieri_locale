@@ -1,5 +1,5 @@
 @echo off
-title FIDA EDILE - Gestione Cantieri
+title Gestione Cantieri
 cd /d "%~dp0"
 where node >nul 2>nul
 if errorlevel 1 goto nonode

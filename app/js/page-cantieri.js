@@ -1,4 +1,4 @@
-/* FIDA EDILE – Controllo economico e produttivo cantieri (foglio CANTIERI) */
+/* Gestione Cantieri – Controllo economico e produttivo cantieri (foglio CANTIERI) */
 (function () {
   'use strict';
   const esc = UI.esc;
@@ -118,7 +118,7 @@
       document.getElementById('cant-mese').innerHTML = '<h2>Costo mensile ' + esc(P.annoGestione) + (uno ? ' – ' + esc(uno.codice) : ' – tutte le commesse') + '</h2><p class="sotto">Ore del mese × ' + Fmt.euro(P.costoOrario) + '/h + costi diretti del mese (solo esercizio corrente).</p>' +
         '<div class="tabella-wrap"><table class="tab"><thead><tr><th>Mese</th><th class="n">Ore</th><th class="n">Costi diretti</th><th class="n">Costo mese</th><th class="n">Costo cumulato</th></tr></thead><tbody>' +
         cm.map(r => '<tr><td>' + r.nome + '</td><td class="n">' + Fmt.ore(r.ore, { zeroVuoto: true }) + '</td><td class="n">' + Fmt.euro(r.costiDiretti, { zeroVuoto: true }) + '</td><td class="n calc">' + Fmt.euro(r.costoMese, { zeroVuoto: true }) + '</td><td class="n calc">' + Fmt.euro(r.cumulato) + '</td></tr>').join('') + '</tbody></table></div>';
-      const conAlert = sel.filter(r => r.alert !== 'REGOLARE').sort((a, b) => Engine.LIVELLI_ALERT.indexOf(a.alert) - Engine.LIVELLI_ALERT.indexOf(b.alert));
+      const conAlert = sel.filter(r => r.alert !== 'REGOLARE').sort((a, b) => Engine.CLASSI_ALERT.indexOf(a.alert) - Engine.CLASSI_ALERT.indexOf(b.alert));
       document.getElementById('cant-alert').innerHTML = '<h2>Commesse che richiedono attenzione</h2>' + (conAlert.length ? '<div class="tabella-wrap"><table class="tab"><tbody>' +
         conAlert.map(r => '<tr><td>' + UI.badgeAlert(r.alert) + '</td><td>' + UI.linkCommessa(r) + '<div class="piccolo muto">' + esc(r.cliente) + '</div></td><td>' + UI.motiviHtml(r) + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="vuoto">Nessuna commessa con alert nella selezione.</div>');
     }

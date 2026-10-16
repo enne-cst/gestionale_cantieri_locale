@@ -1,0 +1,15 @@
+{
+  "name": "brochure-gestione-cantieri",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Brochure A4 di 4 pagine: schermate reali catturate con Playwright ed esportazione in PDF.",
+  "scripts": {
+    "genera": "node genera.js",
+    "pdf": "node genera.js --solo-pdf"
+  },
+  "dependencies": {
+    "@fontsource/barlow": "5.0.13",
+    "@fontsource/barlow-condensed": "5.0.13",
+    "playwright-core": "1.47.2"
+  }
+}

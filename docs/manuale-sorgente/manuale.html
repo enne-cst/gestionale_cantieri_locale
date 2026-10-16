@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Cubo Suite – Gestione Cantieri · Manuale d'uso</title>
+<style>
+  @page { size: A4; margin: 17mm 16mm 18mm 16mm; }
+  :root { --blu: #1f3a5f; --blu2: #2c4f80; --giallo: #f2c94c; --testo: #1d2733; --testo2: #5b6573; --linea: #d9dee6; --sfondo: #f3f5f8; }
+  * { box-sizing: border-box; }
+  html { font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; font-size: 10.2pt; line-height: 1.5; color: var(--testo); }
+  body { margin: 0; }
+  h1, h2, h3 { color: var(--blu); line-height: 1.2; break-after: avoid; }
+  h1 { font-size: 21pt; margin: 0 0 4mm; padding-bottom: 3mm; border-bottom: 2.5pt solid var(--giallo); break-before: page; }
+  h1 .n { display: block; font-size: 9.5pt; letter-spacing: .14em; text-transform: uppercase; color: #b7791f; font-weight: 700; margin-bottom: 1.5mm; }
+  h2 { font-size: 13.5pt; margin: 7mm 0 2mm; }
+  h3 { font-size: 10.8pt; margin: 5mm 0 1.5mm; }
+  p { margin: 0 0 2.6mm; text-align: left; orphans: 3; widows: 3; }
+  ul, ol { margin: 0 0 2.6mm; padding-left: 5.5mm; }
+  li { margin-bottom: 1mm; }
+  b, strong { font-weight: 650; }
+  code { font-family: Consolas, "Courier New", monospace; font-size: 9.2pt; background: #eef1f5; padding: .2mm 1.2mm; border-radius: 1mm; }
+  pre { font-family: Consolas, "Courier New", monospace; font-size: 9.2pt; background: #1f2a3a; color: #e8edf4; padding: 3mm 4mm; border-radius: 1.5mm; margin: 0 0 3mm; white-space: pre-wrap; break-inside: avoid; }
+  .intro { font-size: 11pt; color: #33404f; margin-bottom: 4mm; }
+  table { border-collapse: collapse; width: 100%; margin: 1mm 0 4mm; font-size: 9.3pt; break-inside: auto; }
+  th, td { border-bottom: .6pt solid var(--linea); padding: 1.6mm 2.2mm; text-align: left; vertical-align: top; }
+  thead th { background: var(--blu); color: #fff; font-weight: 600; border-bottom: none; }
+  tr { break-inside: avoid; }
+  tbody tr:nth-child(even) td { background: #f7f9fb; }
+  td.c { text-align: center; }
+  figure { margin: 3mm 0 5mm; break-inside: avoid; text-align: center; }
+  figure .crop { overflow: hidden; border: .7pt solid #c7ced8; border-radius: 1.5mm; box-shadow: 0 .6mm 2mm rgba(20, 35, 60, .13); margin: 0 auto; background: #fff; }
+  figure .crop img { display: block; width: 100%; }
+  figure > img { max-width: 100%; max-height: 205mm; border: .7pt solid #c7ced8; border-radius: 1.5mm; box-shadow: 0 .6mm 2mm rgba(20, 35, 60, .13); }
+  figure.m > img { max-width: 78%; }
+  figure.s > img { max-width: 58%; }
+  figcaption { font-size: 8.6pt; color: var(--testo2); margin-top: 1.8mm; text-align: center; }
+  figcaption b { color: var(--blu); }
+  .nota, .attenzione, .consiglio { border-left: 3pt solid; padding: 2.4mm 3.5mm; margin: 2mm 0 4mm; border-radius: 0 1.5mm 1.5mm 0; break-inside: avoid; font-size: 9.7pt; }
+  .nota { border-color: #4a78c2; background: #eaf1fb; }
+  .attenzione { border-color: #c0392b; background: #fdecea; }
+  .consiglio { border-color: #2e8b57; background: #e8f5ee; }
+  .nota > b:first-child, .attenzione > b:first-child, .consiglio > b:first-child { display: block; font-size: 8.4pt; letter-spacing: .1em; text-transform: uppercase; margin-bottom: .6mm; }
+  .badge { display: inline-block; font-size: 8pt; font-weight: 700; letter-spacing: .04em; padding: .3mm 2mm; border-radius: 1mm; white-space: nowrap; }
+  .b-reg { background: #e3f3e8; color: #1e7a45; } .b-inc { background: #e6e9fb; color: #4553c4; } .b-att { background: #fdefd3; color: #b7791f; } .b-cri { background: #fde3e0; color: #b3261e; } .b-neu { background: #e8edf4; color: #33404f; }
+  .q { display: inline-block; width: 3.4mm; height: 3.4mm; border-radius: .6mm; vertical-align: -0.5mm; margin-right: 1mm; border: .5pt solid #c9cfd8; }
+  .q.in { background: #fff8dc; border-color: #e8d98c; } .q.calc { background: #e7f0fa; border-color: #bcd3ea; }
+  .passi { counter-reset: p; list-style: none; padding: 0; margin: 2mm 0 4mm; }
+  .passi > li { counter-increment: p; position: relative; padding-left: 9.5mm; margin-bottom: 2.2mm; break-inside: avoid; }
+  .passi > li::before { content: counter(p); position: absolute; left: 0; top: -.2mm; width: 6mm; height: 6mm; border-radius: 50%; background: var(--blu); color: #fff; font-weight: 700; font-size: 8.8pt; text-align: center; line-height: 6mm; }
+  .flusso { display: flex; align-items: stretch; gap: 0; margin: 4mm 0 5mm; break-inside: avoid; }
+  .flusso div { flex: 1; background: var(--blu); color: #fff; padding: 2.6mm 2mm 2.6mm 5mm; font-size: 8.4pt; line-height: 1.3; clip-path: polygon(0 0, calc(100% - 3.2mm) 0, 100% 50%, calc(100% - 3.2mm) 100%, 0 100%, 3.2mm 50%); margin-right: -1.6mm; }
+  .flusso div:first-child { clip-path: polygon(0 0, calc(100% - 3.2mm) 0, 100% 50%, calc(100% - 3.2mm) 100%, 0 100%); padding-left: 3mm; }
+  .flusso div b { display: block; font-size: 9.3pt; color: var(--giallo); }
+  .flusso div:nth-child(even) { background: var(--blu2); }
+  .due { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+  .ruoli { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin: 3mm 0 1mm; }
+  .ruoli div { text-align: center; font-size: 8.6pt; color: var(--testo2); }
+  .ruoli img { width: 100%; border-radius: 1.2mm; border: .7pt solid #c7ced8; display: block; margin-bottom: 1.2mm; }
+  .formula { background: #f3f5f8; border: .6pt solid var(--linea); border-radius: 1.5mm; padding: 2.4mm 3.5mm; margin: 1.5mm 0 3.5mm; font-size: 9.8pt; break-inside: avoid; }
+  .formula b { color: var(--blu); }
+  /* copertina */
+  .copertina { height: 258mm; display: flex; flex-direction: column; justify-content: space-between; background: var(--blu); color: #fff; margin: -1mm -1mm 0; padding: 22mm 18mm 16mm; border-radius: 2mm; break-after: page; }
+  .copertina .marchio { display: flex; align-items: center; gap: 5mm; }
+  .copertina .marchio img { width: 20mm; height: 20mm; border-radius: 3mm; }
+  .copertina .marchio b { font-size: 17pt; letter-spacing: .08em; display: block; }
+  .copertina .marchio span { font-size: 11pt; color: #b9c7da; }
+  .copertina h1 { all: unset; display: block; font-size: 38pt; font-weight: 700; line-height: 1.08; color: #fff; }
+  .copertina .sotto { font-size: 13pt; color: #c9d5e5; margin-top: 6mm; max-width: 130mm; line-height: 1.45; }
+  .copertina .riga { width: 34mm; height: 1.6mm; background: var(--giallo); margin-bottom: 8mm; }
+  .copertina .piede { font-size: 9.5pt; color: #b9c7da; display: flex; justify-content: space-between; border-top: .6pt solid #45618a; padding-top: 4mm; }
+  .indice { break-after: page; }
+  .indice h1 { break-before: auto; }
+  .indice ol { list-style: none; padding: 0; margin: 0; columns: 2; column-gap: 9mm; }
+  .indice li { break-inside: avoid; margin-bottom: 3mm; padding-bottom: 2.4mm; border-bottom: .6pt solid var(--linea); }
+  .indice li b { color: var(--blu); font-size: 10.6pt; }
+  .indice li span { display: block; color: var(--testo2); font-size: 8.8pt; }
+  .indice li i { font-style: normal; color: #b7791f; font-weight: 700; margin-right: 2mm; }
+  .indice a { color: inherit; text-decoration: none; }
+  .compatto h2 { margin-top: 4.2mm; } .compatto .passi { margin-bottom: 2mm; } .compatto .passi > li { margin-bottom: 1.3mm; }
+  .glossario td:first-child { font-weight: 650; color: var(--blu); white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<section class="copertina">
+  <div class="marchio"><img src="logo.png" alt=""><div><b>CUBO SUITE</b><span>Gestione Cantieri</span></div></div>
+  <div>
+    <div class="riga"></div>
+    <h1>Manuale d'uso</h1>
+    <div class="sotto">Guida illustrata all'applicazione: dalle offerte alla commessa, dai movimenti di cantiere al controllo direzionale, fino alla chiusura dell'esercizio.</div>
+  </div>
+  <div class="piede"><span>Versione dell'applicazione 1.0.0</span><span>Manuale aggiornato al 10 ottobre 2026</span></div>
+</section>
+
+<section class="indice">
+  <h1>Indice</h1>
+  <ol>
+    <li><a href="#c1"><i>1</i><b>Che cos'è e come ragiona</b><span>I concetti di base e il flusso di lavoro</span></a></li>
+    <li><a href="#c2"><i>2</i><b>Avvio e salvataggio dei dati</b><span>Windows, Mac, rete locale, dove finiscono i dati</span></a></li>
+    <li><a href="#c3"><i>3</i><b>L'interfaccia</b><span>Menu, utenti, colori, tabelle e maschere</span></a></li>
+    <li><a href="#c4"><i>4</i><b>Preventivi</b><span>Le offerte e la conversione in commessa</span></a></li>
+    <li><a href="#c5"><i>5</i><b>Anagrafica commesse</b><span>Creare, cercare, annullare ed eliminare</span></a></li>
+    <li><a href="#c6"><i>6</i><b>La scheda commessa</b><span>Le dieci schede, una per una</span></a></li>
+    <li><a href="#c7"><i>7</i><b>Movimenti</b><span>SAL, fatture, ritenute, ore, perdite</span></a></li>
+    <li><a href="#c8"><i>8</i><b>Costi diretti</b><span>I costi specifici della commessa</span></a></li>
+    <li><a href="#c9"><i>9</i><b>Budget commessa</b><span>Ore e costi previsti, iniziali e aggiornati</span></a></li>
+    <li><a href="#c10"><i>10</i><b>Sostenibilità economica</b><span>Prezzo del computo e prezzo minimo</span></a></li>
+    <li><a href="#c11"><i>11</i><b>Saldi iniziali</b><span>Le commesse cominciate negli anni precedenti</span></a></li>
+    <li><a href="#c12"><i>12</i><b>Importa da Excel</b><span>Caricare e aggiornare in blocco</span></a></li>
+    <li><a href="#c13"><i>13</i><b>Dashboard direzionale</b><span>Lo stato del portafoglio in una pagina</span></a></li>
+    <li><a href="#c14"><i>14</i><b>Controllo cantieri</b><span>La situazione reale di ogni commessa</span></a></li>
+    <li><a href="#c15"><i>15</i><b>Gli alert</b><span>Critico, attenzione, incompleto: quando scattano</span></a></li>
+    <li><a href="#c16"><i>16</i><b>Dashboard di analisi</b><span>Tutti gli indicatori, filtrabili</span></a></li>
+    <li><a href="#c17"><i>17</i><b>Parametri di controllo</b><span>Soglie, liste, utenti, chiusura esercizio, backup</span></a></li>
+    <li><a href="#c18"><i>18</i><b>Registro modifiche</b><span>Chi ha cambiato cosa, e quando</span></a></li>
+    <li><a href="#c19"><i>19</i><b>Come si fa: le operazioni tipiche</b><span>Procedure passo passo</span></a></li>
+    <li><a href="#c20"><i>20</i><b>Problemi frequenti e glossario</b><span>Risposte rapide e significato dei termini</span></a></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 1 -->
+<h1 id="c1"><span class="n">Capitolo 1</span>Che cos'è e come ragiona</h1>
+<p class="intro">Gestione Cantieri è un gestionale che tiene sotto controllo l'andamento economico e produttivo delle commesse edili: quanto è stato prodotto, quanto è stato fatturato, quante ore e quanti costi sono stati consumati, e se alla fine la commessa lascia un utile.</p>
+<p>Sostituisce il file Excel <i>Database contratti – Rev.14</i> conservandone tutte le logiche di calcolo. Funziona nel browser (Chrome, Edge, Firefox, Safari), su Windows, macOS e Linux, senza installare programmi aggiuntivi oltre a Node.js.</p>
+
+<h2>Il flusso di lavoro</h2>
+<div class="flusso">
+  <div><b>1 · Preventivo</b>Si verifica se il prezzo offerto è sostenibile</div>
+  <div><b>2 · Commessa</b>L'offerta accettata entra in Anagrafica</div>
+  <div><b>3 · Budget e Gantt</b>Ore, costi previsti e fasi di lavoro</div>
+  <div><b>4 · Registrazioni</b>Movimenti e costi diretti, giorno per giorno</div>
+  <div><b>5 · Controllo</b>Alert, dashboard, utile a finire</div>
+  <div><b>6 · Chiusura</b>A fine anno i cumulativi diventano saldi</div>
+</div>
+
+<h2>Sei idee da tenere a mente</h2>
+<table>
+  <thead><tr><th style="width:27%">Idea</th><th>Che cosa significa</th></tr></thead>
+  <tbody>
+    <tr><td><b>Una sola fonte per ogni dato</b></td><td>La commessa nasce una volta sola in Anagrafica e viene richiamata ovunque come <code>CODICE | CLIENTE | CANTIERE</code>. Cliente e cantiere non si riscrivono mai altrove.</td></tr>
+    <tr><td><b>Esercizio in gestione</b></td><td>L'applicazione lavora su un anno alla volta (lo si legge in basso a sinistra: «Esercizio 2026»). Movimenti e costi si registrano solo con data in quell'anno.</td></tr>
+    <tr><td><b>Cumulativo = saldo + movimenti</b></td><td>Il valore cumulato di una commessa è il <b>saldo iniziale</b> al 31/12 dell'anno precedente più i <b>movimenti dell'esercizio</b>. Le commesse nate nell'anno non hanno saldo.</td></tr>
+    <tr><td><b>Costo effettivo</b></td><td>Ore effettive × <b>costo strutturale orario</b> (un unico parametro aziendale, 45,79 €/h nell'esempio) + costi diretti.</td></tr>
+    <tr><td><b>Niente si cancella</b></td><td>Movimenti, costi e saldi si <b>annullano</b> con un motivo e restano tracciati. Ogni modifica finisce nel Registro modifiche.</td></tr>
+    <tr><td><b>Gli alert li calcola il programma</b></td><td>Ogni commessa riceve da sola un livello: regolare, incompleto, attenzione, critico. Non si impostano a mano.</td></tr>
+  </tbody>
+</table>
+
+<div class="nota"><b>Le schermate di questo manuale</b>Tutte le immagini sono state prese dall'applicazione con dati dimostrativi (clienti e importi di fantasia). I numeri che vedrai nel tuo archivio saranno diversi.</div>
+
+<!-- ============================================================ 2 -->
+<h1 id="c2"><span class="n">Capitolo 2</span>Avvio e salvataggio dei dati</h1>
+<p class="intro">L'applicazione si avvia con un doppio clic. Serve <b>Node.js</b> (gratuito, versione LTS, da nodejs.org) perché i dati vengano salvati in un file nella cartella dell'app.</p>
+
+<h2>Avviare su Windows</h2>
+<ol class="passi">
+  <li>Apri la cartella dell'applicazione e fai doppio clic su <b><code>avvia.bat</code></b>.</li>
+  <li>Si apre una finestra nera («server locale») e subito dopo il browser all'indirizzo <code>http://localhost:8765</code>.</li>
+  <li><b>Lascia aperta la finestra nera</b> finché lavori: chiuderla spegne l'applicazione.</li>
+</ol>
+
+<h2>Avviare su Mac</h2>
+<ol class="passi">
+  <li>Apri <b>Terminale</b>, scrivi <code>cd</code> seguito da uno spazio e trascina la cartella dell'app nella finestra; premi Invio.</li>
+  <li>Scrivi <code>node server.js</code> e premi Invio.</li>
+  <li>Apri nel browser <code>http://localhost:8765</code>. Per chiudere: nel Terminale premi <code>Ctrl+C</code>.</li>
+</ol>
+<p>In alternativa: doppio clic su <code>avvia.command</code>, da sbloccare la prima volta (vedi <code>LEGGIMI-MAC.txt</code>).</p>
+
+<h2>Dove finiscono i dati</h2>
+<p>L'applicazione dichiara sempre come sta lavorando con l'etichetta in basso a sinistra, sotto il nome dell'utente.</p>
+<table>
+  <thead><tr><th>Etichetta</th><th>Quando compare</th><th>Dove sono i dati</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge b-reg">dati su server locale</span></td><td>Avvio con <code>avvia.bat</code>, <code>avvia.command</code> o <code>node server.js</code></td><td>Nel file <code>data/database.json</code> dentro la cartella dell'app, con una copia automatica al giorno in <code>data/backup/</code></td></tr>
+    <tr><td><span class="badge b-att">dati in questo browser</span></td><td>Doppio clic su <code>app/index.html</code>, oppure Node.js non installato</td><td>Dentro il browser di quel computer: <b>nessun file</b>. Svuotando la cache del browser i dati si perdono</td></tr>
+  </tbody>
+</table>
+<div class="attenzione"><b>Attenzione</b>Se l'etichetta è gialla, i dati non sono in un file e non si possono condividere né salvare da soli: l'unico modo per conservarli è <i>Parametri → Dati → Scarica copia di sicurezza</i>. Per lavorare davvero conviene sempre l'etichetta verde.</div>
+
+<h2>Più computer sullo stesso archivio</h2>
+<p>Copiare la cartella su due computer crea <b>due archivi separati</b>. Per lavorare tutti sugli stessi dati:</p>
+<ul>
+  <li>sul computer che fa da «server» avvia con <code>avvia.bat --rete</code> (oppure <code>node server.js --rete</code>): a video compare un indirizzo del tipo <code>http://192.168.1.10:8765</code>;</li>
+  <li>sugli altri computer della stessa rete apri quell'indirizzo nel browser: non c'è niente da installare;</li>
+  <li>deve restare acceso solo il computer «server». Porta diversa: <code>node server.js --porta 9000</code>.</li>
+</ul>
+
+<!-- ============================================================ 3 -->
+<h1 id="c3"><span class="n">Capitolo 3</span>L'interfaccia</h1>
+<p class="intro">La finestra è divisa in due: a sinistra la barra blu con il menu e l'utente, a destra la pagina di lavoro.</p>
+
+<figure><div class="crop" style="aspect-ratio:1440/820"><img src="img/commesse.png" alt=""></div>
+<figcaption><b>La pagina Anagrafica commesse.</b> A sinistra il menu diviso in gruppi; in alto a destra i pulsanti della pagina; al centro filtri e tabella.</figcaption></figure>
+
+<h2>Il menu</h2>
+<table>
+  <thead><tr><th style="width:17%">Gruppo</th><th style="width:27%">Pagina</th><th>A che cosa serve</th></tr></thead>
+  <tbody>
+    <tr><td rowspan="2"><b>Direzione</b></td><td>Dashboard</td><td>Lo stato del portafoglio: alert, fatturato, redditività, surplus economico, utili</td></tr>
+    <tr><td>Controllo cantieri</td><td>La situazione reale di ogni commessa e il costo mensile</td></tr>
+    <tr><td><b>Offerte</b></td><td>Preventivi</td><td>Ipotesi di commessa con verifica di sostenibilità</td></tr>
+    <tr><td rowspan="7"><b>Gestione</b></td><td>Anagrafica commesse</td><td>L'elenco master delle commesse; da qui si apre la scheda di ciascuna</td></tr>
+    <tr><td>Importa da Excel</td><td>Caricamento e aggiornamento in blocco da un file .xlsx</td></tr>
+    <tr><td>Movimenti</td><td>Archivio di SAL, fatture, ritenute, ore e perdite</td></tr>
+    <tr><td>Costi diretti</td><td>Archivio dei costi specifici delle commesse</td></tr>
+    <tr><td>Budget commessa</td><td>Ore e costi diretti previsti</td></tr>
+    <tr><td>Sostenibilità economica</td><td>Confronto fra prezzo e prezzo minimo sostenibile</td></tr>
+    <tr><td>Saldi iniziali</td><td>Valori già maturati al 31/12 dalle commesse pregresse</td></tr>
+    <tr><td rowspan="3"><b>Sistema</b></td><td>Dashboard di analisi</td><td>Tutti gli indicatori con filtri liberi</td></tr>
+    <tr><td>Parametri di controllo</td><td>Soglie, liste, utenti, chiusura esercizio, copie di sicurezza</td></tr>
+    <tr><td>Registro modifiche</td><td>La storia di ogni inserimento e modifica</td></tr>
+  </tbody>
+</table>
+
+<h2>Utenti e livelli di utilizzo</h2>
+<p>In fondo alla barra laterale la tendina <b>Utente</b> permette di scegliere con quale ruolo lavorare. Il menu mostra solo le pagine consentite a quel ruolo.</p>
+<div class="ruoli" style="width:84%;margin-left:auto;margin-right:auto">
+  <div><img src="img/ruolo-admin.png" alt="">Amministratore</div>
+  <div><img src="img/ruolo-direzione.png" alt="">Direzione</div>
+  <div><img src="img/ruolo-operativo.png" alt="">Operativo</div>
+  <div><img src="img/ruolo-consultazione.png" alt="">Consultazione</div>
+</div>
+<figure style="margin-top:0"><figcaption><b>Lo stesso menu visto dai quattro ruoli.</b></figcaption></figure>
+<table>
+  <thead><tr><th style="width:19%">Ruolo</th><th style="width:20%">Si apre su</th><th>Che cosa può fare</th></tr></thead>
+  <tbody>
+    <tr><td><b>Amministratore</b></td><td>Dashboard di analisi</td><td>Tutto. In esclusiva: Dashboard di analisi, Parametri di controllo (utenti, chiusura esercizio, copie di sicurezza) e Registro modifiche</td></tr>
+    <tr><td><b>Direzione</b></td><td>Dashboard</td><td>Tutte le operazioni sui dati: commesse (anche eliminarle), budget, saldi iniziali, note direzionali, movimenti, costi, preventivi. Non vede le tre pagine riservate all'Amministratore</td></tr>
+    <tr><td><b>Operativo</b></td><td>Anagrafica commesse</td><td>Crea e modifica commesse, movimenti, costi diretti, fasi del Gantt e preventivi (conversione compresa); indica il ricarico della verifica di sostenibilità e la data «aggiornato al». Non modifica budget e saldi, non vede le pagine di Direzione</td></tr>
+    <tr><td><b>Consultazione</b></td><td>Anagrafica commesse</td><td>Sola lettura ed esportazioni</td></tr>
+  </tbody>
+</table>
+<div class="nota"><b>Password</b>Nella configurazione attuale la password è <b>sospesa</b>: l'applicazione si apre direttamente come Direzione e si cambia utente liberamente dalla tendina. Chi amministra l'applicazione può riattivarla dal file <code>app/js/store.js</code> (interruttore <code>PASSWORD_ATTIVA</code>): da quel momento l'app si apre come Operativo e chiede la password per passare a Direzione o Amministratore. I ruoli servono a organizzare il lavoro, non sono una protezione di sicurezza.</div>
+
+<h2>I colori: chi ha scritto quel numero?</h2>
+<p>In ogni tabella e in ogni scheda lo sfondo della cella dice da dove arriva il dato:</p>
+<ul>
+  <li><span class="q in"></span><b>giallo chiaro</b>: dato inserito dall'utente (si può modificare);</li>
+  <li><span class="q calc"></span><b>azzurro chiaro</b>: dato calcolato dal programma (non si scrive, cambia da solo).</li>
+</ul>
+<p>I livelli di alert usano sempre gli stessi quattro colori:</p>
+<p><span class="badge b-reg">REGOLARE</span> tutto a posto &nbsp;·&nbsp; <span class="badge b-inc">INCOMPLETO</span> mancano dei dati &nbsp;·&nbsp; <span class="badge b-att">ATTENZIONE</span> un problema di andamento &nbsp;·&nbsp; <span class="badge b-cri">CRITICO</span> un problema grave. Il significato preciso è nel <a href="#c15">capitolo 15</a>.</p>
+
+<h2>Tabelle, ricerca, esportazione</h2>
+<ul>
+  <li><b>Ordinare</b>: un clic sul titolo di una colonna ordina la tabella; un secondo clic inverte l'ordine (la freccetta ▲▼ indica la colonna attiva).</li>
+  <li><b>Cercare</b>: la casella <i>Ricerca</i> filtra mentre si scrive, cercando in codice, cliente, cantiere e negli altri campi indicati.</li>
+  <li><b>Aprire una commessa</b>: clic sul codice (in grassetto blu) o sul pulsante <i>Apri</i>.</li>
+  <li><b>Esporta CSV</b>: scarica quello che si vede, con i filtri applicati, in un file apribile con Excel.</li>
+  <li><b>Stampa</b>: dove presente, prepara la pagina per la stampante o per il salvataggio in PDF.</li>
+</ul>
+
+<h2>Le maschere di inserimento</h2>
+<p>Inserimenti e modifiche avvengono in una finestra sopra la pagina. I campi con l'asterisco rosso sono obbligatori. Premendo <b>Salva</b> il programma controlla i dati:</p>
+<ul>
+  <li>se trova un <b>errore</b> (riquadro rosso «Impossibile salvare») non salva e spiega che cosa correggere;</li>
+  <li>se trova qualcosa di <b>insolito</b> (riquadro ambra «Verificare») chiede conferma: si può correggere oppure confermare e salvare comunque. <b>Annulla</b> o la ✕ chiudono senza salvare.</li>
+</ul>
+
+
+<!-- ============================================================ 4 -->
+<h1 id="c4"><span class="n">Capitolo 4</span>Preventivi</h1>
+<p class="intro">Un preventivo è un'<b>ipotesi di commessa</b>: un'offerta non ancora accettata. Vive in un archivio separato, non entra in Anagrafica né nelle dashboard, e ha un solo scopo: verificare se il prezzo proposto è sostenibile.</p>
+
+<figure><div class="crop" style="aspect-ratio:1440/640"><img src="img/preventivi.png" alt=""></div>
+<figcaption><b>Preventivi.</b> In alto il riepilogo (quanti congrui, non congrui, da completare, convertiti); sotto i filtri e l'elenco.</figcaption></figure>
+
+<h2>Creare un preventivo</h2>
+<ol class="passi">
+  <li>Premi <b>+ Nuovo preventivo</b>. Il numero è proposto in automatico (P-2026-001, P-2026-002…) e si può cambiare, purché resti unico.</li>
+  <li>Compila <b>cliente</b> e <b>oggetto / cantiere</b>, poi il <b>prezzo proposto</b> e le <b>ore totali previste</b> di manodopera.</li>
+  <li>Con <b>+ Aggiungi voce di costo</b> inserisci i <b>costi specifici</b> (materiali, noleggi, subappalti…): per ognuno quantità, costo unitario e <b>ricarico %</b>.</li>
+  <li>Il riquadro <b>Esito della verifica</b> si aggiorna mentre scrivi. Quando i dati sono definitivi spunta <b>«verificati e completi»</b>: finché non è spuntato l'esito resta <i>Da completare</i>.</li>
+  <li>Premi <b>Salva</b>.</li>
+</ol>
+
+<figure class="m"><img src="img/m-preventivo.png" alt="">
+<figcaption><b>La maschera del nuovo preventivo.</b> Il costo strutturale orario (in azzurro) arriva dai Parametri e non si modifica qui.</figcaption></figure>
+
+<h2>Leggere l'esito</h2>
+<table>
+  <thead><tr><th style="width:22%">Esito</th><th>Significato</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge b-reg">CONGRUA</span></td><td>Il prezzo proposto copre il prezzo minimo sostenibile</td></tr>
+    <tr><td><span class="badge b-cri">NON CONGRUA</span></td><td>Il prezzo proposto è sotto il prezzo minimo: così la commessa non regge</td></tr>
+    <tr><td><span class="badge b-cri">NON CONGRUO</span></td><td>Almeno un ricarico è sotto la soglia minima fissata dalla Direzione (15 % nell'esempio)</td></tr>
+    <tr><td><span class="badge b-att">DA COMPLETARE</span></td><td>Mancano dati oppure non è stata spuntata la dichiarazione «verificati e completi»</td></tr>
+  </tbody>
+</table>
+<p>Come si forma il prezzo minimo è spiegato nel <a href="#c10">capitolo 10</a>.</p>
+
+<figure><div class="crop" style="aspect-ratio:1440/780"><img src="img/preventivo-1.png" alt=""></div>
+<figcaption><b>La scheda di un preventivo.</b> Dati, proposta economica, esito e dettaglio delle voci di costo con ricarico e prezzo di vendita.</figcaption></figure>
+
+<h2>Convertire in commessa</h2>
+<p>Quando l'offerta viene accettata, dalla scheda del preventivo premi <b>→ Converti in commessa</b>, indica il <b>codice commessa</b> definitivo e conferma con <b>Crea la commessa</b>.</p>
+<figure class="m"><img src="img/m-converti.png" alt="" style="max-height:76mm">
+<figcaption><b>Conversione.</b> La finestra mostra in anticipo tutti i valori che verranno riportati nella nuova commessa.</figcaption></figure>
+<ul>
+  <li>Il <b>prezzo proposto</b> diventa il <b>contratto iniziale</b>.</li>
+  <li><b>Ore previste</b> e <b>totale dei costi specifici</b> diventano il <b>budget</b> della commessa; il ricarico medio va nella verifica di sostenibilità.</li>
+  <li>Il preventivo resta in archivio come <b>storico di sola lettura</b>, collegato alla commessa: lì si consulta ancora il dettaglio voce per voce.</li>
+</ul>
+
+<!-- ============================================================ 5 -->
+<h1 id="c5"><span class="n">Capitolo 5</span>Anagrafica commesse</h1>
+<p class="intro">È l'elenco master. Ogni commessa si crea qui una volta sola; tutte le altre pagine la richiamano.</p>
+
+<h2>Creare una commessa</h2>
+<p>Premi <b>+ Nuova commessa</b> in alto a destra.</p>
+<figure class="m"><img src="img/m-commessa.png" alt="">
+<figcaption><b>Nuova commessa.</b> Quattro blocchi: identificazione, date e stato, valori contrattuali, note.</figcaption></figure>
+<table>
+  <thead><tr><th style="width:30%">Campo</th><th>Che cosa indicare</th></tr></thead>
+  <tbody>
+    <tr><td><b>Data di inserimento</b> *</td><td>Obbligatoria: senza, la commessa non si crea</td></tr>
+    <tr><td><b>Codice commessa</b> *</td><td>Deve essere unico. Se non è ancora noto si può usare un codice che inizia con <code>TEMP</code>: la commessa verrà segnalata come incompleta finché non riceve il codice definitivo</td></tr>
+    <tr><td><b>Cliente</b> * e <b>Descrizione / Cantiere</b> *</td><td>Formano, con il codice, l'etichetta usata in tutta l'applicazione</td></tr>
+    <tr><td>Ramo, Tecnico, Preposto</td><td>Mentre si scrive vengono proposti i valori delle liste di supporto (Parametri)</td></tr>
+    <tr><td><b>Data di inizio effettivo</b></td><td>Decide se la commessa è <b>pregressa</b> (iniziata prima del 1° gennaio dell'esercizio) e fa partire l'avanzamento temporale</td></tr>
+    <tr><td><b>Data di fine prevista</b></td><td>Alla creazione viene memorizzata anche come <i>fine prevista originaria</i>. Se in seguito la si sposta, va indicata la <b>causa</b>: nessuna variazione, proroga/sospensione autorizzata, ritardo produttivo aziendale, altra causa</td></tr>
+    <tr><td><b>Data di fine effettiva</b></td><td>Obbligatoria quando lo stato è uno dei «Finito…»</td></tr>
+    <tr><td><b>Stato cantiere</b></td><td>Da iniziare · In corso · Quasi finito · Finito ritenute non previste · Finito con sblocco ritenute · Finito senza sblocco ritenute</td></tr>
+    <tr><td><b>Ritenute previste</b></td><td>SI se il contratto prevede ritenute a garanzia</td></tr>
+    <tr><td><b>Contratto iniziale</b> e <b>Integrazioni / varianti</b></td><td>Il <span class="q calc"></span><b>contratto aggiornato</b> è la loro somma, calcolata dal programma</td></tr>
+    <tr><td><b>Riferimento documentale delle integrazioni</b></td><td>Obbligatorio se ci sono integrazioni: senza il documento che le giustifica la commessa va in alert <span class="badge b-cri">CRITICO</span></td></tr>
+  </tbody>
+</table>
+<div class="consiglio"><b>Buono a sapersi</b>Una commessa appena inserita, con la sola anagrafica, non è mai critica: finché non ci sono movimenti, costi o saldi l'avanzamento non viene giudicato. Comparirà al più come <span class="badge b-inc">INCOMPLETO</span> per ricordare i dati mancanti (budget, date, contratto).</div>
+
+<h2>Trovare una commessa</h2>
+<p>La casella <i>Ricerca</i> filtra per codice, cliente, cantiere, tecnico e preposto; le tendine <i>Stato</i> e <i>Tecnico</i> restringono l'elenco. Un clic su <b>Apri</b> o sul codice porta alla scheda della commessa (capitolo successivo).</p>
+
+<h2>Annullare o eliminare una commessa</h2>
+<p>Dalla scheda della commessa, il pulsante rosso <b>Elimina / annulla</b> (Direzione e Amministratore) apre una finestra con due strade.</p>
+<figure class="s"><img src="img/m-elimina.png" alt="">
+<figcaption><b>Elimina o annulla.</b> Per sicurezza va digitato il codice della commessa.</figcaption></figure>
+<ul>
+  <li><b>Annulla commessa</b>: sparisce da elenchi e dashboard ma resta nello storico con tutte le sue registrazioni. Si può <b>ripristinare</b> dall'Anagrafica, spuntando «mostra le annullate».</li>
+  <li><b>Elimina definitivamente</b>: toglie dall'archivio la commessa e tutte le registrazioni collegate. <b>Non si torna indietro</b>; resta solo la riga nel Registro modifiche.</li>
+</ul>
+
+<!-- ============================================================ 6 -->
+<h1 id="c6"><span class="n">Capitolo 6</span>La scheda commessa</h1>
+<p class="intro">È il cuore dell'applicazione: una pagina unica che raccoglie tutto ciò che riguarda una commessa, divisa in dieci schede.</p>
+
+<figure><div class="crop" style="aspect-ratio:1440/640"><img src="img/c-riepilogo-1.png" alt=""></div>
+<figcaption><b>La testata della scheda.</b> Codice e cliente, la fascia dell'alert con i motivi, la riga delle schede e i valori economici cumulati.</figcaption></figure>
+
+<h2>Gli elementi sempre presenti</h2>
+<ul>
+  <li><b>← Torna a…</b> riporta alla pagina da cui si è arrivati (Dashboard, Anagrafica, Controllo cantieri…).</li>
+  <li><b>La fascia dell'alert</b> mostra il livello della commessa e l'elenco dei motivi, ciascuno con il proprio colore. I motivi sottolineati con la matita <b>✎</b> sono cliccabili: aprono direttamente la maschera sul campo da correggere.</li>
+  <li><b>Esporta scheda (CSV)</b> e <b>Stampa</b> in alto a destra.</li>
+  <li>L'interruttore <b>Saldi storici</b> (solo per le commesse pregresse) permette di vedere la scheda con o senza i valori maturati negli anni precedenti: spento, restano i soli numeri dell'esercizio in corso, e un avviso lo ricorda.</li>
+</ul>
+
+<figure><div class="crop" style="aspect-ratio:1440/620"><img src="img/c-critica.png" alt=""></div>
+<figcaption><b>Una commessa critica.</b> In rosso i motivi gravi, in ambra quelli di attenzione: la commessa prende il livello del motivo peggiore.</figcaption></figure>
+
+<h2>Riepilogo</h2>
+<p>La prima scheda risponde alla domanda «come sta andando?». Dopo i valori economici cumulati (contratto, SAL, fatturato, residuo lavori, ritenute, perdite) presenta <b>Il conto della commessa</b>.</p>
+<figure><img src="img/c-conto.png" alt="" style="max-height:175mm">
+<figcaption><b>Il conto della commessa.</b> Lo stesso conto letto in quattro colonne, dall'alto in basso in tre domande.</figcaption></figure>
+<p>Le <b>quattro colonne</b> sono quattro momenti della stessa commessa:</p>
+<table>
+  <thead><tr><th style="width:28%">Colonna</th><th>Che cosa rappresenta</th></tr></thead>
+  <tbody>
+    <tr><td><b>Previsto iniziale</b></td><td>Contratto iniziale e budget iniziale: com'era pensata alla firma</td></tr>
+    <tr><td><b>Minimo sostenibile iniziale</b></td><td>Il prezzo minimo calcolato dalla verifica di sostenibilità: sotto questo valore la commessa non regge</td></tr>
+    <tr><td><b>Alla data</b></td><td>Contratto aggiornato (integrazioni e perdite accettate) e budget vigente</td></tr>
+    <tr><td><b>Maturato</b></td><td>Il consuntivo: fatturato lordo, costi sostenuti, ore consumate fino a oggi</td></tr>
+  </tbody>
+</table>
+<p>Le <b>tre domande</b>, dall'alto in basso: <i>qual è il prezzo per il cliente?</i> · <i>quanto costa realizzarla?</i> (costi diretti + ore × costo orario) · <i>copre la redditività e il surplus economico, e quanto resta?</i> La riga verde <b>Utile/perdita effettivo di commessa</b> è la differenza fra le prime due.</p>
+
+<figure><div class="crop" style="aspect-ratio:1500/640"><img src="img/c-utile.png" alt=""></div>
+<figcaption><b>Utile maturato e previsione a finire.</b> La linea continua è l'utile maturato data per data; il tratto tratteggiato porta all'utile previsto a commessa finita.</figcaption></figure>
+<div class="formula"><b>Utile maturato</b> = fatturato lordo − perdite SAL accettate − costi diretti sostenuti − ore consumate × costo orario<br>
+<b>Utile a finire</b> = valore recuperabile − costi diretti a finire − ore a finire × costo orario<br>
+<span style="color:var(--testo2)">«A finire» è il budget vigente oppure, se è già stato superato, il consumato. A commessa finita vale l'utile maturato e il grafico si ferma, senza previsione.</span></div>
+<p>Completano il Riepilogo il confronto con la verifica di sostenibilità, il riquadro <b>Ore − SAL</b> (ore consumate % meno SAL %: se positivo si stanno consumando più ore di quanto si è prodotto), i costi diretti rispetto al budget e la tabella «I numeri del grafico».</p>
+
+<h2>Anagrafica</h2>
+<p>Tutti i dati inseriti alla creazione, più i valori calcolati (commessa pregressa, contratto aggiornato, fine prevista originaria). Si corregge con <b>✎ Modifica anagrafica</b>.</p>
+<figure><div class="crop" style="aspect-ratio:1440/830"><img src="img/c-anagrafica.png" alt=""></div>
+<figcaption><b>Scheda Anagrafica.</b> In giallo i dati inseriti, in azzurro quelli calcolati.</figcaption></figure>
+
+<h2>Budget</h2>
+<p>Mostra ore e costi diretti previsti, <b>iniziali</b> e <b>aggiornati</b>, e il confronto con il consuntivo (ore e costi residui, sforamenti, percentuali consumate). La modifica è descritta nel <a href="#c9">capitolo 9</a>.</p>
+<figure><div class="crop" style="aspect-ratio:1440/830"><img src="img/c-budget.png" alt=""></div>
+<figcaption><b>Scheda Budget.</b> A sinistra i valori pianificati, a destra il confronto con quanto consumato.</figcaption></figure>
+
+<h2>Gantt</h2>
+<p>Il cronoprogramma della commessa, diviso in <b>fasi di lavoro</b>. Per ogni fase una barra chiara (previsto) e una colorata (effettivo): verde se nei tempi, rossa se in ritardo, tratteggiata se in corso. La linea rossa verticale è oggi.</p>
+<figure><img src="img/c-gantt-diag.png" alt="">
+<figcaption><b>Diagramma di Gantt.</b> Un clic su una fase apre la sua maschera di modifica.</figcaption></figure>
+<figure><img src="img/c-gantt-ore.png" alt="">
+<figcaption><b>Ore per fase di lavoro.</b> Previste contro effettive: in rosso la fase che ha consumato più ore del previsto.</figcaption></figure>
+<p>Per aggiungere una fase premi <b>+ Nuova fase</b>:</p>
+<figure class="m"><img src="img/m-fase.png" alt="" style="max-height:150mm">
+<figcaption><b>Nuova fase.</b> Date, chi esegue, manodopera prevista e materiale.</figcaption></figure>
+<ul>
+  <li><b>Inizio e fine previsti</b> sono obbligatori; inizio e fine effettivi si compilano man mano (vuoti = non partita / ancora in corso).</li>
+  <li><b>Chi esegue</b>: con <i>Azienda (personale proprio)</i> le ore si contano e si confrontano con le previste; con <i>Subappalto</i> contano solo le date.</li>
+  <li><b>Uomini e ore previste</b>: la <i>stima dalle date</i> propone uomini × giorni lavorativi × 8 h; con «Usa questo valore» la si accetta.</li>
+  <li>Le <b>ore effettive</b> di una fase non si scrivono qui: sono la somma dei movimenti di tipo ORE attribuiti a quella fase (capitolo 7).</li>
+  <li>Il pulsante <b>Porta nel budget le ore del Gantt</b> (Direzione) copia nel budget il totale delle ore delle fasi.</li>
+</ul>
+
+<h2>Sostenibilità</h2>
+<p>La verifica di sostenibilità della commessa in tre versioni (iniziale, aggiornata, maturato consuntivo), con la formazione del prezzo minimo riga per riga. Vedi il <a href="#c10">capitolo 10</a>.</p>
+
+<h2>Movimenti, Costi diretti, Saldi storici</h2>
+<p>Le stesse tabelle delle pagine generali, ma limitate a questa commessa, con i pulsanti <b>+ Nuovo movimento</b> e <b>+ Nuovo costo diretto</b> già impostati sulla commessa aperta. Il numero fra parentesi nel titolo della scheda è il conteggio delle registrazioni.</p>
+<figure><div class="crop" style="aspect-ratio:1440/860"><img src="img/c-movimenti.png" alt=""></div>
+<figcaption><b>Scheda Movimenti della commessa.</b></figcaption></figure>
+
+<h2>Controllo</h2>
+<p>Tutti i numeri del controllo in tre colonne: <b>valori economici cumulativi</b>, <b>tempo e ore</b>, <b>costi</b>, con in fondo la composizione del cumulativo (saldo iniziale + esercizio). In testa sono ricordate le soglie in uso.</p>
+<figure><div class="crop" style="aspect-ratio:1440/1130"><img src="img/c-controllo.png" alt=""></div>
+<figcaption><b>Scheda Controllo.</b> L'unico dato in giallo è la data «Aggiornato al».</figcaption></figure>
+
+<h2>Note / Azioni</h2>
+<p>Contiene il campo libero <b>Note / Azione</b> della Direzione (es. «chiamare il cliente», «recuperare la ritenuta»), la data <b>Aggiornato al</b> e la <b>storia delle modifiche</b> di questa sola commessa.</p>
+<figure><div class="crop" style="aspect-ratio:1440/900"><img src="img/c-note.png" alt=""></div>
+<figcaption><b>Scheda Note / Azioni.</b> In basso, chi ha cambiato che cosa su questa commessa.</figcaption></figure>
+<div class="nota"><b>La data «Aggiornato al»</b>Si porta da sola a oggi ogni volta che si toccano anagrafica, movimenti o costi diretti della commessa (il budget ha una sua data). Serve alla Direzione per capire se il cantiere aggiorna davvero i dati, e alimenta l'avanzamento temporale e gli alert sul tempo. Si può correggere a mano con <b>✎ Modifica note / aggiornato al</b>.</div>
+
+<!-- ============================================================ 7 -->
+<h1 id="c7"><span class="n">Capitolo 7</span>Movimenti</h1>
+<p class="intro">L'archivio cronologico unico di tutto ciò che accade alle commesse nell'esercizio: una riga = un evento con una data.</p>
+
+<figure><div class="crop" style="aspect-ratio:1440/900"><img src="img/movimenti.png" alt=""></div>
+<figcaption><b>Movimenti.</b> In alto la dashboard di periodo (per commessa e intervallo di mesi), sotto i filtri e l'archivio.</figcaption></figure>
+
+<h2>Registrare un movimento</h2>
+<ol class="passi">
+  <li>Premi <b>+ Nuovo movimento</b>.</li>
+  <li>Nel campo <b>Commessa</b> scrivi qualche carattere del codice, del cliente o del cantiere e scegli dall'elenco.</li>
+  <li>Indica la <b>data</b> (deve cadere nell'esercizio in gestione) e il <b>tipo di movimento</b>.</li>
+  <li>Compaiono <b>solo i valori che riguardano quel tipo</b>: compilali e premi <b>Salva</b>.</li>
+</ol>
+<figure><div class="crop" style="aspect-ratio:1380/1253;width:74%"><img src="img/m-movimento.png" alt="" style="width:102.2%;max-width:none;margin:-1.1% 0 0 -1.1%"></div>
+<figcaption><b>Nuovo movimento di tipo «SAL + FATTURA».</b> Il fatturato netto, in azzurro, è calcolato.</figcaption></figure>
+
+<h2>I tipi di movimento</h2>
+<table>
+  <thead><tr><th style="width:27%">Tipo</th><th style="width:33%">Valori da compilare</th><th>Quando si usa</th></tr></thead>
+  <tbody>
+    <tr><td><b>SAL</b></td><td>SAL maturato</td><td>È maturato uno stato di avanzamento ma non è ancora stato fatturato</td></tr>
+    <tr><td><b>FATTURA</b></td><td>Fatturato lordo, ritenuta</td><td>Si fattura un SAL già registrato</td></tr>
+    <tr><td><b>SAL + FATTURA</b></td><td>SAL maturato, fatturato lordo, ritenuta</td><td>SAL e fattura nello stesso momento (il caso più comune)</td></tr>
+    <tr><td><b>SVINCOLO RITENUTA</b></td><td>Svincolo</td><td>Il cliente sblocca le ritenute a garanzia</td></tr>
+    <tr><td><b>ORE</b></td><td>Ore effettive, fase di lavoro</td><td>Ore di manodopera del periodo; la <i>fase</i> le collega al Gantt</td></tr>
+    <tr><td><b>PERDITA SAL ACCETTATA</b></td><td>Perdita SAL</td><td>Una parte di lavoro che si accetta di non poter recuperare dal cliente</td></tr>
+    <tr><td><b>ALTRO</b></td><td>Nessun valore</td><td>Un'annotazione datata, senza effetti sui numeri</td></tr>
+  </tbody>
+</table>
+<div class="formula"><b>Fatturato netto</b> = fatturato lordo − ritenuta + svincolo</div>
+
+<h2>Correggere e annullare</h2>
+<ul>
+  <li><b>Modifica</b> (a destra di ogni riga) riapre la maschera; la variazione finisce nel Registro con il valore precedente e quello nuovo.</li>
+  <li><b>Annulla</b> non cancella la riga: chiede obbligatoriamente il <b>motivo</b> e la toglie dai calcoli. Per rivedere le righe annullate spunta «mostra annullati».</li>
+</ul>
+
+<h2>La dashboard di periodo</h2>
+<p>I riquadri in alto sommano i movimenti <b>dell'anno</b> per la commessa e l'intervallo di mesi scelti: SAL, fatturato lordo e netto, ritenute maturate e svincolate, ore, perdite, costi diretti. I saldi iniziali restano esclusi: qui si vede solo quello che è successo nell'esercizio.</p>
+
+<!-- ============================================================ 8 -->
+<h1 id="c8"><span class="n">Capitolo 8</span>Costi diretti</h1>
+<p class="intro">Qui si registrano <b>solo i costi specifici della commessa</b> che non sono già compresi nel costo orario aziendale: materiali, noleggi, subappalti, trasporti, smaltimenti.</p>
+
+<figure><div class="crop" style="aspect-ratio:1440/900"><img src="img/costi.png" alt=""></div>
+<figcaption><b>Costi diretti.</b> I riquadri in alto sommano per macro-categoria quello che è filtrato nell'elenco.</figcaption></figure>
+
+<h2>Registrare un costo</h2>
+<p>Premi <b>+ Nuovo costo</b>, scegli la commessa, indica <b>data</b>, <b>voce di costo</b> (macro-categoria), <b>importo</b>, descrizione e fornitore o documento.</p>
+<figure><div class="crop" style="aspect-ratio:1380/924;width:74%"><img src="img/m-costo.png" alt="" style="width:102.2%;max-width:none;margin:-1.1% 0 0 -1.1%"></div>
+<figcaption><b>Nuovo costo diretto.</b></figcaption></figure>
+<div class="attenzione"><b>Costo puro</b>L'importo è il costo effettivamente sostenuto, <b>senza margini né ricarichi</b>. Il ricarico si applica solo nella verifica di sostenibilità. La manodopera propria non va qui: entra con le ore dei movimenti.</div>
+<p>Come per i movimenti, un costo si <b>modifica</b> o si <b>annulla</b> (con motivo), mai si cancella. Il pulsante <b>Voci di costo…</b> (Direzione e Amministratore) permette di aggiungere o rinominare le macro-categorie.</p>
+
+<!-- ============================================================ 9 -->
+<h1 id="c9"><span class="n">Capitolo 9</span>Budget commessa</h1>
+<p class="intro">Il budget è composto da due soli numeri inseriti a mano: <b>ore previste</b> e <b>costi diretti previsti</b>. Tutto il resto è calcolato.</p>
+
+<figure><div class="crop" style="aspect-ratio:1440/900"><img src="img/budget.png" alt=""></div>
+<figcaption><b>Budget commessa.</b> In alto le commesse aperte per periodo di fine prevista; sotto, una riga per commessa.</figcaption></figure>
+
+<h2>Iniziale e aggiornato</h2>
+<p>Il budget è <b>sdoppiato</b>:</p>
+<ul>
+  <li>il <b>budget iniziale</b> è la prima stesura: resta come storico e non andrebbe più toccato;</li>
+  <li>il <b>budget aggiornato</b> è la revisione corrente. Se è vuoto, vale quello iniziale.</li>
+</ul>
+<p>Dalla scheda Budget della commessa premi <b>✎ Modifica budget</b> (Direzione e Amministratore):</p>
+<figure class="m"><img src="img/m-budget.png" alt="">
+<figcaption><b>Modifica del budget.</b> I valori calcolati mostrano subito l'effetto: iniziale → aggiornato.</figcaption></figure>
+<ul>
+  <li>Scrivendo un valore aggiornato, la <b>data di aggiornamento</b> si compila da sola.</li>
+  <li><b>Il budget va bene: conferma a oggi</b> porta la data a oggi senza cambiare i valori: serve a dire «l'ho rivisto e lo confermo».</li>
+  <li><b>Usa le ore del Gantt</b> copia nel budget la somma delle ore previste delle fasi.</li>
+</ul>
+<div class="formula"><b>Costo ore</b> = ore previste × costo strutturale orario &nbsp;·&nbsp; <b>Costo totale previsto</b> = costo ore + costi diretti previsti<br><b>Margine teorico</b> = (contratto aggiornato − costo totale previsto) ÷ contratto aggiornato</div>
+<div class="nota"><b>Un solo costo orario</b>Le ore sono sempre valorizzate al costo strutturale corrente dei Parametri. Cambiando quel parametro si aggiornano insieme previsioni, consuntivo e verifica di sostenibilità di tutte le commesse.</div>
+
+<!-- ============================================================ 10 -->
+<h1 id="c10"><span class="n">Capitolo 10</span>Sostenibilità economica</h1>
+<p class="intro">La verifica confronta il <b>prezzo del computo</b> (quello che il cliente paga) con il <b>prezzo minimo sostenibile</b> (quello sotto il quale l'azienda non copre costi, redditività e surplus economico).</p>
+
+<figure><div class="crop" style="aspect-ratio:1440/900"><img src="img/sostenibilita.png" alt=""></div>
+<figcaption><b>Sostenibilità economica.</b> Per ogni commessa tre esiti: iniziale, aggiornato e a consuntivo.</figcaption></figure>
+
+<h2>Come si forma il prezzo minimo</h2>
+<p>Il prezzo minimo è la somma di due parti.</p>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:40%">Passaggio</th><th>Calcolo</th></tr></thead>
+  <tbody>
+    <tr><td class="c">1</td><td>Costo orario attribuito alla commessa</td><td>ore previste × costo strutturale</td></tr>
+    <tr><td class="c">2</td><td>Costo orario prudenziale</td><td>(1) × (1 + rischio strutturale)</td></tr>
+    <tr><td class="c">3</td><td>… portato a redditività</td><td>(2) ÷ (1 − redditività)</td></tr>
+    <tr><td class="c">4</td><td>Quota di surplus economico</td><td>ore previste × surplus economico per ora</td></tr>
+    <tr><td class="c">5</td><td><b>Prezzo sostenibile della parte strutturale</b></td><td>(3) + (4)</td></tr>
+    <tr><td class="c">6</td><td><b>Prezzo di vendita dei costi specifici</b></td><td>costi specifici × (1 + ricarico) ÷ (1 − redditività)</td></tr>
+    <tr><td class="c">7</td><td><b>PREZZO MINIMO DALL'ANALISI</b></td><td>(5) + (6)</td></tr>
+  </tbody>
+</table>
+<div class="formula"><b>Scostamento</b> = prezzo del computo − prezzo minimo. Se è negativo, la commessa non è sostenibile.</div>
+
+<figure><div class="crop" style="aspect-ratio:1440/1150"><img src="img/c-sost-1.png" alt=""></div>
+<figcaption><b>La scheda Sostenibilità di una commessa.</b> I tre esiti, il confronto prezzo / prezzo minimo e i costi specifici con il ricarico.</figcaption></figure>
+
+<h2>Per le commesse la verifica è automatica</h2>
+<p>Non si reinserisce nulla: il prezzo del computo è il <b>contratto</b> dell'Anagrafica, ore e costi specifici sono quelli del <b>Budget</b>, i parametri aziendali arrivano dai <b>Parametri</b>. L'unico dato che si indica a mano, con <b>✎ Modifica verifica</b>, è il <b>ricarico</b> sui costi specifici (se è vuoto vale la soglia minima della Direzione), insieme alla dichiarazione «dati verificati e completi» e alle note.</p>
+<table>
+  <thead><tr><th style="width:22%">Versione</th><th>Prezzo confrontato</th><th>Ore e costi usati</th></tr></thead>
+  <tbody>
+    <tr><td><b>Iniziale</b></td><td>Contratto iniziale</td><td>Budget iniziale</td></tr>
+    <tr><td><b>Aggiornato</b></td><td>Contratto aggiornato</td><td>Budget vigente</td></tr>
+    <tr><td><b>Maturato consuntivo</b></td><td>Fatturato lordo cumulato</td><td>Ore consumate e costi diretti sostenuti</td></tr>
+  </tbody>
+</table>
+<div class="nota"><b>Quando fa scattare un alert</b>L'esito della verifica è un'informazione. Diventa alert <span class="badge b-cri">CRITICO</span> solo l'<b>errore di acquisizione</b>: quando il prezzo venduto (contratto iniziale) è sotto il prezzo minimo della verifica iniziale oltre la soglia fissata nei Parametri (5 % nell'esempio).</div>
+
+<!-- ============================================================ 11 -->
+<h1 id="c11"><span class="n">Capitolo 11</span>Saldi iniziali</h1>
+<p class="intro">Una commessa <b>pregressa</b> (iniziata prima del 1° gennaio dell'esercizio) arriva con dei valori già maturati. Il saldo iniziale li fotografa al 31 dicembre dell'anno precedente.</p>
+
+<figure><div class="crop" style="aspect-ratio:1440/700"><img src="img/saldi.png" alt=""></div>
+<figcaption><b>Saldi al 31/12.</b> Una riga per commessa pregressa: SAL, fatturato, ritenute, svincoli, perdite, ore e costi diretti maturati.</figcaption></figure>
+
+<ul>
+  <li>Si inseriscono con <b>+ Nuovo saldo iniziale</b> (Direzione e Amministratore) oppure, dalla scheda <i>Saldi storici</i> di una commessa pregressa, con «+ Inserisci saldo al 31/12…».</li>
+  <li>Il saldo entra nei <b>cumulativi</b> della commessa (scheda, Controllo cantieri, dashboard) ma <b>non</b> nella dashboard di periodo dei Movimenti, che mostra solo l'anno.</li>
+  <li>Dal secondo anno in poi non si scrivono più a mano: li crea la <b>chiusura esercizio</b> (capitolo 17).</li>
+</ul>
+<figure class="m"><img src="img/m-saldo.png" alt="" style="max-height:105mm">
+<figcaption><b>Nuovo saldo iniziale.</b></figcaption></figure>
+
+<!-- ============================================================ 12 -->
+<h1 id="c12"><span class="n">Capitolo 12</span>Importa da Excel</h1>
+<p class="intro">Per caricare o aggiornare molte commesse in una volta sola, con i loro saldi, movimenti e costi, partendo da un file Excel.</p>
+
+<h2>I quattro passi</h2>
+<ol class="passi">
+  <li><b>Scarica il modello</b>: vuoto, per un primo caricamento, oppure <b>già compilato con le commesse in archivio</b>, per correggere in blocco quello che c'è.</li>
+  <li><b>Compila</b> il file in Excel. Si riempiono solo i fogli che servono; le colonne con il titolo arancione sono obbligatorie.</li>
+  <li><b>Carica il file</b> con «Scegli il file .xlsx…» o trascinandolo sul riquadro. Nulla viene ancora salvato.</li>
+  <li>Controlla l'<b>anteprima</b> riga per riga e conferma l'importazione.</li>
+</ol>
+
+<h2>I fogli del modello</h2>
+<table>
+  <thead><tr><th style="width:18%">Foglio</th><th style="width:38%">Contenuto</th><th>Come viene riconosciuta la riga</th></tr></thead>
+  <tbody>
+    <tr><td><b>ISTRUZIONI</b></td><td>Guida e significato di ogni colonna</td><td>Non viene letto</td></tr>
+    <tr><td><b>COMMESSE</b></td><td>Una riga per commessa: anagrafica, budget, ricarico, note</td><td><b>Codice commessa</b>: se non esiste la commessa viene creata, se esiste viene aggiornata</td></tr>
+    <tr><td><b>SALDI</b></td><td>Valori cumulativi al 31/12 delle pregresse</td><td>Codice + data saldo (sempre un 31 dicembre)</td></tr>
+    <tr><td><b>MOVIMENTI</b></td><td>Una riga per evento dell'esercizio</td><td rowspan="2">Colonna <b>ID</b>: con l'ID la registrazione viene corretta; con la cella vuota se ne crea sempre una <b>nuova</b></td></tr>
+    <tr><td><b>COSTI</b></td><td>Una riga per costo dell'esercizio</td></tr>
+    <tr><td><b>ELENCHI</b></td><td>Valori ammessi e suggerimenti</td><td>Solo consultazione</td></tr>
+  </tbody>
+</table>
+
+<figure><div class="crop" style="aspect-ratio:1440/500"><div style="margin-top:-41.2%"><img src="img/importa-2.png" alt=""></div></div>
+<figcaption><b>L'anteprima dopo il caricamento.</b> Ogni riga ha un esito: <i>nuova</i>, <i>aggiorna</i> (con l'elenco dei campi che cambiano), <i>invariata</i> o <i>scartata</i> (con il motivo in rosso).</figcaption></figure>
+
+<h2 style="break-before:page;margin-top:0">Regole utili</h2>
+<ul>
+  <li>In aggiornamento <b>le celle vuote non cancellano nulla</b>: si cambiano solo i campi compilati.</li>
+  <li><b>Le righe valide vengono importate, quelle con errori scartate ed elencate</b>: si corregge il file e lo si ricarica.</li>
+  <li>Una riga nuova identica a una registrazione già presente viene segnalata con un avviso: così ricaricare due volte lo stesso file non raddoppia i valori senza dirlo.</li>
+  <li>Le date di movimenti e costi devono cadere nell'esercizio in gestione: quello che è maturato prima va nei SALDI.</li>
+  <li>Le fasi del Gantt non si importano: si disegnano dentro l'applicazione.</li>
+  <li>Serve un browser aggiornato (Chrome/Edge 80+, Firefox 113+, Safari 16.4+).</li>
+</ul>
+
+<!-- ============================================================ 13 -->
+<h1 id="c13"><span class="n">Capitolo 13</span>Dashboard direzionale</h1>
+<p class="intro">La pagina con cui si apre la Direzione: gli obiettivi dell'anno e a che punto siamo, in sei riquadri e un elenco.</p>
+
+<figure><div class="crop" style="aspect-ratio:1440/870"><img src="img/dash-1.png" alt=""></div>
+<figcaption><b>Dashboard, parte alta.</b> Stato delle commesse, fatturato dell'anno, redditività e surplus economico.</figcaption></figure>
+
+<table>
+  <thead><tr><th style="width:24%">Riquadro</th><th>Che cosa dice</th></tr></thead>
+  <tbody>
+    <tr><td><b>Stato delle commesse</b></td><td>Il semaforo del portafoglio: quante commesse sono critiche, in attenzione, incomplete, in linea. <b>Un clic su un settore o su una voce</b> filtra l'elenco in fondo alla pagina</td></tr>
+    <tr><td><b>Fatturato dell'anno</b></td><td>Fatturato lordo dei movimenti dell'anno, quanto è fatturabile in totale e quanto è <i>fatturabile subito</i> (SAL maturato e non ancora fatturato), con l'andamento mese per mese</td></tr>
+    <tr><td><b>Redditività</b></td><td>La percentuale <b>richiesta</b> (obiettivo dei Parametri) contro quella <b>effettiva</b>: utile maturato diviso il prezzo sostenibile della parte strutturale delle ore consumate</td></tr>
+    <tr><td><b>Surplus economico</b></td><td>Desiderato, effettivo e realizzato dalle commesse finite. Il selettore passa da <i>Esercizio</i> a <i>Intera vita</i> delle commesse</td></tr>
+    <tr><td><b>Commesse finite</b></td><td>L'<b>utile effettivo</b>, commessa per commessa: barre verdi in utile, rosse in perdita</td></tr>
+    <tr><td><b>Commesse in corso</b></td><td>L'<b>utile a finire</b> previsto, per le commesse che pesano di più</td></tr>
+  </tbody>
+</table>
+
+<figure><div class="crop" style="aspect-ratio:1440/488"><img src="img/dash-2.png" alt=""></div>
+<figcaption><b>Utile delle commesse finite e utile a finire di quelle in corso.</b> «Vedi solo queste commesse» filtra l'elenco sottostante.</figcaption></figure>
+
+<h2>L'elenco delle commesse</h2>
+<p>In fondo, la tabella di tutte le commesse con allerta, contratto, utile maturato, utile a finire, redditività effettiva e motivo dell'allerta. I pulsanti a pillola (Tutte, Finite, In corso, Critiche, In attenzione, Incomplete, In linea) la filtrano; un clic sul codice apre la scheda. <b>Esporta elenco (CSV)</b> scarica ciò che è filtrato.</p>
+<figure><div class="crop" style="aspect-ratio:1440/700"><img src="img/dash-3.png" alt=""></div>
+<figcaption><b>L'elenco in fondo alla Dashboard</b>, ordinato per gravità dell'allerta.</figcaption></figure>
+
+<!-- ============================================================ 14 -->
+<h1 id="c14"><span class="n">Capitolo 14</span>Controllo cantieri</h1>
+<p class="intro">La pagina operativa della Direzione: la situazione reale di ogni commessa, saldi più movimenti dell'anno.</p>
+
+<figure><div class="crop" style="aspect-ratio:1440/500"><img src="img/cantieri-1.png" alt=""></div>
+<figcaption><b>Controllo cantieri, i totali.</b> Con «Seleziona commessa» si passa dal portafoglio intero a una sola commessa.</figcaption></figure>
+
+<ul>
+  <li><b>I riquadri in alto</b>: contratto aggiornato, perdite accettate, valore recuperabile, SAL maturato, fatturato lordo, SAL non fatturato, residuo lavori, residuo da fatturare, ritenute da sbloccare, costo effettivo cumulato, numero di cantieri critici, in attenzione, incompleti.</li>
+  <li><b>Costo mensile</b>: per ogni mese, ore × costo orario + costi diretti, con il cumulato (solo esercizio corrente).</li>
+  <li><b>Commesse che richiedono attenzione</b>: l'elenco di lavoro, dalla più grave. I motivi con la matita ✎ aprono direttamente la correzione.</li>
+</ul>
+<figure><div class="crop" style="aspect-ratio:1440/600"><div style="margin-top:-2.6%"><img src="img/cantieri-2.png" alt=""></div></div>
+<figcaption><b>Costo mensile e commesse che richiedono attenzione.</b></figcaption></figure>
+<p>Sotto, la tabella completa: per ogni commessa allerta e motivo, anagrafica essenziale e tutti i valori di controllo. Si filtra per testo, per livello di allerta e con «solo non finite». Nell'ultima colonna la Direzione scrive le <b>Note / Azione</b> senza uscire dalla pagina.</p>
+
+<!-- ============================================================ 15 -->
+<h1 id="c15"><span class="n">Capitolo 15</span>Gli alert</h1>
+<p class="intro">Ogni commessa viene esaminata dal programma a ogni modifica. Ogni problema trovato è un <b>motivo</b>, con il suo livello; la commessa prende il livello del motivo più grave.</p>
+
+<h2><span class="badge b-cri">CRITICO</span> &nbsp;solo questi casi</h2>
+<table>
+  <thead><tr><th style="width:36%">Motivo</th><th>Quando scatta</th></tr></thead>
+  <tbody>
+    <tr><td>Commessa finita in perdita</td><td>Stato «Finito…» e utile maturato negativo</td></tr>
+    <tr><td>Commessa in perdita a finire</td><td>L'utile a finire previsto è negativo</td></tr>
+    <tr><td>Errore di acquisizione</td><td>Prezzo venduto sotto il prezzo minimo sostenibile oltre la soglia</td></tr>
+    <tr><td>SAL da emettere</td><td>La percentuale di ore segnate supera la percentuale di SAL oltre la soglia: il SAL è in ritardo rispetto al lavoro fatto</td></tr>
+    <tr><td>Integrazioni senza riferimento documentale</td><td>Ci sono integrazioni ma manca il documento che le giustifica</td></tr>
+    <tr><td>Ore oltre le previste</td><td>Le ore segnate superano il budget oltre la soglia</td></tr>
+    <tr><td>Costi diretti oltre i previsti</td><td>I costi diretti superano il budget oltre la soglia</td></tr>
+    <tr><td>Perdite accettate oltre soglia</td><td>Le perdite SAL accettate superano la soglia sul prezzo di vendita</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="badge b-att">ATTENZIONE</span> &nbsp;problemi di andamento</h2>
+<p>Tutti gli altri problemi: fatturato oltre il valore recuperabile, perdita SAL accettata sotto soglia, <b>ritenute da sbloccare</b>, <b>SAL maturato non fatturato</b> oltre soglia, avanzamento più lento del tempo trascorso, consumo di ore superiore all'avanzamento, residuo lavori a cantiere finito, commessa finita senza data di fine effettiva, <b>ore di una fase oltre le previste</b>, ore o costi oltre il budget ma sotto la soglia critica.</p>
+
+<h2><span class="badge b-inc">INCOMPLETO</span> &nbsp;dati mancanti</h2>
+<p>Mancano date, contratto, budget (ore o costi diretti previsti), la data «aggiornato al», oppure il codice è ancora temporaneo. Non è un giudizio sull'andamento: è un promemoria.</p>
+
+<div class="consiglio"><b>Dove si regolano</b>Tutte le soglie sono in <i>Parametri di controllo</i> (capitolo 17), ognuna con la sua spiegazione. Le soglie in uso sono ricordate anche in testa alla scheda <i>Controllo</i> di ogni commessa.</div>
+
+<!-- ============================================================ 16 -->
+<h1 id="c16"><span class="n">Capitolo 16</span>Dashboard di analisi</h1>
+<p class="intro">Riservata all'Amministratore: tutti gli indicatori del portafoglio, ricalcolati su qualunque sottoinsieme di commesse.</p>
+
+<figure><div class="crop" style="aspect-ratio:1440/640"><img src="img/analisi-1.png" alt=""></div>
+<figcaption><b>Dashboard di analisi.</b> La barra dei filtri in alto governa tutti i riquadri sottostanti.</figcaption></figure>
+
+<ul>
+  <li><b>Filtri</b>: codice, tecnico, preposto, cliente, stato, ramo, livello di alert, intervalli sulle date di inizio e di fine prevista, «devono iniziare / terminare entro», «senza aggiornamento da oltre N giorni». <b>Azzera filtri</b> riporta a tutto il portafoglio.</li>
+  <li><b>Portafoglio commesse</b>: i conteggi per stato e per livello di alert.</li>
+  <li><b>Valori economici cumulati</b>: contratti, SAL, fatturato, SAL non fatturato, residui, ritenute, perdite.</li>
+  <li><b>Ore e costi</b> e <b>Margini</b>: tre colonne a confronto, <i>previsto iniziale</i>, <i>previsto aggiornato</i>, <i>effettivo</i>.</li>
+  <li>In fondo l'elenco delle commesse filtrate, esportabile con <b>Esporta commesse filtrate (CSV)</b>.</li>
+</ul>
+<figure><div class="crop" style="aspect-ratio:1440/560"><img src="img/analisi-2.png" alt=""></div>
+<figcaption><b>Margini a confronto</b>: previsto iniziale, previsto aggiornato ed effettivo a consuntivo.</figcaption></figure>
+
+<!-- ============================================================ 17 -->
+<h1 id="c17"><span class="n">Capitolo 17</span>Parametri di controllo</h1>
+<p class="intro">La pagina dell'Amministratore: qui stanno i numeri che governano tutti i calcoli, gli utenti, la chiusura dell'anno e le copie di sicurezza.</p>
+
+<figure><div class="crop" style="aspect-ratio:1440/1260"><img src="img/parametri-1.png" alt=""></div>
+<figcaption><b>Parametri di controllo.</b> Ogni parametro ha accanto la spiegazione di che cosa fa. Si modificano tutti insieme con «Modifica parametri».</figcaption></figure>
+
+<h2>I parametri, per gruppo</h2>
+<table>
+  <thead><tr><th style="width:27%">Gruppo</th><th>Parametri</th></tr></thead>
+  <tbody>
+    <tr><td><b>Controllo cantieri</b></td><td><b>Costo strutturale aziendale corrente</b> (€/h, valorizza tutte le ore), scarti tempo e ore per attenzione e critico, soglia SAL non fatturato, anno di gestione, giorni per «aggiornamento recente»</td></tr>
+    <tr><td><b>Sostenibilità economica</b></td><td>Rischio strutturale, redditività, surplus economico per ora, soglia minima di ricarico (Direzione)</td></tr>
+    <tr><td><b>Soglie degli alert critici</b></td><td>Errore di acquisizione, ore oltre le previste, costi diretti oltre i previsti, perdite accettate sul prezzo di vendita</td></tr>
+    <tr><td><b>Obiettivi dell'anno</b></td><td>Surplus economico desiderato nell'anno (se vuoto è ricavato dal portafoglio)</td></tr>
+  </tbody>
+</table>
+<div class="attenzione"><b>Effetto immediato</b>Cambiare un parametro ricalcola subito tutte le commesse: alert, costi, utili e verifiche di sostenibilità. Ogni modifica viene tracciata nel Registro.</div>
+
+<h2>Liste di supporto e pesi</h2>
+<ul>
+  <li><b>Liste di supporto</b>: le macro-categorie dei costi diretti e i suggerimenti per rami, tecnici e preposti. Si cambiano con <b>Modifica liste</b>.</li>
+  <li><b>Pesi del costo strutturale</b>: come il costo orario si ripartisce fra le voci di costo aziendali (personale, automezzi, spese generali…). Serve al dettaglio della verifica di sostenibilità; il totale deve fare 100 %.</li>
+</ul>
+
+<h2>Utenti, gestione annuale, dati</h2>
+<figure><div class="crop" style="aspect-ratio:1440/640"><img src="img/parametri-3.png" alt=""></div>
+<figcaption><b>La parte bassa della pagina:</b> utenti, chiusura dell'esercizio e copie di sicurezza.</figcaption></figure>
+<p><b>Utenti.</b> Con <b>+ Nuovo utente</b> si aggiunge una persona scegliendo nome e ruolo; con <b>Modifica</b> si cambia ruolo o si disattiva. Deve sempre restare almeno un Amministratore attivo.</p>
+
+<h3>Chiusura esercizio</h3>
+<p>È l'operazione di fine anno. Il pulsante rosso <b>Chiusura esercizio 2026 → 2027</b> apre un'anteprima di ciò che succederà.</p>
+<figure class="m"><div class="crop" style="aspect-ratio:1280/560;width:80%"><img src="img/m-chiusura.png" alt=""></div>
+<figcaption><b>Anteprima della chiusura.</b> Le commesse riportate con i loro saldi e quelle definite.</figcaption></figure>
+<ul>
+  <li>Le commesse ancora <b>aperte</b> passano al nuovo esercizio: il loro cumulativo al 31/12 diventa il <b>saldo iniziale</b>.</li>
+  <li>Le commesse già <b>finite</b> vengono <b>definite</b>: non ricevono saldo, escono dal portafoglio operativo ma restano consultabili.</li>
+  <li>Movimenti e costi dell'anno restano nello storico ma escono dai cumulativi.</li>
+  <li>Prima di procedere viene <b>scaricata una copia di sicurezza</b>; per confermare va digitato l'anno da chiudere.</li>
+</ul>
+<div class="attenzione"><b>Prima di chiudere</b>Controlla che tutte le commesse con valori abbiano la <b>data di inizio effettiva</b> (altrimenti l'anno dopo non risulterebbero pregresse: il programma blocca la chiusura e le elenca) e che lo stato delle commesse sia giusto: una commessa «finita» che va seguita anche l'anno prossimo va riportata a uno stato non finito prima di chiudere.</div>
+
+<h3>Dati e copie di sicurezza</h3>
+<table>
+  <thead><tr><th style="width:38%">Pulsante</th><th>A che cosa serve</th></tr></thead>
+  <tbody>
+    <tr><td><b>Scarica copia di sicurezza (JSON)</b></td><td>Salva l'intero archivio in un file. Da fare regolarmente, e sempre prima di operazioni importanti</td></tr>
+    <tr><td><b>Ripristina da copia di sicurezza…</b></td><td>Sostituisce <b>tutto</b> l'archivio con quello del file scelto</td></tr>
+    <tr><td><b>Esporta / Importa tutti i dati</b></td><td>Esportazione completa in formato portabile, per trasferire i dati in un altro archivio</td></tr>
+    <tr><td><b>Scarica il modello Excel</b></td><td>Lo stesso modello della pagina Importa da Excel</td></tr>
+    <tr><td><b>Carica dati dimostrativi</b></td><td>Compare solo ad archivio vuoto: carica commesse di esempio per fare pratica</td></tr>
+  </tbody>
+</table>
+<div class="nota"><b>Copie automatiche</b>Con l'etichetta verde «dati su server locale» l'applicazione salva da sola una copia al giorno nella cartella <code>data/backup/</code>. Conviene comunque copiare ogni tanto la cartella <code>data</code> su un altro disco o in cloud.</div>
+
+<!-- ============================================================ 18 -->
+<h1 id="c18"><span class="n">Capitolo 18</span>Registro modifiche</h1>
+<p class="intro">Ogni inserimento e ogni modifica importante lascia una riga: autore, data, ora, valore precedente e valore nuovo.</p>
+
+<figure><div class="crop" style="aspect-ratio:1440/1000"><img src="img/registro.png" alt=""></div>
+<figcaption><b>Registro modifiche.</b> Nell'ultima colonna, campo per campo, il valore prima → dopo.</figcaption></figure>
+<ul>
+  <li>Si filtra per testo, per <b>entità</b> (commessa, movimento, costo, budget, saldo, preventivo, parametri…), per <b>utente</b> e per intervallo di date.</li>
+  <li>Un clic sul riferimento apre la commessa interessata.</li>
+  <li>La storia di una singola commessa si vede anche nella sua scheda <i>Note / Azioni</i>.</li>
+  <li>Il registro non si modifica e non si svuota: si può solo esportare in CSV.</li>
+</ul>
+
+<!-- ============================================================ 19 -->
+<h1 id="c19"><span class="n">Capitolo 19</span>Come si fa: le operazioni tipiche</h1>
+<div class="compatto">
+
+<h2>Dall'offerta alla commessa</h2>
+<ol class="passi">
+  <li><b>Preventivi → + Nuovo preventivo</b>: prezzo proposto, ore, voci di costo con ricarico. Spunta «verificati e completi».</li>
+  <li>Se l'esito è <span class="badge b-reg">CONGRUA</span> e il cliente accetta: <b>→ Converti in commessa</b>, indica il codice.</li>
+  <li>Apri la nuova commessa e completa l'<b>Anagrafica</b>: date previste, tecnico, preposto, ritenute.</li>
+  <li>Nella scheda <b>Gantt</b> inserisci le fasi di lavoro con ore e uomini.</li>
+</ol>
+
+<h2>Inserire una commessa già acquisita (senza preventivo)</h2>
+<ol class="passi">
+  <li><b>Anagrafica commesse → + Nuova commessa</b>: codice, cliente, cantiere, date, contratto.</li>
+  <li>Scheda <b>Budget → ✎ Modifica budget</b>: ore previste e costi diretti previsti iniziali.</li>
+  <li>Scheda <b>Sostenibilità → ✎ Modifica verifica</b>: ricarico e dichiarazione «verificati e completi».</li>
+  <li>Se la commessa è cominciata l'anno prima: <b>Saldi iniziali → + Nuovo saldo iniziale</b>.</li>
+</ol>
+
+<h2>L'aggiornamento periodico del cantiere</h2>
+<ol class="passi">
+  <li><b>Movimenti → + Nuovo movimento</b>, tipo <b>ORE</b>: le ore del periodo, attribuite alla fase di lavoro.</li>
+  <li><b>Costi diretti → + Nuovo costo</b>: fatture di materiali, noleggi, subappalti del periodo.</li>
+  <li>Quando matura un SAL: movimento <b>SAL</b>; quando lo si fattura: <b>FATTURA</b> (o un unico <b>SAL + FATTURA</b>).</li>
+  <li>Nella scheda <b>Gantt</b> aggiorna le date effettive delle fasi; in <b>Anagrafica</b> lo stato del cantiere.</li>
+  <li>Guarda la fascia dell'alert della commessa: se è cambiata, i motivi dicono perché.</li>
+</ol>
+
+<h2>Chiudere una commessa</h2>
+<ol class="passi">
+  <li><b>✎ Modifica anagrafica</b>: stato «Finito…» (in base alle ritenute) e <b>data di fine effettiva</b>.</li>
+  <li>Registra l'ultimo SAL e l'ultima fattura: il residuo lavori deve andare a zero.</li>
+  <li>Se restano ritenute: alla loro liberazione, movimento <b>SVINCOLO RITENUTA</b>.</li>
+  <li>Il Riepilogo mostra l'<b>utile effettivo</b>; la commessa entra fra le «finite» della Dashboard.</li>
+</ol>
+
+<h2>Il controllo settimanale della Direzione</h2>
+<ol class="passi">
+  <li><b>Dashboard</b>: quante critiche? Un clic sul settore rosso filtra l'elenco.</li>
+  <li><b>Controllo cantieri</b>: scorri «Commesse che richiedono attenzione» e apri quelle da approfondire.</li>
+  <li>Scrivi nelle <b>Note / Azione</b> che cosa fare e chi deve farlo.</li>
+  <li>Controlla la colonna <b>Aggiornato al</b>: le commesse ferme da troppo tempo non stanno ricevendo dati.</li>
+</ol>
+
+<h2>Correggere un errore di inserimento</h2>
+<ul>
+  <li><b>Valore sbagliato</b>: <i>Modifica</i> sulla riga, correggi, salva. Il Registro conserva il valore precedente.</li>
+  <li><b>Registrazione che non doveva esistere</b>: <i>Annulla</i>, indicando il motivo.</li>
+  <li><b>Molte righe da sistemare</b>: <i>Importa da Excel → Scarica il modello con le commesse in archivio</i>, correggi in Excel, ricarica.</li>
+</ul>
+
+</div>
+<!-- ============================================================ 20 -->
+<h1 id="c20"><span class="n">Capitolo 20</span>Problemi frequenti e glossario</h1>
+
+<h2>Problemi frequenti</h2>
+<table>
+  <thead><tr><th style="width:36%">Che cosa succede</th><th>Che cosa fare</th></tr></thead>
+  <tbody>
+    <tr><td>L'etichetta in basso è gialla: «dati in questo browser»</td><td>L'app è stata aperta senza server. Chiudi e riavvia con <code>avvia.bat</code>; se Node.js non è installato, installalo da nodejs.org</td></tr>
+    <tr><td>Il browser dice che la pagina non è raggiungibile</td><td>La finestra nera del server è stata chiusa: riavvia <code>avvia.bat</code></td></tr>
+    <tr><td>Non vedo la Dashboard o i Parametri nel menu</td><td>Il ruolo scelto non li prevede: cambia utente dalla tendina in basso a sinistra</td></tr>
+    <tr><td>Non riesco a salvare un movimento: «data fuori esercizio»</td><td>La data deve cadere nell'anno in gestione. I valori degli anni precedenti vanno nei Saldi iniziali</td></tr>
+    <tr><td>Una commessa non compare fra quelle selezionabili</td><td>È annullata oppure è stata <i>definita</i> dalla chiusura dell'esercizio: non accetta più movimenti</td></tr>
+    <tr><td>La commessa è «INCOMPLETO» ma i lavori vanno bene</td><td>Mancano dati: apri la scheda, i motivi in bluette dicono quali (di solito budget o date)</td></tr>
+    <tr><td>Su Mac il doppio clic su <code>avvia.command</code> non fa nulla</td><td>Il file ha perso il permesso di esecuzione: vedi <code>LEGGIMI-MAC.txt</code>, oppure avvia dal Terminale</td></tr>
+    <tr><td>Due computer mostrano dati diversi</td><td>Sono due archivi separati. Usa l'avvio in rete (<code>--rete</code>) o trasferisci la copia di sicurezza</td></tr>
+    <tr><td>L'importazione da Excel non legge il file</td><td>Il browser è troppo vecchio oppure il file non è un .xlsx: aggiornare il browser e salvare da Excel in formato .xlsx</td></tr>
+  </tbody>
+</table>
+
+<h2>Glossario</h2>
+<table class="glossario">
+  <tbody>
+    <tr><td>Commessa</td><td>Un lavoro acquisito, identificato da codice, cliente e cantiere</td></tr>
+    <tr><td>Commessa pregressa</td><td>Commessa con data di inizio effettiva precedente al 1° gennaio dell'esercizio in gestione</td></tr>
+    <tr><td>Esercizio</td><td>L'anno in gestione: movimenti e costi si registrano solo in quell'anno</td></tr>
+    <tr><td>SAL</td><td>Stato di avanzamento lavori: il valore di quanto è stato prodotto e riconosciuto</td></tr>
+    <tr><td>SAL non fatturato</td><td>SAL maturato ma non ancora fatturato: è «fatturabile subito»</td></tr>
+    <tr><td>Ritenuta</td><td>Quota di fattura trattenuta dal cliente a garanzia, restituita con lo <i>svincolo</i></td></tr>
+    <tr><td>Perdita SAL accettata</td><td>Lavoro che si rinuncia a farsi riconoscere: riduce il valore recuperabile</td></tr>
+    <tr><td>Contratto aggiornato</td><td>Contratto iniziale + integrazioni / varianti</td></tr>
+    <tr><td>Valore recuperabile</td><td>Contratto aggiornato − perdite SAL accettate</td></tr>
+    <tr><td>Residuo lavori</td><td>Quanto resta da produrre: valore recuperabile − SAL cumulato</td></tr>
+    <tr><td>Costi diretti</td><td>Costi specifici della commessa non compresi nel costo orario (materiali, noleggi, subappalti…)</td></tr>
+    <tr><td>Costo strutturale orario</td><td>Il costo di un'ora di lavoro per l'azienda, comprensivo di personale e spese generali</td></tr>
+    <tr><td>Costo effettivo cumulato</td><td>Ore effettive × costo strutturale + costi diretti</td></tr>
+    <tr><td>Budget</td><td>Ore previste e costi diretti previsti, in versione iniziale e aggiornata</td></tr>
+    <tr><td>Ricarico</td><td>Maggiorazione percentuale applicata ai costi specifici nella verifica di sostenibilità</td></tr>
+    <tr><td>Redditività</td><td>Margine che l'azienda vuole conservare sul prezzo</td></tr>
+    <tr><td>Surplus economico</td><td>Quota per ogni ora di lavoro che l'azienda vuole ricavare in più, oltre ai costi e alla redditività</td></tr>
+    <tr><td>Prezzo minimo sostenibile</td><td>Il prezzo sotto il quale la commessa non copre costi, redditività e surplus economico</td></tr>
+    <tr><td>Utile a finire</td><td>L'utile previsto a commessa conclusa, con il budget vigente</td></tr>
+    <tr><td>Saldo iniziale</td><td>I valori cumulati di una commessa pregressa al 31/12 dell'anno precedente</td></tr>
+    <tr><td>Commessa definita</td><td>Commessa finita, tolta dal portafoglio operativo dalla chiusura esercizio</td></tr>
+    <tr><td>Aggiornato al</td><td>Data dell'ultimo aggiornamento dei dati della commessa</td></tr>
+  </tbody>
+</table>
+
+</body>
+</html>

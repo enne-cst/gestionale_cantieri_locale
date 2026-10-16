@@ -1,9 +1,9 @@
 /*
- * FIDA EDILE – Verifica di sostenibilità economica.
+ * Gestione Cantieri – Verifica di sostenibilità economica.
  *
  * Riproduce il modello "VERIFICA DI SOSTENIBILITÀ ECONOMICA DELLA COMMESSA" (fogli "Analisi semplificata"
  * e "Dettaglio strutturale"): il prezzo del computo viene confrontato con il prezzo minimo sostenibile,
- * formato dalla parte strutturale (ore × costo strutturale, con rischio, redditività e rientro bancario)
+ * formato dalla parte strutturale (ore × costo strutturale, con rischio, redditività e surplus economico)
  * e dal prezzo di vendita dei costi specifici (ogni voce con il suo ricarico).
  *
  * Per una COMMESSA la verifica è automatica: il prezzo del computo è il contratto aggiornato dell'Anagrafica,
@@ -142,7 +142,7 @@
           : esc(opt.testoNonCompilata || 'Verifica non ancora confermata: i valori qui sotto sono il calcolo automatico sui dati attuali.')) + '</p></div>';
 
       const confronto = '<div class="pannello"><h2>Prezzo del computo e prezzo minimo sostenibile</h2>' +
-        '<p class="spiegazione">Il <b>prezzo minimo dall\'analisi</b> è il prezzo sotto il quale la commessa non regge: parte strutturale (ore × costo strutturale, con rischio, redditività e rientro bancario) più prezzo di vendita dei costi specifici. <b>Scostamento = prezzo del computo − prezzo minimo</b>: se è negativo la commessa non è sostenibile.</p>' +
+        '<p class="spiegazione">Il <b>prezzo minimo dall\'analisi</b> è il prezzo sotto il quale la commessa non regge: parte strutturale (ore × costo strutturale, con rischio, redditività e surplus economico) più prezzo di vendita dei costi specifici. <b>Scostamento = prezzo del computo − prezzo minimo</b>: se è negativo la commessa non è sostenibile.</p>' +
         vers.map((w, i) => (doppia ? '<h3>' + esc(titoli[i]) + '</h3>' : '') +
         '<div class="confronto"><div class="voce"><div class="et">Prezzo del computo</div><div class="val">' + E(w.prezzoComputo) + '</div><div class="esito">' + esc(opt.etichettaPrezzo || (w.versione === 'iniziale' ? 'contratto iniziale (Anagrafica)' : (w.versione === 'consuntivo' ? 'fatturato lordo cumulato' : 'contratto aggiornato (Anagrafica)'))) + '</div></div>' +
         '<div class="voce"><div class="et">Prezzo minimo dall\'analisi</div><div class="val">' + E(w.prezzoMinimo) + '</div><div class="esito">strutturale ' + E(w.prezzoMinimoStrutturale) + ' + specifici ' + E(w.prezzoMinimoSpecifici) + '</div></div>' +
@@ -190,7 +190,7 @@
         ['Costo orario prudenziale con redditività del ' + Pc(S.redditivita), w => E(w.strutturale.conRedditivita) + base(w.strutturale.conRedditivita, E(w.strutturale.prudenziale) + ' ÷ (1 − ' + Pc(S.redditivita) + ')'), 'calc'],
         // la redditività non si calcola sul costo: è quanto il costo prudenziale portato a redditività supera il costo stesso
         ['Redditività (' + Pc(S.redditivita) + ')', w => E(w.strutturale.redditivita) + base(w.strutturale.redditivita, E(w.strutturale.conRedditivita) + ' − ' + E(w.strutturale.prudenziale)), 'calc'],
-        ['Quota di rientro bancario (' + E(S.rientroOrario) + '/h)', w => E(w.strutturale.rientro) + base(w.strutturale.rientro, O(w.ore) + ' × ' + E(S.rientroOrario) + '/h'), 'calc'],
+        ['Quota di surplus economico (' + E(S.rientroOrario) + '/h)', w => E(w.strutturale.rientro) + base(w.strutturale.rientro, O(w.ore) + ' × ' + E(S.rientroOrario) + '/h'), 'calc'],
         ['Prezzo sostenibile della parte strutturale', w => E(w.prezzoMinimoStrutturale) + base(w.prezzoMinimoStrutturale, E(w.strutturale.conRedditivita) + ' + ' + E(w.strutturale.rientro)), 'calc'],
         ['Prezzo di vendita dei costi diretti', w => E(w.prezzoMinimoSpecifici) + base(w.prezzoMinimoSpecifici, w.totVoci.n
           ? ['(' + E(w.totVoci.costoTotale) + ' + ricarico ' + Pc(w.totVoci.ricaricoMedio) + ')', '÷ (1 − ' + Pc(S.redditivita) + ')']
@@ -203,7 +203,7 @@
         ['Costo strutturale', E(S.costoOrario) + '/h', 'calc'],
         ['Rischio strutturale', Pc(S.rischio), 'calc'],
         ['Redditività', Pc(S.redditivita), 'calc'],
-        ['Rientro bancario', E(S.rientroOrario) + '/h', 'calc'],
+        ['Surplus economico', E(S.rientroOrario) + '/h', 'calc'],
         ['Soglia minima di ricarico (Direzione)', Pc(S.sogliaRicarico), 'calc'],
         ['Ricarico effettivo minimo', Pc(S.ricaricoEffettivoMinimo), 'calc']
       ]) + '<p class="sotto">Il <b>ricarico effettivo minimo</b> è quello che, dopo essere stato portato a redditività, lascia davvero il margine minimo voluto dalla Direzione: (1 + ' + Pc(S.sogliaRicarico) + ') ÷ (1 − ' + Pc(S.redditivita) + ') − 1. Si modificano da <a href="#/parametri">Parametri</a>.</p></div></div>';
@@ -287,7 +287,7 @@
       Engine.ESITI_SOSTENIBILITA.map(e => '<option' + (F.esito === e ? ' selected' : '') + '>' + esc(e) + '</option>').join('') + '</select></div>' +
       '<div class="campo"><label>Commesse</label><label style="text-transform:none;font-size:13px;margin-top:6px"><input type="checkbox" name="soloAperte"' + (F.soloAperte ? ' checked' : '') + '> solo non finite</label></div>' +
       '<div class="campo"><label>Verifiche</label><label style="text-transform:none;font-size:13px;margin-top:6px"><input type="checkbox" name="soloCompilate"' + (F.soloCompilate ? ' checked' : '') + '> solo confermate</label></div>' +
-      '</div><p class="sotto">Parametri aziendali in uso: costo strutturale ' + E(S.costoOrario) + '/h · rischio ' + Pc(S.rischio) + ' · redditività ' + Pc(S.redditivita) + ' · rientro bancario ' + E(S.rientroOrario) + '/h · ricarico minimo ' + Pc(S.sogliaRicarico) + '.</p></div>' +
+      '</div><p class="sotto">Parametri aziendali in uso: costo strutturale ' + E(S.costoOrario) + '/h · rischio ' + Pc(S.rischio) + ' · redditività ' + Pc(S.redditivita) + ' · surplus economico ' + E(S.rientroOrario) + '/h · ricarico minimo ' + Pc(S.sogliaRicarico) + '.</p></div>' +
       UI.legenda() + '<div id="sost-tab"></div>';
 
     function aggiorna() {

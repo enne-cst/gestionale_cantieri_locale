@@ -1,4 +1,4 @@
-/* FIDA EDILE – Movimenti: archivio cronologico unico + dashboard di periodo */
+/* Gestione Cantieri – Movimenti: archivio cronologico unico + dashboard di periodo */
 (function () {
   'use strict';
   const esc = UI.esc;

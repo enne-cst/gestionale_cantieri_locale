@@ -1,5 +1,5 @@
 /*
- * FIDA EDILE – Preventivi (ipotesi di commessa).
+ * Gestione Cantieri – Preventivi (ipotesi di commessa).
  *
  * Un preventivo è una commessa che ancora non esiste: non ha anagrafica, movimenti, costi né budget,
  * ha soltanto la VERIFICA DI SOSTENIBILITÀ ECONOMICA e per questo ogni dato è inserito a mano
@@ -322,7 +322,7 @@
       Engine.ESITI_SOSTENIBILITA.map(e => '<option' + (F.esito === e ? ' selected' : '') + '>' + esc(e) + '</option>').join('') + '</select></div>' +
       '<div class="campo"><label>Conversione</label><label style="text-transform:none;font-size:13px;margin-top:6px"><input type="checkbox" name="soloDaConvertire"' + (F.soloDaConvertire ? ' checked' : '') + '> solo non ancora convertiti</label></div>' +
       '<div class="campo"><label>Annullati</label><label style="text-transform:none;font-size:13px;margin-top:6px"><input type="checkbox" name="annullati"' + (F.annullati ? ' checked' : '') + '> mostra annullati</label></div>' +
-      '</div><p class="sotto">Parametri aziendali in uso: costo strutturale ' + E(S.costoOrario) + '/h · rischio ' + Pc(S.rischio) + ' · redditività ' + Pc(S.redditivita) + ' · rientro bancario ' + E(S.rientroOrario) + '/h · ricarico minimo ' + Pc(S.sogliaRicarico) + '.</p></div>' +
+      '</div><p class="sotto">Parametri aziendali in uso: costo strutturale ' + E(S.costoOrario) + '/h · rischio ' + Pc(S.rischio) + ' · redditività ' + Pc(S.redditivita) + ' · surplus economico ' + E(S.rientroOrario) + '/h · ricarico minimo ' + Pc(S.sogliaRicarico) + '.</p></div>' +
       UI.legenda() + '<div id="prev-tab"></div>';
 
     function aggiorna() {

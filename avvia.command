@@ -1,5 +1,5 @@
 #!/bin/bash
-# FIDA EDILE - Gestione Cantieri: avvio su macOS.
+# Gestione Cantieri: avvio su macOS.
 #
 # Se al doppio clic non succede nulla o compare "permessi insufficienti", il file ha perso il
 # permesso di esecuzione (succede sempre quando viene copiato da Windows, da una chiavetta o da uno zip).
@@ -30,7 +30,7 @@ for argomento in "$@"; do
 done
 
 echo ""
-echo "  FIDA EDILE - Gestione Cantieri"
+echo "  Gestione Cantieri"
 echo "  ------------------------------"
 echo "  Cartella:  $(pwd)"
 

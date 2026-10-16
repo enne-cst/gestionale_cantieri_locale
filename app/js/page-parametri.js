@@ -1,10 +1,10 @@
-/* FIDA EDILE – Parametri di controllo, liste, utenti, esercizio, dati */
+/* Gestione Cantieri – Parametri di controllo, liste, utenti, esercizio, dati */
 (function () {
   'use strict';
   const esc = UI.esc;
   const GRUPPI = ['Controllo cantieri', 'Sostenibilità economica della commessa', 'Soglie degli alert critici', 'Obiettivi dell\'anno (Dashboard direzionale)'];
   const PARAMETRI = [
-    { nome: 'costoOrario', gruppo: 0, etichetta: 'Costo strutturale aziendale corrente', tipo: 'euro', unita: '€/h', spiegazione: 'Parametro unico FIDA EDILE utilizzato per valorizzare economicamente tutte le ore delle commesse, previste a budget ed effettive: cambiandolo si aggiornano insieme previsioni, consuntivo e verifica di sostenibilità. Il costo effettivo cumulato è determinato da: ore effettive cumulative × costo strutturale corrente + costi diretti cumulativi. È anche il costo strutturale orario della verifica di sostenibilità economica: una sola fonte per tutta l\'applicazione.' },
+    { nome: 'costoOrario', gruppo: 0, etichetta: 'Costo strutturale aziendale corrente', tipo: 'euro', unita: '€/h', spiegazione: 'Parametro unico aziendale utilizzato per valorizzare economicamente tutte le ore delle commesse, previste a budget ed effettive: cambiandolo si aggiornano insieme previsioni, consuntivo e verifica di sostenibilità. Il costo effettivo cumulato è determinato da: ore effettive cumulative × costo strutturale corrente + costi diretti cumulativi. È anche il costo strutturale orario della verifica di sostenibilità economica: una sola fonte per tutta l\'applicazione.' },
     { nome: 'scartoTempoAttenzione', etichetta: 'Scarto tempo – attenzione', tipo: 'pct', spiegazione: 'Alert di ATTENZIONE «avanzamento più lento del tempo» quando la % di SAL maturato risulta inferiore alla % di avanzamento temporale della commessa oltre questo scostamento.' },
     { nome: 'scartoTempoCritico', etichetta: 'Scarto tempo – evidenza in rosso', tipo: 'pct', spiegazione: 'Oltre questo scostamento fra SAL e tempo il valore è scritto in rosso nel Controllo cantieri. L\'alert resta di attenzione: il ritardo sul tempo non è fra gli alert critici.' },
     { nome: 'scartoOreAttenzione', etichetta: 'Scarto ore – attenzione', tipo: 'pct', spiegazione: 'Alert di ATTENZIONE «consumo ore superiore all\'avanzamento» quando la % di ore consumate supera la % di SAL maturato oltre questo scostamento.' },
@@ -14,13 +14,15 @@
     { nome: 'giorniAggiornamentoRecente', etichetta: 'Giorni per "aggiornamento recente"', tipo: 'number', unita: 'gg', spiegazione: 'Numero intero di giorni oltre il quale una commessa è considerata non aggiornata: alimenta il filtro "senza aggiornamento da oltre N gg" della Dashboard, confrontando la data AGGIORNATO AL con oggi.' },
     { nome: 'rischioStrutturale', gruppo: 1, etichetta: 'Rischio strutturale', tipo: 'pct', spiegazione: 'Maggiorazione prudenziale applicata al costo strutturale attribuito alla commessa, a copertura di imprevisti: costo strutturale prudenziale = costo strutturale × (1 + rischio).' },
     { nome: 'redditivita', gruppo: 1, etichetta: 'Redditività', tipo: 'pct', spiegazione: 'Margine che l\'azienda deve conservare sul prezzo. Un costo viene "portato a redditività" dividendolo per (1 − redditività): vale sia per la parte strutturale sia per i costi specifici.' },
-    { nome: 'rientroOrario', gruppo: 1, etichetta: 'Rientro bancario per ora', tipo: 'euro', unita: '€/h', spiegazione: 'Quota oraria destinata al rientro bancario, che si somma al prezzo della parte strutturale: si ottiene dividendo il rientro bancario mensile per le ore produttive aziendali mensili.' },
+    { nome: 'rientroOrario', gruppo: 1, etichetta: 'Surplus economico per ora', tipo: 'euro', unita: '€/h', spiegazione: 'Quota oraria destinata al surplus economico, che si somma al prezzo della parte strutturale: si ottiene dividendo il surplus economico mensile per le ore produttive aziendali mensili.' },
     { nome: 'sogliaRicaricoDirezione', gruppo: 1, etichetta: 'Soglia minima di ricarico (Direzione)', tipo: 'pct', spiegazione: 'Ricarico minimo stabilito dalla Direzione sulle voci di costo specifico. Nelle righe il ricarico può essere aumentato, ma un valore inferiore rende la verifica NON CONGRUO.' },
     { nome: 'sogliaErroreAcquisizione', gruppo: 2, etichetta: 'Errore di acquisizione', tipo: 'pct', spiegazione: 'Alert CRITICO quando il prezzo venduto (contratto iniziale) sta sotto il prezzo minimo sostenibile della verifica iniziale di oltre questa percentuale.' },
     { nome: 'sogliaOreOltrePreviste', gruppo: 2, etichetta: 'Ore oltre le previste', tipo: 'pct', spiegazione: 'Alert CRITICO quando le ore segnate superano quelle previste a budget di oltre questa percentuale. Sotto la soglia, le ore oltre il budget restano un alert di attenzione.' },
     { nome: 'sogliaCostiOltrePrevisti', gruppo: 2, etichetta: 'Costi diretti oltre i previsti', tipo: 'pct', spiegazione: 'Alert CRITICO quando i costi diretti segnati superano quelli previsti a budget di oltre questa percentuale. Sotto la soglia, lo sforamento resta un alert di attenzione.' },
     { nome: 'sogliaPerditeAccettate', gruppo: 2, etichetta: 'Perdite accettate sul prezzo di vendita', tipo: 'pct', spiegazione: 'Alert CRITICO quando le perdite SAL accettate superano questa percentuale del prezzo di vendita (contratto aggiornato). Sotto la soglia, una perdita accettata resta un alert di attenzione.' },
-    { nome: 'obiettivoRientroAnnuo', gruppo: 3, etichetta: 'Rientro bancario desiderato nell\'anno', tipo: 'euro', unitaTesto: '€', spiegazione: 'Obiettivo di rientro bancario dell\'anno mostrato nella Dashboard direzionale. Lasciato vuoto, è ricavato dal portafoglio: ore previste delle commesse × rientro bancario per ora.' }
+    { nome: 'sogliaRitardoFase', gruppo: 2, etichetta: 'Fase in forte ritardo', tipo: 'pct', spiegazione: 'Alert CRITICO quando una fase del Gantt non conclusa ha superato la sua fine prevista, alla data «Aggiornato al» della commessa, di oltre questa percentuale della durata prevista della fase. Esempio: fase di 20 giorni e soglia 15 %: critico oltre 3 giorni di ritardo.' },
+    { nome: 'tolleranzaOreFase', gruppo: 2, etichetta: 'Ore oltre il previsto nella fase – tolleranza', tipo: 'pct', spiegazione: 'Alert di ATTENZIONE quando le ore attribuite a una fase del Gantt superano le ore previste della fase di oltre questa percentuale. Entro la tolleranza lo sforamento della fase non è segnalato (resta visibile nel Gantt).' },
+    { nome: 'obiettivoRientroAnnuo', gruppo: 3, etichetta: 'Surplus economico desiderato nell\'anno', tipo: 'euro', unitaTesto: '€', spiegazione: 'Obiettivo di surplus economico dell\'anno mostrato nella Dashboard direzionale. Lasciato vuoto, è ricavato dal portafoglio: ore previste delle commesse × surplus economico per ora.' }
   ];
   function valoreParam(p, v) { return p.tipo === 'pct' ? Fmt.pct(v, 2) : (p.tipo === 'euro' ? (Fmt.isNum(v) ? Fmt.euro(v) + (p.unita ? '/h' : '') : 'ricavato dal portafoglio') : (Fmt.isNum(v) ? String(v) + (p.unita ? ' ' + p.unita : '') : '—')); }
 
@@ -279,11 +281,11 @@
     if (b('btn-utente')) b('btn-utente').onclick = () => apriUtente(null);
     cont.querySelectorAll('[data-utente]').forEach(x => x.onclick = () => apriUtente(x.dataset.utente));
     if (b('btn-chiusura')) b('btn-chiusura').onclick = chiusuraEsercizio;
-    b('btn-backup').onclick = () => { Fmt.scarica(Fmt.nomeFileData('backup_fida_edile', 'json'), Store.esportaJson(), 'application/json'); UI.toast('Copia di sicurezza scaricata.'); };
+    b('btn-backup').onclick = () => { Fmt.scarica(Fmt.nomeFileData('backup_gestione_cantieri', 'json'), Store.esportaJson(), 'application/json'); UI.toast('Copia di sicurezza scaricata.'); };
     // esportazione totale: la busta portabile, con dentro anche la descrizione della propria struttura
     b('btn-esporta-tutto').onclick = () => {
       const c = Dati.conteggi(Store.db), v = Dati.verifica(Store.db);
-      Fmt.scarica(Fmt.nomeFileData('fida_edile_dati_completi', 'json'), Dati.testo(Store.db, { modo: Store.modo, utente: Store.utente.nome }), 'application/json');
+      Fmt.scarica(Fmt.nomeFileData('gestione_cantieri_dati_completi', 'json'), Dati.testo(Store.db, { modo: Store.modo, utente: Store.utente.nome }), 'application/json');
       UI.toast('Esportate ' + c.totale + ' righe' + (v.errori.length ? ' · attenzione: ' + v.errori.length + ' problemi di integrità' : '') + '.', v.errori.length ? 'errore' : '');
     };
     if (b('btn-importa-tutto')) {

@@ -1,4 +1,4 @@
-/* FIDA EDILE – Budget commessa (ore e costi diretti previsti) */
+/* Gestione Cantieri – Budget commessa (ore e costi diretti previsti) */
 (function () {
   'use strict';
   const esc = UI.esc;
@@ -19,7 +19,7 @@
           '<button type="button" class="piccolo" id="btn-ore-gantt">Usa le ore del Gantt</button></div>' : '') +
         '<fieldset><legend>Budget iniziale (storico)</legend><div class="form-griglia">' +
         UI.campo({ nome: 'orePreviste', etichetta: 'Ore previste iniziali', tipo: 'ore', step: '0.5', aiuto: 'Prima stesura del budget: resta come storico e non va più modificata.' }, b.orePrevisteIniziali) +
-        UI.campo({ nome: 'costiDirettiPrevisti', etichetta: 'Costi diretti previsti iniziali (€)', tipo: 'euro', aiuto: 'Prima stesura del budget: resta come storico.' }, b.costiDirettiPrevistiIniziali) +
+        UI.campo({ nome: 'costiDirettiPrevisti', etichetta: 'Costi diretti previsti iniziali (€)', tipo: 'euro', placeholder: '0 se non previsti', aiuto: 'Prima stesura del budget: resta come storico. Se la commessa non ha costi diretti scrivere 0: lasciato vuoto, il budget risulta non definito.' }, b.costiDirettiPrevistiIniziali) +
         '</div></fieldset>' +
         '<fieldset><legend>Budget aggiornato</legend><div class="form-griglia">' +
         UI.campo({ nome: 'orePrevisteAgg', etichetta: 'Ore previste aggiornate', tipo: 'ore', step: '0.5', aiuto: 'Lasciare vuoto se non è cambiato nulla: vale il valore iniziale.' }, b.orePrevisteAgg) +

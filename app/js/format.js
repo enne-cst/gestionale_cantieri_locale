@@ -1,5 +1,5 @@
 /*
- * FIDA EDILE – Formattazione italiana e utilità di esportazione.
+ * Gestione Cantieri – Formattazione italiana e utilità di esportazione.
  */
 (function (root) {
   'use strict';

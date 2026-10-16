@@ -1,6 +1,6 @@
-/* FIDA EDILE – Dashboard direzionale
+/* Gestione Cantieri – Dashboard direzionale
  * Da un lato gli obiettivi dell'anno, dall'altro a che punto si è: stato del portafoglio (torta dagli
- * alert), redditività richiesta ed effettiva, rientro bancario desiderato ed effettivo, risultato delle
+ * alert), redditività richiesta ed effettiva, surplus economico desiderato ed effettivo, risultato delle
  * commesse finite e previsione di quelle in corso. I numeri vengono da Engine.direzionale.
  * La Dashboard di analisi (page-analisi.js), con tutti gli indicatori di dettaglio, resta una pagina a sé. */
 (function () {
@@ -11,6 +11,8 @@
     ['tutte', 'Tutte', () => true],
     ['finite', 'Finite', r => r.finito],
     ['inCorso', 'In corso', r => !r.finito],
+    // le commesse su cui si misura la redditività effettiva: le finite con ore consumate
+    ['redditivita', 'Finite in redditività', r => r.finito && r.oreUsate > 0],
     ['CRITICO', 'Critiche', r => r.alert === 'CRITICO'],
     ['ATTENZIONE', 'In attenzione', r => r.alert === 'ATTENZIONE'],
     ['INCOMPLETO', 'Incomplete', r => r.alert === 'INCOMPLETO'],
@@ -20,7 +22,7 @@
   // La ciambella si disegna con un'animazione quando si arriva sulla pagina, non quando la pagina si
   // ridisegna per un filtro: chi clicca una fetta non deve rivedere il giro ogni volta.
   let senzaAnimazione = false;
-  // Il rientro bancario si legge sul solo esercizio oppure sull'intera vita delle commesse: lo sceglie
+  // Il surplus economico si legge sul solo esercizio oppure sull'intera vita delle commesse: lo sceglie
   // l'interruttore del riquadro. Cambiandolo si rianimano solo i numeri di quel riquadro.
   let periodoRientro = 'anno', animaRientro = false;
 
@@ -130,12 +132,14 @@
       '<div class="lato"><div class="et">Richiesta</div><div class="grande">' + conta(r.richiestaPct, 'pct') + '</div>' +
       '<div class="sub">obiettivo impostato nei Parametri</div></div>' +
       '<div class="lato"><div class="et">Effettiva</div><div class="grande ' + (haEff ? (ok ? 'verde-t' : 'rosso-t') : 'grigio-t') + '">' + (haEff ? conta(r.effettivaPct, 'pct') : Fmt.VUOTO) + '</div>' +
-      '<div class="sub">' + (haEff ? 'su ' + r.nEseguite + (r.nEseguite === 1 ? ' commessa eseguita' : ' commesse eseguite') : 'nessuna ora ancora consumata') + '</div></div>' +
+      '<div class="sub">' + (haEff ? 'su ' + r.nFinite + (r.nFinite === 1 ? ' commessa finita' : ' commesse finite') : 'nessuna commessa finita') + '</div></div>' +
       '</div>' +
       '<div class="dir-metro" title="Redditività effettiva ' + (haEff ? pct(r.effettivaPct) : 'n.d.') + ', richiesta ' + pct(r.richiestaPct) + '">' +
       '<div class="pista">' + (haEff ? '<i class="' + (ok ? 'verde' : 'rosso') + '" style="width:' + quota(r.effettivaPct, scala) + '"></i>' : '') + '</div>' +
       '<div class="tacca" style="left:' + quota(r.richiestaPct, scala) + '"><span>obiettivo ' + pct(r.richiestaPct) + '</span></div></div>' +
-      '<p class="dir-nota">La percentuale effettiva è l\'utile maturato diviso il prezzo sostenibile della parte strutturale delle ore consumate, come nel conto della commessa.</p></section>';
+      '<p class="dir-nota">La percentuale effettiva è l\'utile maturato diviso il prezzo sostenibile della parte strutturale delle ore consumate, come nel conto della commessa. ' +
+      'Si calcola solo sulle commesse <b>finite</b> (con ore consumate): su quelle in corso l\'utile è ancora parziale.</p>' +
+      (r.nFinite ? '<div class="azione"><button type="button" class="' + (vista === 'redditivita' ? 'attivo' : '') + '" data-vista="redditivita">' + (vista === 'redditivita' ? 'Elenco filtrato su queste commesse' : 'Vedi solo queste commesse') + '</button></div>' : '') + '</section>';
   }
 
   // ------------------------------------------------------------ fatturato dell'esercizio: tre cifre e il mese per mese
@@ -165,7 +169,7 @@
       (f.nSenzaContratto ? '<p class="dir-nota">' + f.nSenzaContratto + (f.nSenzaContratto === 1 ? ' commessa è senza contratto e non entra' : ' commesse sono senza contratto e non entrano') + ' nel fatturabile.</p>' : '') + '</section>';
   }
 
-  // ------------------------------------------------------------ rientro bancario: desiderato, effettivo, realizzato dalle finite
+  // ------------------------------------------------------------ surplus economico: desiderato, effettivo, realizzato dalle finite
   // r = i tre valori del periodo scelto: il solo esercizio (movimenti e costi dell'anno, senza i saldi
   // iniziali) oppure l'intera vita delle commesse (saldi iniziali compresi).
   function cardRientro(r, P) {
@@ -178,8 +182,8 @@
     const voce = (classe, etichetta, valore, sub) => '<div class="voce ' + classe + '" title="' + esc(etichetta + ': ' + euro(valore)) + '"><div class="et">' + etichetta + '</div><div class="val">' + conta(valore, 'euro0') + '</div>' +
       '<div class="pista"><i style="width:' + quota(Math.max(0, valore), max) + '"></i></div><div class="sub">' + sub + '</div></div>';
     const scelta = (id, testo, titolo) => '<button type="button" class="' + (periodoRientro === id ? 'attivo' : '') + '" data-periodo="' + id + '" aria-pressed="' + (periodoRientro === id) + '" title="' + esc(titolo) + '">' + esc(testo) + '</button>';
-    return '<section class="dir-card' + (animaRientro ? ' anima' : '') + '" id="dir-rientro"><div class="dir-card-testa"><h2>Rientro bancario</h2>' +
-      '<div class="dir-periodo" role="group" aria-label="Periodo del rientro bancario">' +
+    return '<section class="dir-card' + (animaRientro ? ' anima' : '') + '" id="dir-rientro"><div class="dir-card-testa"><h2>Surplus economico</h2>' +
+      '<div class="dir-periodo" role="group" aria-label="Periodo del surplus economico">' +
       scelta('anno', 'Esercizio ' + P.annoGestione, 'Solo movimenti e costi del ' + P.annoGestione + ', senza i saldi iniziali') +
       scelta('vita', 'Intera vita', 'Dall\'inizio di ogni commessa, saldi iniziali compresi') + '</div></div>' +
       '<div class="dir-tre">' +
@@ -187,15 +191,15 @@
         : (anno ? 'ore ancora da fare a inizio ' + P.annoGestione : 'ore previste dell\'intero budget') + ' per ' + euro(r.orario) + '/h') +
       voce('verde', 'Effettivo', r.effettivo, r.effettivo < 0 ? 'negativo: l\'utile maturato ' + quando + ' non copre nemmeno la redditività richiesta'
         : (inLinea ? 'copre i ' : 'sotto i ') + euro0(r.dovutoEseguito) + ' dovuti sul lavoro eseguito ' + quando) +
-      // sulle finite si mostra prima ciò che è rientrato davvero, sotto ciò che era richiesto
+      // sulle finite si mostra prima ciò che è stato realizzato davvero, sotto ciò che era richiesto
       (r.nFinite
         ? voce('grigio', 'Realizzato dalle finite', r.effettivoFinite, '<span class="richiesto">Richiesti ' + euro0(r.dovutoFinite) + '</span>ore consumate ' + (anno ? 'nel ' + P.annoGestione + ' ' : '') + 'dalle ' + r.nFinite + ' commesse finite per ' + euro(r.orario) + '/h')
         : voce('grigio', 'Realizzato dalle finite', 0, 'nessuna commessa finita con ore consumate' + (anno ? ' nel ' + P.annoGestione : ''))) +
       '</div><p class="dir-nota">' + (anno
         ? 'Solo l\'esercizio ' + P.annoGestione + ': movimenti e costi dell\'anno, senza i saldi iniziali delle commesse cominciate prima.'
         : 'Intera vita delle commesse operative: dall\'inizio di ciascuna, saldi iniziali compresi.') +
-      ' Il rientro è l\'utile maturato meno la redditività richiesta; quello richiesto è ore consumate per ' + euro(r.orario) + '/h.' +
-      (Store.vedePagina('parametri') ? ' Il rientro per ora si imposta nei <a href="#/parametri">Parametri</a>.' : '') + '</p></section>';
+      ' Il surplus è l\'utile maturato meno la redditività richiesta; quello richiesto è ore consumate per ' + euro(r.orario) + '/h.' +
+      (Store.vedePagina('parametri') ? ' Il surplus per ora si imposta nei <a href="#/parametri">Parametri</a>.' : '') + '</p></section>';
   }
 
   // ------------------------------------------------------------ risultato delle commesse finite / in corso
@@ -227,7 +231,7 @@
     const P = Store.db.parametri;
     const tutte = Engine.calcolaTutte(Store.db);
     const d = Engine.direzionale(tutte, P);
-    // rientro bancario del periodo scelto: sull'intera vita le righe sono quelle della pagina; sul solo
+    // surplus economico del periodo scelto: sull'intera vita le righe sono quelle della pagina; sul solo
     // esercizio le stesse commesse vanno ricalcolate senza i saldi iniziali
     const rientro = periodoRientro === 'vita' ? Engine.direzionale(tutte, P, { vita: true }).rientro
       : Engine.direzionale(Engine.calcolaTutte(Store.db, { senzaSaldi: true }), P).rientro;
@@ -268,7 +272,7 @@
     });
     const colUtile = v => Fmt.isNum(v) ? '<span class="' + segno(v) + '"><b>' + euro(v) + '</b></span>' : '<span class="muto">—</span>';
     const colonne = [
-      { campo: 'alert', titolo: 'Allerta', valOrd: r => Engine.LIVELLI_ALERT.indexOf(r.alert), fmt: v => UI.badgeAlert(v) },
+      { campo: 'alert', titolo: 'Allerta', valOrd: r => Engine.CLASSI_ALERT.indexOf(r.alert), fmt: v => UI.badgeAlert(v) },
       { campo: 'codice', titolo: 'Codice', fmt: (v, r) => UI.linkCommessa(r) },
       { campo: 'cliente', titolo: 'Cliente' },
       { campo: 'cantiere', titolo: 'Cantiere', classe: 'desc' },

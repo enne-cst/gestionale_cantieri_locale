@@ -1,4 +1,4 @@
-/* FIDA EDILE – Anagrafica commesse (sezione master) */
+/* Gestione Cantieri – Anagrafica commesse (sezione master) */
 (function () {
   'use strict';
   const esc = UI.esc;
@@ -25,7 +25,7 @@
         '<form id="form-commessa" onsubmit="return false">' +
         '<fieldset><legend>Identificazione</legend><div class="form-griglia">' +
         UI.campo({ nome: 'dataInserimento', etichetta: 'Data di inserimento', tipo: 'date', req: true, aiuto: 'Obbligatoria: senza questa data la commessa non può essere creata.' }, c.dataInserimento) +
-        UI.campo({ nome: 'codice', etichetta: 'Codice commessa', req: true, aiuto: 'Univoco. I codici che iniziano con TEMP sono segnalati come temporanei.' }, c.codice) +
+        UI.campo({ nome: 'codice', etichetta: 'Codice commessa', req: true, placeholder: 'es. 26.0015 oppure TEMP-01', aiuto: 'Univoco. Se il codice aziendale definitivo non è ancora assegnato, scrivere un codice provvisorio che inizia con TEMP (es. TEMP-01): la commessa resta segnalata finché non lo si sostituisce.' }, c.codice) +
         UI.campo({ nome: 'cliente', etichetta: 'Cliente', req: true, lista: 'dl-clienti' }, c.cliente) +
         UI.campo({ nome: 'cantiere', etichetta: 'Descrizione / Cantiere', req: true, classe: 'doppio' }, c.cantiere) +
         UI.campo({ nome: 'indirizzo', etichetta: 'Indirizzo / Località' }, c.indirizzo) +

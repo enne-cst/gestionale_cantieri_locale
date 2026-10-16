@@ -1,5 +1,5 @@
 /*
- * FIDA EDILE – Nucleo dell'interfaccia: layout, navigazione, finestre, maschere, tabelle.
+ * Gestione Cantieri – Nucleo dell'interfaccia: layout, navigazione, finestre, maschere, tabelle.
  */
 (function (root) {
   'use strict';
@@ -25,6 +25,7 @@
     { gruppo: 'Sistema' },
     { id: 'analisi', testo: 'Dashboard di analisi', icona: '◪' },
     { id: 'parametri', testo: 'Parametri di controllo', icona: '⚙' },
+    { id: 'guida-alert', testo: 'Guida agli alert', icona: '?' },
     { id: 'registro', testo: 'Registro modifiche', icona: '≡' }
   ];
 
@@ -62,7 +63,7 @@
         (m.id === 'preventivi' && schedaPreventivo ? '<a href="#/preventivo/' + esc(schedaPreventivo.id) + '" class="sotto-voce attivo" title="' + esc(schedaPreventivo.cliente || '') + '"><span>↳</span>' + esc(schedaPreventivo.numero) + '</a>' : '')).join('');
       app.innerHTML =
         '<aside class="laterale">' +
-        '<div class="marchio"><b>FIDA EDILE</b><span>Gestione Cantieri · Rev.14</span></div>' +
+        '<div class="marchio"><img src="img/logo.png" alt="" width="40" height="40"><div><b>CUBO SUITE</b><span>Gestione Cantieri</span></div></div>' +
         '<nav class="nav">' + nav + '</nav>' +
         '<div class="utente-box"><label for="sel-utente">Utente</label><select id="sel-utente">' +
         Store.db.utenti.filter(u => u.attivo !== false).map(u => '<option value="' + esc(u.id) + '"' + (u.id === Store.utente.id ? ' selected' : '') + '>' + esc(u.nome) + ' (' + esc(u.ruolo) + ')</option>').join('') + '</select>' +
@@ -431,18 +432,25 @@
     motiviHtml(r) {
       if (!r.motivi || !r.motivi.length) return '<span class="muto">—</span>';
       const det = r.motiviDettaglio || r.motivi.map(m => ({ motivo: m, testo: m, campi: [], form: null }));
-      // ogni motivo porta il colore del PROPRIO livello: un'attenzione resta ambra anche su una commessa critica
+      // ogni motivo porta il colore del PROPRIO livello: un'attenzione resta ambra anche su una commessa critica.
+      // Si legge solo il TITOLO dell'alert; il dettaglio con i numeri (per le fasi: l'elenco di tutte
+      // le fasi interessate) compare passandoci sopra, nel riquadro gestito in fondo a questo file.
       return '<div class="motivi">' + det.map(d => {
         const liv = esc(d.livello || r.alert || '');
-        return d.form && d.campi.length ?
-          '<a href="#" class="apri-campo ' + liv + '" data-id="' + esc(r.id) + '" data-form="' + esc(d.form) + '" data-campo="' + esc(d.campi[0]) + '" title="' + liv + ' · clicca per andare al campo da correggere">' + esc(d.testo) + ' ✎</a>' :
-          '<span class="' + liv + '" title="' + liv + '">' + esc(d.testo) + '</span>';
+        const link = !!(d.form && d.campi.length);
+        const attr = ' data-liv="' + liv + '" data-titolo="' + esc(d.motivo) + '"' + (d.testo && d.testo !== d.motivo ? ' data-dettaglio="' + esc(d.testo) + '"' : '') + (link ? ' data-correggi="1"' : '');
+        const titolo = esc(d.motivo) + (d.nFasi > 1 ? ' <b class="n-fasi">' + d.nFasi + '</b>' : '');
+        return link ?
+          '<a href="#" class="apri-campo ' + liv + '" data-id="' + esc(r.id) + '" data-form="' + esc(d.form) + '" data-campo="' + esc(d.campi[0]) + '"' + (d.faseId ? ' data-fase="' + esc(d.faseId) + '"' : '') + attr + '>' + titolo + ' ✎</a>' :
+          '<span class="' + liv + '" tabindex="0"' + attr + '>' + titolo + '</span>';
       }).join('') + '</div>';
     },
     // Apre la maschera giusta per una commessa e porta il cursore sul campo indicato (usato dai motivi di allerta cliccabili).
-    apriCampo(commessaId, form, campo) {
+    // Per i motivi che riguardano una fase del Gantt si apre la maschera di quella fase.
+    apriCampo(commessaId, form, campo, faseId) {
       const dopo = () => UI.render();
-      if (form === 'note') Cantieri.apriNote(commessaId, dopo);
+      if (form === 'fase') Gantt.apriForm(commessaId, faseId, dopo);
+      else if (form === 'note') Cantieri.apriNote(commessaId, dopo);
       else if (form === 'budget') Budget.apriForm(commessaId, dopo);
       else Commesse.apriForm(commessaId, dopo);
       setTimeout(() => {
@@ -593,8 +601,36 @@
     const a = e.target.closest('a.apri-campo');
     if (!a) return;
     e.preventDefault(); e.stopPropagation();
-    UI.apriCampo(a.dataset.id, a.dataset.form, a.dataset.campo);
+    UI.apriCampo(a.dataset.id, a.dataset.form, a.dataset.campo, a.dataset.fase);
   }, true);
+
+  // Riquadro del dettaglio di un motivo di allerta: uno solo per la pagina, posizionato sotto (o sopra)
+  // il motivo, così non viene tagliato dalle tabelle che scorrono. Si apre al passaggio del mouse o al focus.
+  (function () {
+    let box = null, su = null;
+    const chiudi = () => { if (box) box.hidden = true; su = null; };
+    const apri = el => {
+      if (su === el) return;
+      if (!box) { box = document.createElement('div'); box.className = 'dettaglio-motivo'; box.setAttribute('role', 'tooltip'); document.body.appendChild(box); }
+      su = el;
+      const d = el.dataset;
+      box.className = 'dettaglio-motivo ' + (d.liv || '');
+      box.innerHTML = '<div class="dm-liv">' + esc(d.liv || '') + '</div><div class="dm-titolo">' + esc(d.titolo || '') + '</div>' +
+        (d.dettaglio ? '<div class="dm-testo">' + esc(d.dettaglio) + '</div>' : '') +
+        (d.correggi ? '<div class="dm-azione">Clic per andare al campo da correggere</div>' : '');
+      box.hidden = false;
+      const r = el.getBoundingClientRect(), b = box.getBoundingClientRect(), m = 8;
+      let x = Math.min(Math.max(m, r.left), window.innerWidth - b.width - m);
+      let y = r.bottom + 6;
+      if (y + b.height > window.innerHeight - m) y = Math.max(m, r.top - b.height - 6);
+      box.style.left = x + 'px'; box.style.top = y + 'px';
+    };
+    document.addEventListener('mouseover', e => { const el = e.target.closest && e.target.closest('.motivi [data-titolo]'); if (el) apri(el); else if (su) chiudi(); });
+    document.addEventListener('focusin', e => { const el = e.target.closest && e.target.closest('.motivi [data-titolo]'); if (el) apri(el); else chiudi(); });
+    document.addEventListener('scroll', chiudi, true);
+    window.addEventListener('hashchange', chiudi);
+    document.addEventListener('click', e => { if (!(e.target.closest && e.target.closest('.motivi [data-titolo]'))) chiudi(); else if (e.target.closest('.motivi span[data-titolo]')) apri(e.target.closest('.motivi span[data-titolo]')); });
+  })();
 
   root.UI = UI;
 })(window);

@@ -1,5 +1,5 @@
 /*
- * FIDA EDILE – Schema del database e migrazioni.
+ * Gestione Cantieri – Schema del database e migrazioni.
  * Il database è un unico oggetto JSON (file data/database.json in modalità server,
  * localStorage in modalità file). Una sola fonte per ogni dato.
  */
@@ -19,7 +19,7 @@
 
   function nuovoDb() {
     return {
-      app: 'FIDA EDILE – Gestione Cantieri',
+      app: 'Gestione Cantieri',
       schemaVersion: VERSIONE,
       rev: 0,
       creatoIl: new Date().toISOString(),
@@ -65,6 +65,8 @@
     // riferimento documentale delle integrazioni, ore e uomini delle fasi, fase di un movimento di ore:
     // campi introdotti dopo, i database precedenti non li hanno
     db.commesse.forEach(c => { if (typeof c.integrazioniRiferimento !== 'string') c.integrazioniRiferimento = ''; });
+    // causa «Ritardo produttivo …» rinominata: i database precedenti portano la vecchia dicitura
+    db.commesse.forEach(c => { if (/^Ritardo produttivo /.test(c.causaAggiornamentoDataFine || '')) c.causaAggiornamentoDataFine = 'Ritardo produttivo aziendale'; });
     db.fasi.forEach(f => { if (f.orePreviste === undefined) f.orePreviste = null; if (f.uomini === undefined) f.uomini = null; });
     // chi esegue la fase: i database precedenti non lo dicono, e allora è l'azienda
     db.fasi.forEach(f => { if (f.esecutore !== 'subappalto') f.esecutore = 'azienda'; if (typeof f.subappaltatore !== 'string') f.subappaltatore = ''; });
@@ -185,7 +187,7 @@
     scartoOreAttenzione: 'Scarto ore – attenzione', scartoOreCritico: 'Scarto ore – critico',
     sogliaSalNonFatturato: 'Soglia SAL non fatturato', annoGestione: 'Anno di gestione', giorniAggiornamentoRecente: 'Giorni per aggiornamento recente',
     nome: 'Nome', ruolo: 'Ruolo', attivo: 'Attivo',
-    rischioStrutturale: 'Rischio strutturale', redditivita: 'Redditività', rientroOrario: 'Rientro bancario orario',
+    rischioStrutturale: 'Rischio strutturale', redditivita: 'Redditività', rientroOrario: 'Surplus economico orario',
     sogliaRicaricoDirezione: 'Soglia minima di ricarico (Direzione)', pesiStrutturali: 'Pesi del costo strutturale',
     voci: 'Voci di costo specifico', datiVerificati: 'Dati del computo verificati e completi',
     numero: 'Numero preventivo', oggetto: 'Oggetto / Cantiere', prezzoProposto: 'Prezzo proposto',
@@ -194,7 +196,8 @@
     prezzoVendita: 'Prezzo di vendita materiale', uomini: 'Uomini previsti', faseId: 'Fase di lavoro', esecutore: 'Chi esegue la fase', subappaltatore: 'Subappaltatore',
     sogliaErroreAcquisizione: 'Errore di acquisizione – soglia critica', sogliaOreOltrePreviste: 'Ore oltre le previste – soglia critica',
     sogliaCostiOltrePrevisti: 'Costi diretti oltre i previsti – soglia critica', sogliaPerditeAccettate: 'Perdite accettate – soglia critica',
-    obiettivoRientroAnnuo: 'Rientro bancario desiderato nell\'anno', macroCategorie: 'Voci di costo diretto'
+    sogliaRitardoFase: 'Fase in forte ritardo – soglia critica', tolleranzaOreFase: 'Ore oltre il previsto nella fase – tolleranza',
+    obiettivoRientroAnnuo: 'Surplus economico desiderato nell\'anno', macroCategorie: 'Voci di costo diretto'
   };
 
   return { VERSIONE, genId, nuovoDb, migra, nuovaCommessa, nuovoMovimento, nuovoCosto, nuovoSaldo, nuovaFase, nuovoPreventivo, nuovaVoceSostenibilita, ETICHETTE };

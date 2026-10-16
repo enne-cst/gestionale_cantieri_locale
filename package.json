@@ -2,7 +2,7 @@
   "name": "gestione-cantieri",
   "version": "1.0.0",
   "private": true,
-  "description": "FIDA EDILE - Gestione Cantieri: server e interfaccia web, senza dipendenze esterne.",
+  "description": "Gestione Cantieri: server e interfaccia web, senza dipendenze esterne.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

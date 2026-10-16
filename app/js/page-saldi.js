@@ -1,4 +1,4 @@
-/* FIDA EDILE – Saldi iniziali (commesse pregresse: cumulativi al 31/12 dell'anno precedente) */
+/* Gestione Cantieri – Saldi iniziali (commesse pregresse: cumulativi al 31/12 dell'anno precedente) */
 (function () {
   'use strict';
   const esc = UI.esc;

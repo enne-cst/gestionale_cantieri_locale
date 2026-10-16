@@ -1,5 +1,5 @@
 /*
- * FIDA EDILE – Lettura e scrittura di file Excel (.xlsx) senza librerie esterne.
+ * Gestione Cantieri – Lettura e scrittura di file Excel (.xlsx) senza librerie esterne.
  *
  * Un .xlsx è un archivio ZIP di documenti XML (SpreadsheetML). Qui c'è il minimo indispensabile:
  *  - in SCRITTURA l'archivio è prodotto con il metodo "store" (nessuna compressione), così non serve

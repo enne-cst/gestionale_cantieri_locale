@@ -1,0 +1,109 @@
+/*
+ * Brochure Gestione Cantieri – impaginazione di stampa.
+ * Ogni .pagina misura A4 + 2 × --ab (abbondanza, 3 mm in stampa e 0 a video: la imposta genera.js).
+ * I fondi arrivano al bordo della .pagina, cioè dentro l'abbondanza; testi e immagini che non devono
+ * essere tagliati stanno nell'.area, a --sicurezza dalla linea di taglio.
+ */
+@font-face { font-family: "Barlow"; font-weight: 400; src: url("node_modules/@fontsource/barlow/files/barlow-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 500; src: url("node_modules/@fontsource/barlow/files/barlow-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 600; src: url("node_modules/@fontsource/barlow/files/barlow-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 700; src: url("node_modules/@fontsource/barlow/files/barlow-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-weight: 500; src: url("node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-weight: 600; src: url("node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-weight: 700; src: url("node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2") format("woff2"); }
+
+:root {
+  --ab: 3mm;              /* abbondanza: sovrascritta da genera.js */
+  --sicurezza: 14mm;      /* distanza dei contenuti dalla linea di taglio */
+  --blu: #1f3a5f;         /* blu dell'applicazione */
+  --blu-scuro: #162b47;
+  --blu-chiaro: #2c4f80;
+  --giallo: #f2c94c;      /* giallo di cantiere, accento dell'applicazione */
+  --carta: #f6f4ee;
+  --inchiostro: #1a2433;
+  --grigio: #5b6573;
+  --linea: #d8d4c8;
+  --titoli: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --testo: "Barlow", "Segoe UI", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-family: var(--testo); font-size: 10pt; line-height: 1.45; color: var(--inchiostro); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { background: #fff; }
+
+.pagina { position: relative; width: calc(210mm + 2 * var(--ab)); height: calc(297mm + 2 * var(--ab)); overflow: hidden; break-after: page; background: var(--carta); }
+.pagina:last-child { break-after: auto; }
+.area { position: absolute; inset: calc(var(--ab) + var(--sicurezza)); display: flex; flex-direction: column; }
+
+.marchio { display: flex; align-items: center; gap: 3.2mm; }
+.marchio img { width: 11mm; height: 11mm; border-radius: 2mm; }
+.marchio b { display: block; font-family: var(--titoli); font-weight: 700; font-size: 13pt; letter-spacing: .12em; line-height: 1; }
+.marchio span { font-size: 8pt; opacity: .75; }
+
+.occhiello { font-family: var(--titoli); font-weight: 600; font-size: 10.5pt; letter-spacing: .2em; text-transform: uppercase; color: #a8760f; }
+h1, h2, h3 { font-family: var(--titoli); font-weight: 700; line-height: 1; }
+
+/* cornice da browser attorno alle schermate */
+.schermata { border-radius: 2mm; overflow: hidden; background: #fff; box-shadow: 0 1.2mm 5mm rgba(15, 30, 55, .22); border: .25mm solid rgba(20, 35, 60, .18); }
+.schermata .barra { height: 4.6mm; background: #e7eaef; display: flex; align-items: center; gap: 1.1mm; padding-left: 2.2mm; }
+.schermata .barra i { width: 1.5mm; height: 1.5mm; border-radius: 50%; background: #b8bfca; }
+.schermata img { display: block; width: 100%; }
+
+/* ============================================================ 1 · copertina */
+.copertina { background: var(--blu); color: #fff; }
+.copertina::before { content: ""; position: absolute; inset: 0; background:
+  linear-gradient(115deg, transparent 0 58%, rgba(255, 255, 255, .045) 58% 72%, transparent 72%),
+  linear-gradient(180deg, var(--blu-scuro) 0, var(--blu) 46%, var(--blu-chiaro) 100%); }
+.copertina .fascia { position: absolute; left: 0; top: calc(var(--ab) + 62mm); width: calc(var(--ab) + 6mm); height: 46mm; background: var(--giallo); }
+.copertina .area { z-index: 1; }
+.copertina .occhiello { color: var(--giallo); margin-top: 22mm; }
+.copertina h1 { font-size: 66pt; letter-spacing: -.01em; margin-top: 3mm; text-transform: uppercase; }
+.copertina .slogan { font-family: var(--titoli); font-weight: 500; font-size: 25pt; line-height: 1.1; color: var(--giallo); margin-top: 4mm; }
+.copertina .sotto { font-size: 11.5pt; line-height: 1.5; max-width: 118mm; margin-top: 6mm; color: #d5deea; }
+.copertina .punti { display: flex; flex-wrap: wrap; gap: 2mm; margin-top: 7mm; }
+.copertina .punti span { background: var(--giallo); color: var(--blu-scuro); font-family: var(--titoli); font-weight: 700; font-size: 10.5pt; letter-spacing: .08em; text-transform: uppercase; padding: 1.3mm 3.2mm; }
+/* la schermata principale arriva al bordo destro e al fondo della pagina, abbondanza compresa:
+   il riquadro finisce esattamente sul bordo e taglia l'immagine, che è più larga */
+.copertina .principale { position: absolute; z-index: 1; left: calc(var(--ab) + 30mm); top: calc(var(--ab) + 161mm); right: 0; bottom: 0; overflow: hidden; border-top-left-radius: 2mm; box-shadow: 0 3mm 12mm rgba(5, 15, 35, .5); background: #f3f5f8; }
+.copertina .principale .barra { height: 5.2mm; background: #e7eaef; display: flex; align-items: center; gap: 1.2mm; padding-left: 2.6mm; }
+.copertina .principale .barra i { width: 1.7mm; height: 1.7mm; border-radius: 50%; background: #b8bfca; }
+.copertina .principale img { display: block; width: 238mm; }
+
+/* ============================================================ 2-3 · funzionalità */
+.interna .testa { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 4mm; border-bottom: .5mm solid var(--blu); }
+.interna .testa h2 { font-size: 27pt; color: var(--blu); margin-top: 1.5mm; text-transform: uppercase; }
+.interna .testa .num { font-family: var(--titoli); font-weight: 600; font-size: 9pt; letter-spacing: .16em; color: var(--grigio); text-transform: uppercase; white-space: nowrap; }
+.funzioni { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding-top: 7mm; }
+.funzione { display: grid; grid-template-columns: 101mm 1fr; gap: 8mm; align-items: center; }
+.funzione.inversa { grid-template-columns: 1fr 101mm; }
+.funzione.inversa .schermata { order: 2; }
+.funzione .n { font-family: var(--titoli); font-weight: 700; font-size: 30pt; line-height: .9; color: var(--giallo); -webkit-text-stroke: .25mm var(--blu); }
+.funzione h3 { font-size: 18pt; color: var(--blu); margin: 2mm 0 2.2mm; text-transform: uppercase; letter-spacing: .01em; }
+.funzione p { font-size: 9.6pt; color: #2b3644; }
+.funzione ul { list-style: none; margin-top: 2.6mm; }
+.funzione li { position: relative; padding-left: 4.4mm; font-size: 9pt; margin-bottom: 1.1mm; color: #2b3644; }
+.funzione li::before { content: ""; position: absolute; left: 0; top: 1.7mm; width: 2.4mm; height: .9mm; background: var(--giallo); outline: .2mm solid var(--blu); }
+.piede { display: flex; justify-content: space-between; font-size: 7.5pt; color: var(--grigio); padding-top: 3mm; margin-top: 6mm; border-top: .25mm solid var(--linea); }
+
+/* ============================================================ 4 · vantaggi e chiusura */
+.ultima .testa { border-bottom: none; padding-bottom: 0; }
+.vantaggi { display: grid; grid-template-columns: 1fr 1fr; gap: 0 9mm; margin-top: 8mm; }
+.vantaggio { padding: 5.6mm 0; border-top: .25mm solid var(--linea); display: grid; grid-template-columns: 9mm 1fr; gap: 2mm; }
+.vantaggio:nth-child(-n+2) { border-top: .5mm solid var(--blu); }
+.vantaggio .segno { width: 6.4mm; height: 6.4mm; background: var(--giallo); color: var(--blu-scuro); font-family: var(--titoli); font-weight: 700; font-size: 11pt; display: flex; align-items: center; justify-content: center; }
+.vantaggio b { display: block; font-family: var(--titoli); font-weight: 700; font-size: 13pt; color: var(--blu); text-transform: uppercase; line-height: 1.1; margin-bottom: .8mm; }
+.vantaggio p { font-size: 9.8pt; color: #2b3644; }
+.passi { margin-top: auto; }
+.passi h3 { font-size: 15pt; color: var(--blu); text-transform: uppercase; margin-bottom: 3mm; }
+.passi ol { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; counter-reset: passo; }
+.passi h3 + ol { margin-bottom: 0; }
+.passi li { counter-increment: passo; background: #fff; border: .25mm solid var(--linea); padding: 4.6mm 4.4mm 5.2mm; font-size: 9.2pt; }
+.passi li::before { content: "0" counter(passo); display: block; font-family: var(--titoli); font-weight: 700; font-size: 17pt; color: var(--blu); line-height: 1; margin-bottom: 1.2mm; }
+.passi li b { display: block; font-size: 9.8pt; }
+/* il blocco di chiusura è un fondo pieno che arriva al bordo: sta fuori dall'.area, dentro l'abbondanza */
+.chiusura { position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--ab) + 78mm); background: var(--blu); color: #fff; }
+.chiusura::before { content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 2.2mm; background: var(--giallo); }
+.chiusura .dentro { position: absolute; inset: 15mm calc(var(--ab) + var(--sicurezza)) calc(var(--ab) + var(--sicurezza)); }
+.chiusura .slogan { font-family: var(--titoli); font-weight: 700; font-size: 30pt; line-height: 1.05; text-transform: uppercase; color: var(--giallo); margin-top: 9mm; }
+.chiusura p { font-size: 10.4pt; color: #d5deea; margin-top: 3.5mm; max-width: 125mm; }
+.ultima .area { bottom: calc(var(--ab) + 78mm + 9mm); }

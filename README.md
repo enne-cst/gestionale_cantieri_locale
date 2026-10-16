@@ -1,6 +1,6 @@
-# FIDA EDILE – Gestione Cantieri
+# Gestione Cantieri
 
-Applicazione gestionale locale che sostituisce il file **DATABASE CONTRATTI FIDA EDILE – REV.14** mantenendone
+Applicazione gestionale locale che sostituisce il file **DATABASE CONTRATTI – REV.14** mantenendone
 tutte le logiche (anagrafica, saldi iniziali, budget, movimenti, costi diretti, controllo cantieri, parametri, alert)
 e il modello **Verifica di sostenibilità economica della commessa**.
 
@@ -46,7 +46,7 @@ Porta diversa: `node server.js --porta 9000`.
 
 ## Primo utilizzo
 L'app si apre come **Operativo** (senza password). Nella barra laterale una tendina permette di scegliere l'utente;
-per collegarsi come **Direzione** o come **Amministratore** è richiesta la password (`FidaEdile2026!`, definita in
+per collegarsi come **Direzione** o come **Amministratore** è richiesta la password (`Cantieri2026!`, definita in
 `app/js/store.js`). Le pagine della sezione Direzione (Dashboard e Controllo cantieri) sono visibili a Direzione e
 Amministratore; la **Dashboard di analisi** e le due pagine della sezione Sistema (Parametri di controllo e Registro
 modifiche) sono riservate all'Amministratore. I livelli di utilizzo sono modificabili da *Parametri → Utenti*:
@@ -103,12 +103,12 @@ reference/                  file Excel e indicazioni originali
   del Riepilogo si ferma all'effettivo, senza previsione.
 - **Ore per fase (Gantt)**: ogni fase ha ore previste e uomini; un movimento di ore si può attribuire a una fase.
   La scheda Gantt confronta previste ed effettive fase per fase e permette di portare nel budget il totale del Gantt.
-- **Dashboard direzionale**: semaforo del portafoglio dagli alert, redditività richiesta ed effettiva, rientro
-  bancario desiderato / effettivo / dovuto sulle commesse finite, utile o perdita delle commesse finite e di quelle
+- **Dashboard direzionale**: semaforo del portafoglio dagli alert, redditività richiesta ed effettiva, surplus
+  economico desiderato / effettivo / dovuto sulle commesse finite, utile o perdita delle commesse finite e di quelle
   in corso, con elenco filtrabile.
 - **Verifica di sostenibilità economica**: il *prezzo del computo* viene confrontato con il *prezzo minimo
   sostenibile*, formato dalla **parte strutturale** (ore previste × costo strutturale, maggiorate del rischio,
-  portate a redditività e aumentate della quota di rientro bancario) e dal **prezzo di vendita dei costi specifici**
+  portate a redditività e aumentate della quota di surplus economico) e dal **prezzo di vendita dei costi specifici**
   (caricati del ricarico e portati a redditività). Esito **CONGRUA / NON CONGRUA / NON CONGRUO** (ricarico sotto la
   soglia della Direzione) **/ DA COMPLETARE**.
   Per una **commessa** la verifica è automatica e non duplica nulla: il prezzo del computo è il contratto aggiornato

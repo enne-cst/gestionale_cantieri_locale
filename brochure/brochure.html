@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>{{prodotto.marchio}} – {{prodotto.nome}} · Brochure</title>
+<link rel="stylesheet" href="brochure.css">
+<!--FORMATO-->
+</head>
+<body>
+
+<!-- ============================================================ 1 · copertina -->
+<section class="pagina copertina">
+  <div class="fascia"></div>
+  <div class="area">
+    <div class="marchio"><img src="img/logo.png" alt=""><div><b>{{prodotto.marchio}}</b><span>{{prodotto.nome}}</span></div></div>
+    <div class="occhiello">Il gestionale di commessa per le imprese edili</div>
+    <h1>Gestione<br>Cantieri</h1>
+    <div class="slogan">{{prodotto.slogan}}</div>
+    <p class="sotto">{{prodotto.sottotitolo}}</p>
+    <div class="punti"><span>Online, dal browser</span><span>Niente da installare</span><span>Si parte dal tuo Excel</span></div>
+  </div>
+  <div class="principale"><div class="barra"><i></i><i></i><i></i></div><img src="img/copertina.png" alt="La dashboard direzionale"></div>
+</section>
+
+<!-- ============================================================ 2 · funzionalità -->
+<section class="pagina interna">
+  <div class="area">
+    <div class="testa">
+      <div><div class="occhiello">Che cosa fa</div><h2>Dal preventivo al cantiere</h2></div>
+      <div class="num">Funzionalità 1–3</div>
+    </div>
+    <div class="funzioni">
+
+      <article class="funzione">
+        <div class="schermata"><div class="barra"><i></i><i></i><i></i></div><img src="img/preventivo.png" alt=""></div>
+        <div>
+          <div class="n">01</div>
+          <h3>Il prezzo regge? Lo sai prima di firmare</h3>
+          <p>Ogni preventivo viene confrontato con il <b>prezzo minimo sostenibile</b>: ore, costi specifici, rischio, redditività e surplus economico della tua azienda.</p>
+          <ul>
+            <li>Esito immediato: congrua, non congrua, da completare</li>
+            <li>Ricarico controllato voce per voce</li>
+            <li>L'offerta accettata diventa commessa con un clic</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="funzione inversa">
+        <div class="schermata"><div class="barra"><i></i><i></i><i></i></div><img src="img/movimenti.png" alt=""></div>
+        <div>
+          <div class="n">02</div>
+          <h3>SAL, fatture, ore e costi in un solo posto</h3>
+          <p>Una registrazione per ogni evento del cantiere. I totali del periodo si aggiornano da soli, per tutta l'impresa o per singola commessa.</p>
+          <ul>
+            <li>SAL, fatturato, ritenute e svincoli sempre allineati</li>
+            <li>Ore di manodopera valorizzate al costo aziendale</li>
+            <li>Costi diretti per categoria: materiali, noleggi, subappalti</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="funzione">
+        <div class="schermata"><div class="barra"><i></i><i></i><i></i></div><img src="img/gantt.png" alt=""></div>
+        <div>
+          <div class="n">03</div>
+          <h3>Cronoprogramma e ore per fase</h3>
+          <p>Il Gantt di ogni commessa mette a confronto previsto ed effettivo, fase per fase: date, uomini e ore di manodopera.</p>
+          <ul>
+            <li>Ritardi e fasi fuori budget evidenziati in rosso</li>
+            <li>Lavori propri e subappalti distinti</li>
+            <li>Le ore del Gantt alimentano il budget</li>
+          </ul>
+        </div>
+      </article>
+
+    </div>
+    <div class="piede"><span>{{prodotto.marchio}} · {{prodotto.nome}}</span><span>Schermate reali dell'applicazione, con dati dimostrativi</span></div>
+  </div>
+</section>
+
+<!-- ============================================================ 3 · funzionalità -->
+<section class="pagina interna">
+  <div class="area">
+    <div class="testa">
+      <div><div class="occhiello">Che cosa fa</div><h2>Dal cantiere alla direzione</h2></div>
+      <div class="num">Funzionalità 4–6</div>
+    </div>
+    <div class="funzioni">
+
+      <article class="funzione inversa">
+        <div class="schermata"><div class="barra"><i></i><i></i><i></i></div><img src="img/utile.png" alt=""></div>
+        <div>
+          <div class="n">04</div>
+          <h3>Utile maturato e utile a finire</h3>
+          <p>Per ogni commessa vedi quanto ha reso fino a oggi e quanto renderà a lavori conclusi, con il budget che hai davvero.</p>
+          <ul>
+            <li>Il grafico si aggiorna a ogni movimento registrato</li>
+            <li>Previsione a finire su ore e costi residui</li>
+            <li>Confronto fra previsto, minimo sostenibile e consuntivo</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="funzione">
+        <div class="schermata"><div class="barra"><i></i><i></i><i></i></div><img src="img/alert.png" alt=""></div>
+        <div>
+          <div class="n">05</div>
+          <h3>Gli allarmi arrivano da soli</h3>
+          <p>Il programma esamina ogni commessa e segnala che cosa non va, con il motivo scritto in chiaro e tre livelli di gravità.</p>
+          <ul>
+            <li>Commesse in perdita, ore e costi oltre il budget</li>
+            <li>SAL da emettere e ritenute da sbloccare</li>
+            <li>Soglie decise da te, uguali per tutti i cantieri</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="funzione inversa">
+        <div class="schermata"><div class="barra"><i></i><i></i><i></i></div><img src="img/importa.png" alt=""></div>
+        <div>
+          <div class="n">06</div>
+          <h3>Si parte dal tuo Excel</h3>
+          <p>Commesse, saldi, movimenti e costi si caricano da un foglio Excel. Prima di salvare vedi l'anteprima, riga per riga.</p>
+          <ul>
+            <li>Modello pronto da compilare, o già riempito con i tuoi dati</li>
+            <li>Le righe con errori vengono fermate e spiegate</li>
+            <li>Ogni modifica resta nel registro: chi, quando, che cosa</li>
+          </ul>
+        </div>
+      </article>
+
+    </div>
+    <div class="piede"><span>{{prodotto.marchio}} · {{prodotto.nome}}</span><span>Schermate reali dell'applicazione, con dati dimostrativi</span></div>
+  </div>
+</section>
+
+<!-- ============================================================ 4 · vantaggi e chiusura -->
+<section class="pagina interna ultima">
+  <div class="area">
+    <div class="testa">
+      <div><div class="occhiello">Perché sceglierlo</div><h2>Pensato per chi i cantieri li fa</h2></div>
+    </div>
+    <div class="vantaggi">
+      <div class="vantaggio"><div class="segno">1</div><div><b>Online, ovunque</b><p>In ufficio o in cantiere basta un computer collegato a internet: tutti lavorano sugli stessi dati.</p></div></div>
+      <div class="vantaggio"><div class="segno">2</div><div><b>Niente da installare</b><p>Nessun programma da mettere sui PC: funziona con il browser che hai già, su Windows, Mac o Linux.</p></div></div>
+      <div class="vantaggio"><div class="segno">3</div><div><b>Un dato si scrive una volta sola</b><p>La commessa nasce in anagrafica e viene richiamata ovunque: fine dei fogli Excel che non tornano fra loro.</p></div></div>
+      <div class="vantaggio"><div class="segno">4</div><div><b>Ogni numero è spiegato</b><p>Dati inseriti e dati calcolati hanno colori diversi, e ogni calcolo mostra la formula da cui viene.</p></div></div>
+      <div class="vantaggio"><div class="segno">5</div><div><b>A ciascuno il suo</b><p>Direzione, ufficio tecnico e consultazione vedono e modificano solo ciò che compete al proprio ruolo.</p></div></div>
+      <div class="vantaggio"><div class="segno">6</div><div><b>Tutto è tracciato</b><p>Nulla si cancella: si annulla, con il motivo. Il registro conserva autore, data, valore precedente e nuovo.</p></div></div>
+    </div>
+    <div class="passi">
+      <h3>Operativi in tre passi</h3>
+      <ol>
+        <li><b>Carichi le commesse</b>Dal tuo Excel, con il modello già pronto.</li>
+        <li><b>Imposti i tuoi parametri</b>Costo orario, redditività, soglie degli allarmi.</li>
+        <li><b>Registri e controlli</b>Ore, costi e SAL: il resto lo calcola il programma.</li>
+      </ol>
+    </div>
+  </div>
+  <div class="chiusura">
+    <div class="dentro">
+      <div class="marchio"><img src="img/logo.png" alt=""><div><b>{{prodotto.marchio}}</b><span>{{prodotto.nome}}</span></div></div>
+      <div class="slogan">{{prodotto.slogan}}</div>
+      <p>{{prodotto.sottotitolo}}</p>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

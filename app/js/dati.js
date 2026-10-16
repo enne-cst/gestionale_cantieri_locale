@@ -1,5 +1,5 @@
 /*
- * FIDA EDILE – Esportazione e importazione totale dei dati.
+ * Gestione Cantieri – Esportazione e importazione totale dei dati.
  *
  * Serve a portare via TUTTO il contenuto dell'applicazione in un formato che non dipenda da come i dati
  * sono conservati. Oggi l'archivio è un unico JSON (file data/database.json o localStorage); domani sarà
@@ -22,7 +22,7 @@
 })(typeof self !== 'undefined' ? self : this, function (Schema) {
   'use strict';
 
-  const FORMATO = 'fida-edile.export';
+  const FORMATO = 'gestione-cantieri.export';
   const VERSIONE_FORMATO = 1;
 
   // Entità in ordine di dipendenza: chi viene prima non ha riferimenti a chi viene dopo.
@@ -173,7 +173,7 @@
     return {
       formato: FORMATO,
       versioneFormato: VERSIONE_FORMATO,
-      applicazione: db.app || 'FIDA EDILE – Gestione Cantieri',
+      applicazione: db.app || 'Gestione Cantieri',
       schemaVersion: db.schemaVersion || Schema.VERSIONE,
       generatoIl: new Date().toISOString(),
       generatoDa: opt.utente || '',
@@ -208,7 +208,8 @@
     if (!obj || typeof obj !== 'object') return { ok: false, errori: ['Il file non contiene un oggetto.'], avvisi: [] };
 
     let db = null, origine = '', versioneFormato = null, generatoIl = '', generatoDa = '';
-    if (obj.formato === FORMATO) {
+    // il nome del formato è cambiato: i file esportati con il nome precedente restano importabili
+    if (obj.formato === FORMATO || (typeof obj.formato === 'string' && /^[a-z-]+\.export$/.test(obj.formato) && obj.dati && obj.impostazioni)) {
       origine = 'portabile';
       versioneFormato = obj.versioneFormato;
       generatoIl = obj.generatoIl || '';
